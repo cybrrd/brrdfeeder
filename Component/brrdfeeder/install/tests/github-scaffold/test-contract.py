@@ -96,7 +96,10 @@ class Scaffold(unittest.TestCase):
             self.assertTrue((ROOT/name).is_file(), name)
         policy = (ROOT/'CONTRIBUTING.md').read_text()
         self.assertIn('not accepted', policy)
-        self.assertIn('CLA TEXT PLACEHOLDER', policy)
+        # Preserve the repository owner's policy at public base 83fc7b0.
+        # Its legal consistency is reviewed by the owner, not rewritten by CI.
+        self.assertIn('currently inoperative as contributions are closed', policy)
+        self.assertIn('will require active electronic signature', policy)
         self.assertIn('before', policy.lower())
         self.assertIn('* @cybrrd', (ROOT/'.github/CODEOWNERS').read_text())
         self.assertIn('/security/advisories/new', (ROOT/'SECURITY.md').read_text())

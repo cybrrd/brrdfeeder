@@ -56,7 +56,8 @@ cat > "$kit/brrdfeeder-rfkill-boot-state.sh" <<EOF
 exec env RFKILL_SETTLE_SECONDS=0 bash "$kit/rfkill-real.sh" "\$@" --sysfs-root "$tmp/rfkill" --rfkill-command /bin/true
 EOF
 chmod +x "$kit/"*.sh
-useradd -m operator
+getent group operator >/dev/null || groupadd operator
+useradd -m -g operator operator
 export BRRDFEEDER_LEGACY_USER=operator
 mkdir -p /etc/brrdfeeder /home/operator/brrdfeeder /etc/containers/systemd /etc/udev/rules.d /var/lib/systemd/rfkill /etc/systemd/journald.conf.d
 quadlet=/etc/containers/systemd/brrdfeeder-engine.container

@@ -13,7 +13,8 @@ bootstrap="${script_dir}/../deploy/bootstrap"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-useradd -m operator
+getent group operator >/dev/null || groupadd operator
+useradd -m -g operator operator
 export BRRDFEEDER_LEGACY_USER=operator
 usermod -a -G dialout operator
 install -D -m 0755 /bin/true /home/operator/brrdfeeder-src/engine/target/release/engine

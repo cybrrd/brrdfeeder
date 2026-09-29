@@ -20,3 +20,17 @@ This is a small maintainer team. We review reports as capacity permits and
 will use the private advisory thread to request details and coordinate next
 steps. We do not promise an acknowledgement or remediation deadline. Please
 keep details private while we assess the report and agree on disclosure.
+
+While cyBRRD is developed by a small team for the benefit of drone pilots, 
+aviation enthusiasts, and others who support safety and security in our 
+aviation experiences, we are deeply committed to security, privacy and
+integrity practices.  cyBRRD's principal architect is a former financial
+services sector chief information security officer (CISO) with over three
+decades of experience in cybersecurity operations, Linux administration, 
+open-systems development, drone operations, and IPv4/IPv6 internetworking. 
+While we don't have a compensated bug bounty program, we'll do our best
+to recognize and reward collaborators who are committed to ethical cyber
+disclosure practices. Contact dev @ cybrrd.com should you have questions
+and/or concerns about security practices and capabilities within the cyBRRD
+platform.
+

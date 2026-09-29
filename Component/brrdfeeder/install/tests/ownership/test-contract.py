@@ -4,6 +4,7 @@
 """Ownership, packaging and fail-closed REUSE contracts; offline only."""
 # REUSE-IgnoreStart
 from pathlib import Path
+import hashlib
 import subprocess
 import tempfile
 import unittest
@@ -30,14 +31,20 @@ class Ownership(unittest.TestCase):
             self.assertRegex(text,r'COPY[^\n]*NOTICE[^\n]*LICENSE[^\n]*/usr/share/doc/'+component+r'/')
             self.assertIn('com.macawi.'+component+'.build_seq',text)
 
-    def test_cargo_authors_and_policy_actor(self):
+    def test_cargo_authors_and_authoritative_policy(self):
         for path,key in [('Component/aviary/Cargo.toml','workspace'),
                          ('Component/aviary/cybrrd-rid-core/Cargo.toml','package')]:
             data=tomllib.loads((ROOT/path).read_text())
             package=data[key]['package'] if key=='workspace' else data[key]
             self.assertEqual(package['authors'],['cyBRRD Corporation <admin@cybrrd.com>'])
-        for path in ('SECURITY.md','CONTRIBUTING.md'):
-            self.assertIn('“we” refers to cyBRRD Corporation',(ROOT/path).read_text())
+        # Repository-owner policy at public base 83fc7b0 is authoritative.
+        # Do not add definitions or headers to those exact bytes; use sidecars.
+        for path, digest in {
+            'SECURITY.md': 'd4c087d61352b311c7ecc624f69cdd4309e40f9092c87af9fe5fa13462f1407d',
+            'CONTRIBUTING.md': 'aebe9d4fe190d48e8e5d2a16c541cb3a5bc9b17611aa712d2fce04da00abbc51',
+        }.items():
+            self.assertEqual(hashlib.sha256((ROOT/path).read_bytes()).hexdigest(), digest)
+            self.assertIn('SPDX-FileCopyrightText: 2026 Macawi LLC', (ROOT/(path+'.license')).read_text())
 
     def test_gate_is_pinned_and_registered(self):
         setup=(ROOT/'.github/scripts/setup-tests.sh').read_text()

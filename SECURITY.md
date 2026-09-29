@@ -1,8 +1,4 @@
-<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Security
-
-In this document, “we” refers to cyBRRD Corporation.
 
 Report suspected vulnerabilities privately using GitHub's
 [Report a vulnerability](https://github.com/cybrrd/brrdfeeder/security/advisories/new)

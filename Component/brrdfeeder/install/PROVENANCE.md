@@ -29,7 +29,7 @@ on resonance, so nothing was actually lost; **the process, not the luck, is what
 | stores `oauth_refresh.token` for 90-day credential renewal | ✅ |
 | writes config, quadlet, secrets tree (`0700 root`) | ✅ |
 
-**the development team's earlier readiness assessment was wrong** and is corrected here: it was made against
+**The development team's earlier readiness assessment was wrong** and is corrected here: it was made against
 `Component/aviary/deploy/bootstrap/brrdfeeder-install.sh`, a *refresh/reconfigure* tool whose own
 README says it "does not install packages or fetch an image." **That is a different script with a
 confusingly similar name.** Two files named `brrdfeeder-install.sh` doing entirely different jobs is

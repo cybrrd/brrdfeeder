@@ -38,7 +38,7 @@ misdirection is what let the installer live unversioned on devices for six weeks
 
 | File | Purpose |
 |---|---|
-| `brrdfeeder-install.sh` | The install ritual (657 lines). "Path D substrate-architectural install" — the development team-drafted 2026-06-06, the reviewer-ratified architecture (udev contract + systemd-user-unit + Quadlet-ready abstraction), the release approver crosses the host-tenant wall via `sudo bash`. Closes task #149 (udev symlinks) and #146 (systemd unit surviving reboot/power-cycle/SSH disconnect). |
+| `brrdfeeder-install.sh` | The historical installer (657 lines), drafted by the development team on 2026-06-06 with independently reviewed architecture (udev contract + systemd-user-unit + Quadlet-ready abstraction). The operator authorizes host changes via `sudo bash`. Closes task #149 (udev symlinks) and #146 (systemd unit surviving reboot/power-cycle/SSH disconnect). |
 | `manifest.txt` | Build manifest: engine ELF description, sizes, sha256s, and the source capabilities (`cap_net_admin,cap_net_raw=ep`) with the load-bearing note that **tar does not preserve them**. |
 | `config.yaml.mobile.template` | Mobile-profile config template. |
 | `README.md` | Kit README as shipped. |

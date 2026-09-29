@@ -4,7 +4,7 @@
 
 Run as the **dedicated unprivileged build identity on an approved sandbox**
 (currently worldport's `brrdbuild`), from a full CYB1 checkout. **Resonance is
-out of bounds for build work, including cleanup.** the development team/the release approver deploy separately.
+out of bounds for build work, including cleanup.** The development team and release approver handle deployment separately.
 The script does not SSH, push an image, install packages, register binfmt,
 change a Quadlet or start capture. Its networkless `verify-blue` smoke executes
 the engine's argument-validation path only. `--check` only reads prerequisites.

@@ -4,6 +4,7 @@
 """Role-language gate boundary and future-file controls."""
 import importlib.util
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -22,6 +23,14 @@ class Contract(unittest.TestCase):
         name = 'S' + 'ynth'
         self.assertTrue(gate.inspect('new.md', (name.upper() + ' approves').encode()))
         self.assertFalse(gate.inspect('new.md', ('photosynthesis cyBRRD ' + name + 'esis').encode()))
+
+    def test_each_person_token_rejects_mixed_case(self):
+        definitions = gate.PATTERN.pattern.split('the [p]ack')[0]
+        names = [a + b for a, b in re.findall(r'\[([a-z])\]([a-z]+)', definitions)]
+        self.assertGreaterEqual(len(names), 20)
+        for name in names:
+            with self.subTest(name=name):
+                self.assertTrue(gate.inspect('new.md', (name.upper() + ' approves').encode()))
 
     def test_protocol_and_product_terms(self):
         self.assertFalse(gate.inspect('new.md', b'ASTM Message Pack; pack decoding; round-robin'))

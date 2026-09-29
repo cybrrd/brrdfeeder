@@ -106,9 +106,10 @@ mkdir -m 0700 ~/bootstrap-refresh-<sha12>
 tar xzf ~/brrdfeeder-bootstrap-kit-<sha12>.tar.gz -C ~/bootstrap-refresh-<sha12>
 cd ~/bootstrap-refresh-<sha12>/brrdfeeder-bootstrap
 CFG=/etc/brrdfeeder/config.yaml  # test-node-3; use the table for other nodes
-sudo bash ./brrdfeeder-install.sh --config "$CFG" --verify
-sudo bash ./brrdfeeder-install.sh --config "$CFG" --dry-run
-sudo bash ./brrdfeeder-install.sh --config "$CFG"
+LEGACY_USER=operator  # replace with the existing operator account
+sudo BRRDFEEDER_LEGACY_USER="$LEGACY_USER" bash ./brrdfeeder-install.sh --config "$CFG" --verify
+sudo BRRDFEEDER_LEGACY_USER="$LEGACY_USER" bash ./brrdfeeder-install.sh --config "$CFG" --dry-run
+sudo BRRDFEEDER_LEGACY_USER="$LEGACY_USER" bash ./brrdfeeder-install.sh --config "$CFG"
 # Expected exit 3; capture the printed installer receipt path.
 ```
 

@@ -3,6 +3,8 @@ version: 2
 # Security updates are event-driven; these schedules govern version updates.
 updates:
   - package-ecosystem: cargo
+    # Workspace members share this root Cargo.lock; do not add member locks.
+    # Stale nested locks create invalid member-scoped security-update jobs.
     directory: /Component/aviary
     schedule: {interval: weekly}
     groups:

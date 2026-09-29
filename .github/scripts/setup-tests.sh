@@ -13,8 +13,10 @@ case "$(uname -m)" in
   x86_64) rust_arch=x86_64-unknown-linux-gnu; rust_sha=20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c ;;
   *) exit 2 ;;
 esac
-rust_installer=$(mktemp)
-trap 'rm -f "$rust_installer"' EXIT
+# rustup dispatches by argv[0]; a random tmp.* basename is not an installer.
+rust_installer_dir=$(mktemp -d)
+rust_installer="$rust_installer_dir/rustup-init"
+trap 'rm -f "$rust_installer"; rmdir "$rust_installer_dir"' EXIT
 curl --fail --show-error --location --max-time 120 \
   "https://static.rust-lang.org/rustup/archive/1.28.2/$rust_arch/rustup-init" -o "$rust_installer"
 printf '%s  %s\n' "$rust_sha" "$rust_installer" | sha256sum -c -

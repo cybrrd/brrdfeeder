@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Prove helper contract tests reject lost epoch plumbing (not real image proof)."""
 import json
 from pathlib import Path

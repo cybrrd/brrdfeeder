@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Drop-event audit subject for `cybrrd.system.audit.frame.dropped.<node_id>`.
 //!
 //! Per Wave 6.0b consensus (rate-limited aggregate, not per-frame):

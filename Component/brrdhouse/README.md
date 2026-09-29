@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # BRRDhouse — read-only console
 
 D43 implements ADR 0007's public LAN status page. Plain HTTP, no login, actions,

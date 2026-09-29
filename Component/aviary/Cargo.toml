@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Top-level workspace manifest for the BRRDfeeder Rust source tree.
 #
 # Master repository: github.com/cybrrd/brrdfeeder
@@ -24,7 +26,7 @@ members = [
 exclude = ["archive/*", "fuzz"]
 
 [workspace.package]
-authors = ["Macawi AI Pack <pack@macawi.ai>"]
+authors = ["cyBRRD Corporation <admin@cybrrd.com>"]
 edition = "2021"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/cybrrd/brrdfeeder"

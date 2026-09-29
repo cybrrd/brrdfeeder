@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Self-heal: if invoked via `sh script` (dash on Debian-derived) the bash
 # shebang is ignored. Re-exec under bash so bash-specific features
 # (set -u + EUID + [[ ]] + process substitution) work.

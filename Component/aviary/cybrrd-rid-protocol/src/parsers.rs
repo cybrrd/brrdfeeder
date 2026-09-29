@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Higher-level beacon/action-frame entry points.
 //!
 //! Both routes converge on the consolidated `astm::parse_message_pack`. The

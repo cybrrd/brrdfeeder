@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 set -euo pipefail
 
 if [[ ${D8_INSTALLER_TEST_CONTAINER:-0} != 1 || $EUID -ne 0 ]]; then

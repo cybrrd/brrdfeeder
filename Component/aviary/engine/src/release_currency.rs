@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Public host-poller receipt projection. No scheduling or network activity.
 use serde::{Deserialize, Serialize};
 use std::{fs::OpenOptions, io::Read, os::unix::fs::OpenOptionsExt, path::Path};

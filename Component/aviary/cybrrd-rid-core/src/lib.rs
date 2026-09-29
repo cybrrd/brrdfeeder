@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! `cybrrd-rid-core` — `no_std`/heapless ASTM F3411-22a Open Drone ID decoder.
 //!
 //! The shared decode substrate for every cyBRRD Node: the Raspberry-Pi engine

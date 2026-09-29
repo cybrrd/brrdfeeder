@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 use cybrrd_rid_protocol::astm::parse_message_pack;
 use serde_json::{json, Value};
 

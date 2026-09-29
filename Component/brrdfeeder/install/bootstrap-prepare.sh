@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Embedded in the verified installer; executed only for bootstrap install mode.
 # Root-only preparation belongs after checksum verification and inside logging.
 bootstrap_say() { log_event NOTICE "$*"; }

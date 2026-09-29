@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! D18 differential oracle: frozen from f6ac1eca3e07eec9454bd2348720d1a91a409fda.
 //! Only the function name differs. Shared helpers are unchanged by D18.
 //! D27 Wave E adds metadata/publication semantics: compare the complete legacy

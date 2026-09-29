@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 id: REQ-BRRD-005
 title: Every observation is locally durable before the uplink — no sole-holder, no silent loss
 statement: >-

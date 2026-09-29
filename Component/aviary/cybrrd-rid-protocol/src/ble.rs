@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! BLE AD de-framing only. All ODID fields are decoded by the shared no_std core.
 use crate::astm::telemetry_from_pack;
 use crate::models::{RidTransport, TelemetryData};

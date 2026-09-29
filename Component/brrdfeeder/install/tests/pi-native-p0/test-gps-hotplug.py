@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """No USB hardware: generated udev rules, sysfs fixtures and real PTY lifecycle."""
 import contextlib
 import fnmatch

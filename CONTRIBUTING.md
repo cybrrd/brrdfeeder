@@ -1,4 +1,8 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Contributions
+
+In this document, “we” refers to cyBRRD Corporation.
 
 Outside contributions are **not accepted** at this time. We are building the
 processes needed to review them safely. Unsolicited pull requests will be closed

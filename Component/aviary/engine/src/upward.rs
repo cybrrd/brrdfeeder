@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! D40: opt-in, independent Silver report and Red distress lanes.
 //! Contract/ACL/stream proposals: ../tools/UPWARD-REPORTING.md.
 //! Producers never wait for a network operation or filesystem syscall.

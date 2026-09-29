@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Optional bounded pcap ring. No libpcap Savefile::write (which hides errors).
 //! Files are private, fixed-name slots; mtime deliberately records slot birth
 //! for age expiry across restart. Capture continues if recording fails.

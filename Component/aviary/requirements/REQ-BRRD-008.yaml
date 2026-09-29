@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 id: REQ-BRRD-008
 title: Wi-Fi RID capture — channel plan and anti-fixation hop discipline
 statement: >-

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 """Ownership, packaging and fail-closed REUSE contracts; offline only."""
+# REUSE-IgnoreStart
 from pathlib import Path
 import subprocess
 import tempfile
@@ -60,3 +61,4 @@ class Ownership(unittest.TestCase):
                 self.assertEqual(result.returncode==0,good,result.stdout+result.stderr)
 
 if __name__=='__main__': unittest.main(verbosity=2)
+# REUSE-IgnoreEnd

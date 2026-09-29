@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Offline shipped-code gate
 
 Both `.github/workflows/test.yml` and `.gitea/workflows/package-console.yml`

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! E-CNP-001 Blue/Red policy verification — Phase 3, Drop 1: the cryptographic
 //! membrane. The edge VERIFIES a System-5-signed policy before it would ever
 //! act. THIS MODULE VERIFIES ONLY — no podman, no restart, no execution.

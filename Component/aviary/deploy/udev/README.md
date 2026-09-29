@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # udev rules — substrate-stable device naming
 
 **`99-cybrrd-brrdfeeder.rules` is harvested verbatim from a live feeder, not authored here.**

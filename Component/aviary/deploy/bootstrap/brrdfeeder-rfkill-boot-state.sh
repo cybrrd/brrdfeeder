@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Set Bluetooth soft-unblocked now and persist the same systemd-rfkill state.
 set -euo pipefail
 

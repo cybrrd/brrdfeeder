@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # BRRDfeeder
 
 [![Scorecard workflow](https://github.com/cybrrd/brrdfeeder/actions/workflows/scorecard.yml/badge.svg)](https://github.com/cybrrd/brrdfeeder/actions/workflows/scorecard.yml)
@@ -19,3 +21,9 @@ accepted, and public Issues and Discussions are disabled.
 Licensing is described in the root [LICENSE](LICENSE). Release approval and
 publishing a draft release remain maintainer actions; successful CI alone does
 not authorize a release.
+
+## Ownership
+
+Copyright © 2026 Macawi LLC, Iowa, USA.
+BRRDfeeder and BRRDhouse are licensed under the GNU Affero General Public License v3.0 or later (see LICENSE).
+cyBRRD, BRRDfeeder and BRRDhouse are developed and operated by cyBRRD Corporation, Iowa, USA, under license from Macawi LLC.

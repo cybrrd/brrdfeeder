@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Wave 6.5 Green Protocol — 1 Hz AirspaceState tick publisher.
 //!
 //! Pack-consensus 2026-06-04 (Cy + Gemini + Synth). The cardinal emits

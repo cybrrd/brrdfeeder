@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 // Wave 7.1 — nl80211 substrate primitives for the Kittler Substrate Defense.
 //
 // Native Generic Netlink channel control + per-channel survey dump +

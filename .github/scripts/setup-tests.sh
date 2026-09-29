@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Dependency provisioning ONLY. Tests themselves run offline.
 set -euo pipefail
 bash .github/scripts/setup-actionlint.sh
@@ -7,7 +9,7 @@ sudo apt-get install -y --no-install-recommends \
   podman=4.9.3+ds1-1ubuntu0.2 uidmap=1:4.13+dfsg1-4ubuntu3.2 build-essential=12.10ubuntu1 \
   pkg-config=1.8.1-2build1 clang=1:18.0-59~exp2 libclang-dev=1:18.0-59~exp2 \
   libpcap0.8-dev=1.10.4-4.1ubuntu3.1 udev=255.4-1ubuntu8.17
-python3 -m pip install pip==25.2 PyYAML==6.0.2
+python3 -m pip install pip==25.2 PyYAML==6.0.2 reuse==6.2.0
 case "$(uname -m)" in
   aarch64) rust_arch=aarch64-unknown-linux-gnu; rust_sha=e3853c5a252fca15252d07cb23a1bdd9377a8c6f3efa01531109281ae47f841c ;;
   x86_64) rust_arch=x86_64-unknown-linux-gnu; rust_sha=20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c ;;

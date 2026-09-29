@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! `NmeaGps` — Sensor impl reading NMEA 0183 from a u-blox 7 GPS
 //! over CDC-ACM. First impl of the `Sensor` trait.
 //!

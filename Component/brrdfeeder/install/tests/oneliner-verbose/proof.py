@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Real embedded logger + parser + shell helpers; no install/host mutations.
 
 Run with optional git revision (e.g. c4c884b) and evidence destination.

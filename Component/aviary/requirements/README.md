@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # requirements/ — the governed-claims ledger (Executable Contracts)
 
 Doctrine: pack-stack `docs/metasystem/executable-contracts.md` (Purple proposal, 2026-07-13).

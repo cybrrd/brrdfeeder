@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! D32 Silver v1: system health, not operational telemetry. A configured
 //! installation is never a replacement for a current position observation.
 use serde::{Deserialize, Serialize};

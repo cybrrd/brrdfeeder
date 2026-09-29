@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 [Unit]
 # #185 Drop 2 successor: explicitly invoked signed release recovery, no watcher.
 Description=BRRDfeeder verified update, health gate and automatic rollback

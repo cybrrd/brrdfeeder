@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 {{define "status"}}
 <section class="engine {{if .Live}}healthy{{else}}offline{{end}}" data-engine-state="{{if .Live}}healthy{{else}}offline{{end}}"{{if .Live}} data-engine-written-at="{{.Status.WrittenAt.Format "2006-01-02T15:04:05.999999999Z07:00"}}"{{end}}>
 <div><p class="eyebrow">ENGINE</p><h2>{{if .Live}}Engine running{{else}}Offline · Status unavailable{{end}}</h2><p>{{.Reason}}</p></div>

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! ASTM F3411 wire adapter — the std/serde layer over `cybrrd-rid-core`.
 //!
 //! The byte-level decode now lives in the `no_std` `cybrrd-rid-core` crate

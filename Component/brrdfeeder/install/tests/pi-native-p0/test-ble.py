@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Offline Bluetooth ownership fixtures; never execute host systemctl or HCI."""
 import contextlib
 import importlib.util

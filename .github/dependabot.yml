@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 version: 2
 # Enable Dependency graph, Dependabot alerts and security updates in Settings.
 # Security updates are event-driven; these schedules govern version updates.

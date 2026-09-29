@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Offline vector extraction ONLY; not a product-path ODID decoder.
 
 Reads the supplied pcapng's Nordic v3 capture wrapper (LINKTYPE 272),

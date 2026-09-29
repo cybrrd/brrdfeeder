@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # aviary — the cyBRRD sensor codebase (one codebase, four build-time profiles)
 **Platform:** cyBRRD · **Index:** C1AVI — hosts C1BRD (profile `opensource`, fielded) · C1SEN + C1WDN (profile `enterprise`, design) · sensor-side C1HMB (profile `hummingbrrd`, design) · **Family:** A · **Status:** active
 **Source of record:** CYB1 (this directory) since 2026-09-13; provenance in BUILD_INFO.md · supersedes gitea `cy/aviary` @ 309c0d0 (to be archived read-only, R3) and github `macawi-ai/BRRDfeeder` @ ef0eec2 (ADR 0001)

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # board-discovery.sh: READ-ONLY survey of an ARM64 board for BRRDfeeder suitability.
 # WHAT: records the board, OS, kernel, Podman, and whether the ALFA Wi-Fi, the Realtek RID.BLE dongle and the u-blox GPS are
 #       usable (driver bound, firmware present, monitor mode supported). Changes nothing: no installs, no interface up/down,

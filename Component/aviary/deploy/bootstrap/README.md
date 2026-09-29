@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # BRRDfeeder bootstrap kit and installer refresh
 
 D12 supports the containerized fleet. D11 packages the release after D12 merges;

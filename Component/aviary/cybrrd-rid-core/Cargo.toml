@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # cybrrd-rid-core — the shared, no_std/heapless ASTM F3411 Remote ID decoder.
 #
 # This crate is the SUBSTRATE both the Pi engine (via cybrrd-rid-protocol)
@@ -15,7 +17,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
 description = "no_std/heapless ASTM F3411 Remote ID decoder — shared core for Pi + ESP32 (cyBRRD Nodes)"
-authors = ["Macawi AI Pack <pack@macawi.ai>"]
+authors = ["cyBRRD Corporation <admin@cybrrd.com>"]
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/cybrrd/brrdfeeder"
 

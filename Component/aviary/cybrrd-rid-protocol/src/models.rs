@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 use serde::{Deserialize, Serialize};
 
 /// Wire-format version of the canonical telemetry payload.

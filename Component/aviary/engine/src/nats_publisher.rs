@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! The single multiplexed, supervised NATS connection (#178).
 //!
 //! Pack-ratified 2026-06-17 (Cy + Gemini + Synth). Consolidates the engine's

@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Local startup/fallback proofs. No host install, containers, or network."""
 import hashlib
 import importlib.util

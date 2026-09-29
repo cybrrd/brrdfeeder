@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Passive HCI user-channel source: raw AD only, never ODID decoding.
 //! ADR 0005: dedicated controller must already be DOWN and unmanaged.
 //! No power-down, advertising, connection, pairing or subprocess commands here.

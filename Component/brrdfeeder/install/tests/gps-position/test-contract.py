@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Offline GPS contracts. Real service/serial lifecycle is separately exercised."""
 import importlib.util
 import os

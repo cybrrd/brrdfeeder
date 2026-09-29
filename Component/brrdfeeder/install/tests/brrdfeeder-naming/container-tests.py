@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Behavioural journald drop-in compatibility tests for the BRRDfeeder naming
 packet (2026-09-25). ONLY inside a disposable, network-disabled, root OS
 container (same discipline as d42/D12): real filesystem and passwd, synthetic

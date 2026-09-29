@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Operator-run hardware test. Default/non-root execution opens NO resources.
 //! Uses a child executable with the same file caps as the image, UID 1001:20,
 //! and only the three capability bounding bits. Never steps the host clock.

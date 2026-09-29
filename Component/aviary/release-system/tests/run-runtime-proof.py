@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Actual rootless Podman lifecycle; isolated temporary stores, no registry calls."""
 import os
 from pathlib import Path

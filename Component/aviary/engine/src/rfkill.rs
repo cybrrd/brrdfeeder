@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Targeted rfkill preflight for the identity-resolved Bluetooth controller.
 //! Linux UAPI rfkill_event v1: native-endian u32 index + type/op/soft/hard.
 //! Never CHANGE_ALL, never power down a controller or evict bluetoothd.

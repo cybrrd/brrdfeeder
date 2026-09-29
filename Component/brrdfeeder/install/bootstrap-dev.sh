@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # GENERATED Self-Update dev candidate; Cy publishes after review.
 #!/usr/bin/env bash
 # bootstrap.sh — the single command.
@@ -40,7 +42,7 @@ CONSOLE_IMAGE="ghcr.io/cybrrd/brrdhouse@sha256:fffd150942cde14c3474536562c844bad
 
 # The installer this bootstrap fetches, and the hash it must have.
 INSTALLER_URL="${BRRDFEEDER_INSTALLER_URL:-https://get.cybrrd.com/dev/brrdfeeder-install.sh}"
-INSTALLER_SHA256="3d910bd119d325fae2ab757a2f76a718565b97d80ae0f755f034986f79d09b2e"
+INSTALLER_SHA256="d392f27039ad52623c6ff000c8d07dd2d2efb78ffc599fcfab0a92099fa014c3"
 
 # ── RELEASE CHECKLIST — do these IN THIS ORDER when cutting a release ───────
 #  1. Publish both images to ghcr and verify each resolves BY DIGEST anonymously,

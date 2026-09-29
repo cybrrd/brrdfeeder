@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Synthetic readiness for the existing disposable naming OS fixture only."""
 import datetime
 import json

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Offline source contracts, plus real supervisor/PTY tests added below."""
 from pathlib import Path
 import importlib.util

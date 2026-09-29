@@ -969,6 +969,8 @@ INSTALL_LOG_PY
 )" "$0" "$@"
 fi
 
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # shellcheck shell=bash
 # Embedded before flag parsing; private records are consumed by install-log.py.
 # These are action-level commands. Read-only predicates/captured queries remain

@@ -4,7 +4,7 @@
 //!
 //! ## Why this exists
 //! The feeders are no-RTC ARM nodes (Pi 4 / CM4) — and the mobile one
-//! (cathartes-aura, in the Tacoma) hard-power-cycles when the truck shuts off.
+//! (field-node, in the Tacoma) hard-power-cycles when the truck shuts off.
 //! On cold-boot a no-RTC node comes up with a **stale wall clock** (observed:
 //! 2026-06-13 instead of 06-17) until NTP corrects it — and NTP needs a working
 //! cellular backhaul that may not exist yet in the field. Any telemetry frame

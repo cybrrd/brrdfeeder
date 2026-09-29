@@ -37,17 +37,28 @@ fi
 # Idempotency: safe to re-run. Each step checks state before mutation.
 #
 # Usage:
-#   sudo bash /home/synth/brrdfeeder-install.sh           # apply
-#   sudo bash /home/synth/brrdfeeder-install.sh --dry-run # plan-only
-#   sudo bash /home/synth/brrdfeeder-install.sh --verify  # check state only
+#   sudo bash /home/operator/brrdfeeder-install.sh           # apply
+#   sudo bash /home/operator/brrdfeeder-install.sh --dry-run # plan-only
+#   sudo bash /home/operator/brrdfeeder-install.sh --verify  # check state only
 
 set -euo pipefail
 
 # ----------------------------------------------------------------------
 # Constants (vendor-AGNOSTIC abstraction layer)
 # ----------------------------------------------------------------------
-readonly TARGET_USER="synth"
-readonly TARGET_HOME="/home/synth"
+# Retired personal-account defaults are not guessed. This legacy tool is opt-in
+# for a named, existing non-root operator account, even during a preview.
+TARGET_USER=${BRRDFEEDER_LEGACY_USER:-}
+[[ $TARGET_USER =~ ^[a-z_][a-z0-9_-]*$ && $TARGET_USER != root ]] || {
+  echo 'FATAL: set BRRDFEEDER_LEGACY_USER to an existing non-root operator account.' >&2
+  exit 2
+}
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+[[ $TARGET_HOME =~ ^/home/[a-z_][a-z0-9_-]*$ ]] || {
+  echo 'FATAL: legacy account must have a dedicated /home/<account> directory.' >&2
+  exit 2
+}
+readonly TARGET_USER TARGET_HOME
 
 # Vendor-agnostic symlink names — these are the substrate-stable paths
 # that engine code / Quadlet volume mounts will reference. When we
@@ -102,7 +113,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --audit-log=*) AUDIT_LOG="${arg#*=}" ;;
     --audit-log)
-      echo "FATAL: --audit-log requires a path. Example: --audit-log=/home/synth/brrdfeeder-install-audit.log" >&2
+      echo "FATAL: --audit-log requires a path. Example: --audit-log=/home/operator/brrdfeeder-install-audit.log" >&2
       exit 2
       ;;
     *) echo "Unknown flag: $arg"; exit 2 ;;
@@ -117,7 +128,7 @@ if [[ $VERIFY_ONLY -eq 1 || $DRY_RUN -eq 1 ]]; then
 fi
 
 # ----------------------------------------------------------------------
-# Audit-log setup (Gemini directive 2026-06-07 — BRRDfeeder hobbyist
+# Audit-log setup (the reviewer directive 2026-06-07 — BRRDfeeder hobbyist
 # distribution requires comprehensive substrate-state capture)
 # ----------------------------------------------------------------------
 audit_begin() {
@@ -234,8 +245,8 @@ audit_footer() {
       echo "--- /dev/cybrrd_* symlinks ---"
       ls -la /dev/cybrrd_* 2>&1 || true
       echo
-      echo "--- mount | grep ${TARGET_HOME:-/home/synth}/capture ---"
-      mount | grep -E "tmpfs on ${TARGET_HOME:-/home/synth}/capture" || echo "(not tmpfs-mounted — Standard/Commercial tier or no Step 1.5)"
+      echo "--- mount | grep ${TARGET_HOME}/capture ---"
+      mount | grep -F "tmpfs on ${TARGET_HOME}/capture" || echo "(not tmpfs-mounted — Standard/Commercial tier or no Step 1.5)"
       echo
       for dropin in /etc/systemd/journald.conf.d/99-brrdfeeder.conf /etc/systemd/journald.conf.d/99-brrdfeeder-open.conf; do
         echo "--- $dropin ---"
@@ -272,7 +283,7 @@ fatal() { echo "[brrdfeeder-install] FATAL $*" >&2; exit 1; }
 # Parse the top-level node.storage_class scalar from config.yaml.
 # Returns "ephemeral" (BRRDfeeder tier) or "persistent" (Standard/Commercial)
 # or empty string if absent. Defaults to "persistent" for backward
-# compat with cardinal Standard installs.
+# compat with test-node-2 Standard installs.
 get_storage_class() {
   local cfg="$1"
   [[ -f "$cfg" ]] || { echo ""; return; }
@@ -327,6 +338,7 @@ receipt_begin() {
   say "receipt: $RECEIPT"
   getent group dialout > "$RECEIPT/dialout.before"
   id "$TARGET_USER" > "$RECEIPT/user.before"
+  printf '%s\n' "$TARGET_USER" > "$RECEIPT/target-user"
   for path in /etc/sudoers /etc/sudoers.d/*; do
     [[ -f $path ]] || continue
     cp -a --parents "$path" "$RECEIPT/"
@@ -373,11 +385,13 @@ if [[ $(<"$receipt/timer.enabled") == yes ]]; then systemctl enable brrdfeeder-b
 if [[ $(<"$receipt/timer.active") == yes ]]; then systemctl start brrdfeeder-blackbox.timer; fi
 echo 'Files restored. Engine was NOT restarted; inspect restored unit and perform a health-gated restart.'
 echo 'Manual runtime undo: inspect/unmount the capture tmpfs if newly mounted; restore Bluetooth soft-block policy if needed; review linger/session changes. Empty directories and receipt logs are retained.'
-if ! grep -Eq '(^|[:,])synth(,|$)' "$receipt/dialout.before"; then
-  echo 'Manual group undo, ONLY if appropriate now: gpasswd -d synth dialout; restart the user manager/session.'
+target_user=$(<"$receipt/target-user")
+[[ $target_user =~ ^[a-z_][a-z0-9_-]*$ && $target_user != root ]] || exit 2
+if ! grep -Eq "(^|[:,])${target_user}(,|$)" "$receipt/dialout.before"; then
+  echo "Manual group undo, ONLY if appropriate now: gpasswd -d $target_user dialout; restart the user manager/session."
 fi
 echo 'Sudoers was not modified; its private pre-install copy is evidence only.'
-echo 'For the legacy user service, also run systemctl --user daemon-reload in the synth session.'
+echo "For the legacy user service, also run systemctl --user daemon-reload in the $target_user session."
 ROLLBACK
   chmod 0700 "$RECEIPT/ROLLBACK.sh"
 }
@@ -432,7 +446,7 @@ TARGET_UID=$(id -u "$TARGET_USER")
 TARGET_GID=$(id -g "$TARGET_USER")
 ok "target user $TARGET_USER (uid=$TARGET_UID gid=$TARGET_GID)"
 
-CONFIG_CANDIDATES=(/etc/brrdfeeder/config.yaml /home/synth/brrdfeeder/config.yaml /home/synth/config.yaml)
+CONFIG_CANDIDATES=(/etc/brrdfeeder/config.yaml "$TARGET_HOME/brrdfeeder/config.yaml" "$TARGET_HOME/config.yaml")
 if [[ -n $CONFIG_FILE ]]; then
   CONFIG_REASON='explicit --config'
 else
@@ -681,10 +695,10 @@ fi
 # Step 1.5 — BRRDfeeder hardware protection (MicroSD wear mitigation)
 # ----------------------------------------------------------------------
 #
-# Substrate-truth (probed 2026-06-07 on cardinal):
+# Substrate-truth (probed 2026-06-07 on test-node-2):
 #  * engine produces ~47 MB/day of stdout to its log file (compile-time
 #    path `capture/validation.pcap` is hardcoded relative to WorkingDir)
-#  * cardinal-class deployments run on eMMC/NVMe and tolerate this
+#  * test-node-2-class deployments run on eMMC/NVMe and tolerate this
 #  * BRRDfeeder runs on MicroSD which would die in 30-90 days
 #
 # Four-layer mitigation activates when config has node.storage_class:
@@ -693,7 +707,7 @@ fi
 #
 #   Layer 1 — journald drop-in: Storage=volatile, RuntimeMaxUse=200M
 #             (system + user logs land in /run/log/journal tmpfs)
-#   Layer 2 — tmpfs MOUNT AT /home/synth/capture/ so the engine's
+#   Layer 2 — tmpfs MOUNT AT /home/operator/capture/ so the engine's
 #             hardcoded relative capture/validation.pcap path lands
 #             in RAM. 50M cap; the kernel ring-buffers the tmpfs as
 #             needed.
@@ -761,7 +775,7 @@ JEOF
   # Reload only after migration, so an old override cannot remain loaded.
   if [[ $JOURNALD_CHANGED -eq 1 ]]; then systemctl restart systemd-journald; fi
 
-  # Layer 2 — tmpfs at /home/synth/capture
+  # Layer 2 — tmpfs at /home/operator/capture
   CAPTURE_DIR="${TARGET_HOME}/capture"
   FSTAB_LINE="tmpfs ${CAPTURE_DIR} tmpfs size=50M,uid=${TARGET_UID},gid=${TARGET_GID},mode=0755 0 0"
 
@@ -1122,7 +1136,7 @@ say "engine logs available via:  journalctl --user -u brrdfeeder-engine.service 
 gate "Automatic startup"
 say "user-linger is ON, unit is enabled for default.target. The engine will"
 say "auto-start on reboot via systemd --user with Restart=always."
-say "To inspect at any time: ssh cm4-saker 'systemctl --user status brrdfeeder-engine.service'"
+say "To inspect: run systemctl --user status brrdfeeder-engine.service in the $TARGET_USER session."
 say "To re-run this script safely (idempotent): sudo bash $0"
 say "To verify state without changes:           sudo bash $0 --verify"
 say

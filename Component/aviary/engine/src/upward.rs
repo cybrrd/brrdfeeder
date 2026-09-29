@@ -25,7 +25,7 @@ const IDLE: Duration = Duration::from_millis(250);
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
-    /// Presence opts in; deployment still requires Cy's reviewed grants/streams.
+    /// Presence opts in; deployment still requires the release approver's reviewed grants/streams.
     pub spool_dir: PathBuf,
 }
 

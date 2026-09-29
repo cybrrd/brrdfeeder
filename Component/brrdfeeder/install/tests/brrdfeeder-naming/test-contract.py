@@ -39,8 +39,8 @@ SWEEP_SKIP=('Component/aviary/captures/','Component/aviary/docs/decisions/','Com
 # test seeds real legacy-file content. Lines carrying them are skipped; prose
 # mentions without the artifact reference still fail the sweep.
 RECOGNITION_LINE=re.compile(r'99-brrdfeeder-open|LEGACY_MARKER|BRRDfeeder Open tier — protect')
-# Files that carry Cy's verbatim quoted requirements, which mention the old
-# name because Cy said it. The quote survives; only prose around it changes.
+# Files that carry the release approver's verbatim quoted requirements, which mention the old
+# name because the release approver said it. The quote survives; only prose around it changes.
 QUOTE_BEARING=['governance/BACKLOG-post-demo.md',
                'design/local-management-console/2026-09-18-REQUIREMENTS-SKELETON.md']
 SWEEP_PATTERN=re.compile(r'BRRDfeeder[ -](?:Open|OPEN|open)\b')
@@ -100,7 +100,7 @@ class BoundaryContract(unittest.TestCase):
                 text=path.read_text(errors='replace')
                 relative=path.relative_to(ROOT).as_posix()
                 if relative in QUOTE_BEARING:
-                    # strip Cy's quoted spans; the name inside a verbatim quote is his, not ours
+                    # strip the release approver's quoted spans; the name inside a verbatim quote is his, not ours
                     text=re.sub(r'(?s)"[^"]*"','',text)
                 if base.is_relative_to(ROOT/'Component'):
                     text='\n'.join(line for line in text.splitlines()

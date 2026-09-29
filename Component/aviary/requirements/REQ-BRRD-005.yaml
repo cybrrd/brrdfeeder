@@ -26,8 +26,8 @@ verify:
     can fail (block the spool path) before trusting a pass.
 status: open
 provenance:
-  decided: "2026-07-21 (Cy — multi-source RID ingest design; fork 3 ratified this session)"
-  witness: "Cy + Synth"
+  decided: "2026-07-21 (the release approver — multi-source RID ingest design; fork 3 ratified this session)"
+  witness: "the release approver and development team"
   evidence: >-
     Ratified in discussion, not yet built. Same L5 daemon as REQ-BRRD-004/006.
     Anchors: NATS flush-wedge lesson; the-one-rule (no store the sole holder).

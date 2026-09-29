@@ -41,8 +41,8 @@ references:
   - "ECOLOGEE E-VSM Color Network Protocol — Green/Silver/Red semantics"
   - "REQ-BRRD-004 (edge is a witness / T2 anti-sovereign), REQ-BRRD-009/010 (observation purity)"
 provenance:
-  decided: "2026-07-22 (Cy — item-5 device-offline signaling; shape confirmed this session, aligned to MACAWI-T2-NAT-001 + E-VSM Color Protocol)"
-  witness: "Cy + Synth"
+  decided: "2026-07-22 (the release approver — item-5 device-offline signaling; shape confirmed this session, aligned to MACAWI-T2-NAT-001 + E-VSM Color Protocol)"
+  witness: "the release approver and development team"
   evidence: >-
-    Supersedes Synth's first item-5 sketch (which proposed an off-substrate deadman — corrected
+    Supersedes the development team's first item-5 sketch (which proposed an off-substrate deadman — corrected
     by the standard's T5). Design captured in pack memory project_brrdfeeder_monitor_plane. See ADR-0003.

@@ -56,8 +56,9 @@ cat > "$kit/brrdfeeder-rfkill-boot-state.sh" <<EOF
 exec env RFKILL_SETTLE_SECONDS=0 bash "$kit/rfkill-real.sh" "\$@" --sysfs-root "$tmp/rfkill" --rfkill-command /bin/true
 EOF
 chmod +x "$kit/"*.sh
-useradd -m synth
-mkdir -p /etc/brrdfeeder /home/synth/brrdfeeder /etc/containers/systemd /etc/udev/rules.d /var/lib/systemd/rfkill /etc/systemd/journald.conf.d
+useradd -m operator
+export BRRDFEEDER_LEGACY_USER=operator
+mkdir -p /etc/brrdfeeder /home/operator/brrdfeeder /etc/containers/systemd /etc/udev/rules.d /var/lib/systemd/rfkill /etc/systemd/journald.conf.d
 quadlet=/etc/containers/systemd/brrdfeeder-engine.container
 # shellcheck disable=SC2016 # Deliberate literal dollar and trailing spaces.
 printf '[Container]\nImage=localhost/fake:retain-$literal  \nUser=0\n' > "$quadlet"
@@ -65,7 +66,7 @@ printf '1\n' > /var/lib/systemd/rfkill/platform-fixture:bluetooth
 printf 'old udev\n' > /etc/udev/rules.d/99-cybrrd-brrdfeeder.rules
 # A legacy-node drop-in: the pre-rename installer wrote exactly this content.
 printf '# BRRDfeeder Open tier — protect MicroSD card from journald write wear.\n# Installed by brrdfeeder-install.sh when node.storage_class is "ephemeral".\n# Forces journald to RAM (/run/log/journal). System logs are NOT persistent.\n[Journal]\nStorage=volatile\nRuntimeMaxUse=200M\nSystemMaxUse=0\n' > /etc/systemd/journald.conf.d/99-brrdfeeder-open.conf
-configs=(/etc/brrdfeeder/config.yaml /home/synth/brrdfeeder/config.yaml /home/synth/config.yaml)
+configs=(/etc/brrdfeeder/config.yaml /home/operator/brrdfeeder/config.yaml /home/operator/config.yaml)
 check_rc() {
   local want=$1; shift
   set +e
@@ -77,7 +78,7 @@ check_rc() {
 snapshot() {
   # Include every persistent namespace the installer touches, including account
   # files and receipt creation. /tmp holds only test evidence and fake commands.
-  find /etc /home/synth /usr/local/libexec /var/lib/brrdfeeder /var/lib/brrdfeeder-deploy /var/lib/systemd /var/lib/AccountsService \
+  find /etc /home/operator /usr/local/libexec /var/lib/brrdfeeder /var/lib/brrdfeeder-deploy /var/lib/systemd /var/lib/AccountsService \
     -type f -exec sha256sum {} + 2>/dev/null | sort || true
 }
 check_rc 2 bash "$installer" --dry-run
@@ -88,9 +89,9 @@ for ((i=2; i>=0; i--)); do
   check_rc 0 bash "$installer" --dry-run
   grep -Fq "selected config: ${configs[$i]} (first existing" "$tmp/output"
 done
-check_rc 0 bash "$installer" --config /home/synth/config.yaml --dry-run
-grep -Fq 'selected config: /home/synth/config.yaml (explicit --config)' "$tmp/output"
-grep -Fq 'Volume=/home/synth/config.yaml:/etc/brrdfeeder/config.yaml:ro,Z' "$tmp/output"
+check_rc 0 bash "$installer" --config /home/operator/config.yaml --dry-run
+grep -Fq 'selected config: /home/operator/config.yaml (explicit --config)' "$tmp/output"
+grep -Fq 'Volume=/home/operator/config.yaml:/etc/brrdfeeder/config.yaml:ro,Z' "$tmp/output"
 check_rc 2 bash "$installer" --config /nonexistent --dry-run
 check_rc 2 bash "$installer" --config
 echo 'PASS config priority: etc > home/brrdfeeder > home; explicit selection and bind source; invalid explicit rejected'
@@ -152,23 +153,23 @@ echo 'PASS ambiguous Image rejected before mutation; Quadlet mode needs no bare-
 
 # Group membership is intentionally manual on rollback; prove its receipt and
 # then restore the test account's membership using the documented inverse.
-check_rc 3 bash "$installer" --audit-log=/home/synth/installer-audit.log
+check_rc 3 bash "$installer" --audit-log=/home/operator/installer-audit.log
 receipt=$(sed -n 's/^\[brrdfeeder-install\] receipt: \([^ ]*\).*/\1/p' "$tmp/output" | head -1)
 [[ -x $receipt/ROLLBACK.sh && -f $receipt/MANIFEST ]]
-audit_hash=$(sha256sum /home/synth/installer-audit.log | cut -d ' ' -f 1)
+audit_hash=$(sha256sum /home/operator/installer-audit.log | cut -d ' ' -f 1)
 grep -Fq "$audit_hash" "$receipt/MANIFEST"
 [[ $(stat -c %a "$receipt") == 700 && $(stat -c %a "$receipt/ROLLBACK.sh") == 700 ]]
 grep -Fq 'manual-membership' "$receipt/MANIFEST"
-id -nG synth | tr ' ' '\n' | grep -qx dialout
+id -nG operator | tr ' ' '\n' | grep -qx dialout
 bash "$receipt/ROLLBACK.sh" > "$tmp/rollback"
-grep -Fq 'gpasswd -d synth dialout' "$tmp/rollback"
-gpasswd -d synth dialout >/dev/null
+grep -Fq 'gpasswd -d operator dialout' "$tmp/rollback"
+gpasswd -d operator dialout >/dev/null
 echo 'PASS group addition recorded; private receipt; final audit hash matches; rollback prints narrow manual inverse'
 
 # Exact restore proof covers replacement, creation, rfkill, and partial apply.
-usermod -a -G dialout synth
+usermod -a -G dialout operator
 file_snapshot() {
-  find /etc /home/synth /usr/local/libexec /var/lib/brrdfeeder /var/lib/systemd \
+  find /etc /home/operator /usr/local/libexec /var/lib/brrdfeeder /var/lib/systemd \
     -type f -exec sha256sum {} + 2>/dev/null | sort || true
 }
 file_snapshot > "$tmp/install.before"
@@ -182,7 +183,7 @@ cmp "$tmp/image" "$tmp/expected-image"
 # shellcheck disable=SC2016
 sed 's/^Image=.*/Image=localhost\/fake:retain-$literal  /' "$kit/brrdfeeder-engine.container" > "$tmp/expected-quadlet"
 cmp "$quadlet" "$tmp/expected-quadlet"
-[[ ! -e /home/synth/.config/systemd/user/brrdfeeder-engine.service ]]
+[[ ! -e /home/operator/.config/systemd/user/brrdfeeder-engine.service ]]
 if grep -Fq 'restart brrdfeeder-engine.service' "$SYSTEMCTL_LOG"; then echo 'FAIL unintended restart'; exit 1; fi
 [[ $(< /var/lib/systemd/rfkill/platform-fixture:bluetooth) == 0 ]]
 grep -Fq $'/etc/containers/systemd/brrdfeeder-engine.container\treplace\t' "$receipt/MANIFEST"
@@ -218,16 +219,16 @@ receipt=$(sed -n 's/^\[brrdfeeder-install\] receipt: \([^ ]*\).*/\1/p' "$tmp/out
 bash "$receipt/ROLLBACK.sh" > "$tmp/rollback"
 echo 'PASS explicit restart flag alone permits engine restart (supervisor simulated)'
 
-sed -i 's|/dev/cybrrd_gps|/dev/ttyACM9|' /home/synth/config.yaml
+sed -i 's|/dev/cybrrd_gps|/dev/ttyACM9|' /home/operator/config.yaml
 etc_hash=$(sha256sum /etc/brrdfeeder/config.yaml)
-selected_hash=$(sha256sum /home/synth/config.yaml)
-check_rc 3 bash "$installer" --config /home/synth/config.yaml
-grep -Fq 'device: "/dev/cybrrd_gps"' /home/synth/config.yaml
+selected_hash=$(sha256sum /home/operator/config.yaml)
+check_rc 3 bash "$installer" --config /home/operator/config.yaml
+grep -Fq 'device: "/dev/cybrrd_gps"' /home/operator/config.yaml
 [[ $(sha256sum /etc/brrdfeeder/config.yaml) == "$etc_hash" ]]
-grep -Fq 'Volume=/home/synth/config.yaml:/etc/brrdfeeder/config.yaml:ro,Z' "$quadlet"
+grep -Fq 'Volume=/home/operator/config.yaml:/etc/brrdfeeder/config.yaml:ro,Z' "$quadlet"
 receipt=$(sed -n 's/^\[brrdfeeder-install\] receipt: \([^ ]*\).*/\1/p' "$tmp/output" | head -1)
 bash "$receipt/ROLLBACK.sh" > "$tmp/rollback"
-[[ $(sha256sum /home/synth/config.yaml) == "$selected_hash" ]]
+[[ $(sha256sum /home/operator/config.yaml) == "$selected_hash" ]]
 echo 'PASS Step 2 edits only selected config; alternate bind rendered and rollback restores selected file'
 
 # A short/failed staging write must leave each existing destination byte-intact.
@@ -258,32 +259,32 @@ grep -Fq ' -> /etc/containers/systemd/brrdfeeder-engine.container' "$MV_LOG"
 echo 'PASS five rootful targets: same-directory staging, truncated stage never replaces old bytes, failed stage cleaned'
 
 mv "$quadlet" "$tmp/old-quadlet"
-install -D -m 0755 /bin/true /home/synth/brrdfeeder-src/engine/target/release/engine
+install -D -m 0755 /bin/true /home/operator/brrdfeeder-src/engine/target/release/engine
 printf '[Container]\nImage=localhost/brrdfeeder-engine:renamed\n' > /etc/containers/systemd/renamed.container
-check_rc 2 bash "$installer" --config /home/synth/config.yaml --dry-run
+check_rc 2 bash "$installer" --config /home/operator/config.yaml --dry-run
 grep -Fq 'possible renamed BRRDfeeder Quadlet: /etc/containers/systemd/renamed.container' "$tmp/output"
 rm /etc/containers/systemd/renamed.container
-check_rc 2 env MOCK_ENGINE_ACTIVE=1 bash "$installer" --config /home/synth/config.yaml --dry-run
+check_rc 2 env MOCK_ENGINE_ACTIVE=1 bash "$installer" --config /home/operator/config.yaml --dry-run
 grep -Fq 'system brrdfeeder-engine.service is active' "$tmp/output"
-[[ ! -e /home/synth/.config/systemd/user/brrdfeeder-engine.service ]]
+[[ ! -e /home/operator/.config/systemd/user/brrdfeeder-engine.service ]]
 echo 'PASS legacy guard rejects renamed rootful Quadlet and active system engine, with explicit home config'
 check_rc 2 bash "$installer" --dry-run
-grep -Fq 'legacy engine requires --config /home/synth/config.yaml' "$tmp/output"
-check_rc 0 bash "$installer" --config /home/synth/config.yaml --dry-run
+grep -Fq 'legacy engine requires --config /home/operator/config.yaml' "$tmp/output"
+check_rc 0 bash "$installer" --config /home/operator/config.yaml --dry-run
 grep -Fq 'DEPRECATED: legacy bare-metal' "$tmp/output"
-grep -Fq 'would write unit to /home/synth/.config/systemd/user/brrdfeeder-engine.service' "$tmp/output"
-legacy_unit=/home/synth/.config/systemd/user/brrdfeeder-engine.service
+grep -Fq 'would write unit to /home/operator/.config/systemd/user/brrdfeeder-engine.service' "$tmp/output"
+legacy_unit=/home/operator/.config/systemd/user/brrdfeeder-engine.service
 mkdir -p "$(dirname "$legacy_unit")"
 printf 'legacy unit sentinel\n' > "$legacy_unit"
 legacy_hash=$(sha256sum "$legacy_unit")
-check_rc 1 env FAIL_ATOMIC_TARGET="$legacy_unit" bash "$installer" --config /home/synth/config.yaml
+check_rc 1 env FAIL_ATOMIC_TARGET="$legacy_unit" bash "$installer" --config /home/operator/config.yaml
 grep -Fq "atomic write failed; original target retained: $legacy_unit" "$tmp/output"
 [[ $(sha256sum "$legacy_unit") == "$legacy_hash" ]]
 receipt=$(sed -n 's/^\[brrdfeeder-install\] receipt: \([^ ]*\).*/\1/p' "$tmp/output" | head -1)
 bash "$receipt/ROLLBACK.sh" > "$tmp/rollback"
 echo 'PASS legacy unit atomic-write failure retains original bytes too'
-mkdir -p /home/synth/.config/containers/systemd
-cp "$tmp/old-quadlet" /home/synth/.config/containers/systemd/brrdfeeder-engine.container
+mkdir -p /home/operator/.config/containers/systemd
+cp "$tmp/old-quadlet" /home/operator/.config/containers/systemd/brrdfeeder-engine.container
 check_rc 2 bash "$installer" --dry-run
 grep -Fq 'rootless Quadlet detected' "$tmp/output"
 echo 'PASS legacy path plans user service with canonical config; wrong legacy config and rootless Quadlet fail closed'

@@ -30,9 +30,15 @@ nodes fail before mutation. Credentials and other secrets are never kit contents
 
 ## Modes and prerequisites
 
-Run as root through sudo, with user `synth`, Bash, coreutils, awk, diffutils,
+Run as root through sudo, with Bash, coreutils, awk, diffutils,
 systemd, udev, usbutils, rfkill, and the existing runtime installed. The script
 does not install packages or fetch an image.
+
+Explicitly select the existing non-root account with
+`sudo BRRDFEEDER_LEGACY_USER=operator bash brrdfeeder-install.sh ...` (replace
+`operator` with the account's actual name). Its passwd home must be a dedicated
+`/home/<account>` directory. No retired personal-account defaults are recognized.
+The account and home examples below are illustrative, not fleet inventory.
 
 - `--verify`: read-only inspection. It never adds dialout membership or writes
   audit files. Missing optional hardware/state is reported as a warning;
@@ -41,7 +47,7 @@ does not install packages or fetch an image.
   path without changing files, groups, services, or rfkill.
 - `--config <absolute-path>`: select an existing regular config. Without it,
   choose the first existing candidate: `/etc/brrdfeeder/config.yaml`, then
-  `/home/synth/brrdfeeder/config.yaml`, then `/home/synth/config.yaml`.
+  `/home/operator/brrdfeeder/config.yaml`, then `/home/operator/config.yaml`.
   Print path and reason. Missing explicit path or no candidate exits 2 naming
   the candidates. Paths allow letters, digits, `_`, `.`, `/`, `-`; no symlinks.
   The resolved parent directory must not be group/world-writable: modes such
@@ -70,8 +76,8 @@ renamed into place. Failed staging leaves the old target intact. This provides
 atomic visibility, not a power-loss durability guarantee. Systemd daemon-reload
 is issued only for changed unit content (rollback still reloads restored files).
 
-The fleet uses rootful Quadlets. A future synth rootless unit would live at
-`/home/synth/.config/containers/systemd/brrdfeeder-engine.container`. If found
+The fleet uses rootful Quadlets. A future operator rootless unit would live at
+`/home/operator/.config/containers/systemd/brrdfeeder-engine.container`. If found
 without a rootful unit, exit 2 for review instead of entering the legacy path.
 Other users' rootless installations are outside this procedure.
 If the canonical rootful unit is absent, the installer also refuses legacy mode
@@ -80,17 +86,17 @@ comments/case variants) or the system `brrdfeeder-engine.service` is active.
 Review renamed/container-managed installations instead of starting a second
 legacy engine; these checks do not modify or stop the detected service.
 
-## Per-node refresh — only when Cy authorizes the roll
+## Per-node refresh — only when the release approver authorizes the roll
 
 | Node | Config passed to every invocation |
 | --- | --- |
-| cathartes | `/etc/brrdfeeder/config.yaml` |
-| robin | `/home/synth/brrdfeeder/config.yaml` |
-| cardinal | `/home/synth/config.yaml` |
+| test-node-3 | `/etc/brrdfeeder/config.yaml` |
+| test-node-1 | `/home/operator/brrdfeeder/config.yaml` |
+| test-node-2 | `/home/operator/config.yaml` |
 
 Run one node at a time using its established Tailscale management address and
 the release's exact archive/hash. Transport from lamplab follows the existing
-`scp brrdfeeder-bootstrap-kit-<sha12>.tar.gz synth@<node>:` convention.
+`scp brrdfeeder-bootstrap-kit-<sha12>.tar.gz operator@<node>:` convention.
 On the node, verify the release archive SHA-256, extract into a fresh private
 staging directory, and verify `KIT-MANIFEST` as instructed by that release.
 Do not copy the bundled engine or template over running files.
@@ -99,7 +105,7 @@ Do not copy the bundled engine or template over running files.
 mkdir -m 0700 ~/bootstrap-refresh-<sha12>
 tar xzf ~/brrdfeeder-bootstrap-kit-<sha12>.tar.gz -C ~/bootstrap-refresh-<sha12>
 cd ~/bootstrap-refresh-<sha12>/brrdfeeder-bootstrap
-CFG=/etc/brrdfeeder/config.yaml  # cathartes; use the table for other nodes
+CFG=/etc/brrdfeeder/config.yaml  # test-node-3; use the table for other nodes
 sudo bash ./brrdfeeder-install.sh --config "$CFG" --verify
 sudo bash ./brrdfeeder-install.sh --config "$CFG" --dry-run
 sudo bash ./brrdfeeder-install.sh --config "$CFG"
@@ -150,8 +156,8 @@ Rollback stops black-box writers, restores/removes files, reloads systemd and
 udev, restarts journald, and restores the prior timer enabled/active state.
 Engine restart remains the operator's decision. It prints runtime state it
 cannot undo: mounts, Bluetooth soft-block state, and legacy linger/session state.
-If synth was added to dialout, the manual inverse is
-`sudo gpasswd -d synth dialout` after reviewing current needs, followed by a
+If operator was added to dialout, the manual inverse is
+`sudo gpasswd -d operator dialout` after reviewing current needs, followed by a
 fresh user manager/session. Never restore a whole group database over later
 account changes. Sudoers is evidence only and was not modified. Empty new
 directories and receipt logs remain. Keep receipts private: config and journal
@@ -202,7 +208,7 @@ identity. Do not reuse an older flat kit lacking this companion.
 
 The selected config drives `node.storage_class`: only `ephemeral` or
 `persistent`, absent defaults persistent; typos abort by value before mutation.
-BRRDfeeder retains volatile journald, the existing `/home/synth/capture` 50 MiB tmpfs,
+BRRDfeeder retains volatile journald, the existing `/home/operator/capture` 50 MiB tmpfs,
 and D8's two-tail black box (<=1 MiB, changed writes only, private 0600 lock in
 a 0700 directory). The capture mount is the legacy capture location; container
 forensic paths remain governed by image/config and are not relocated by D12.
@@ -213,12 +219,12 @@ through per-device systemd-rfkill state when hardware is present.
 
 **Deprecated bare-metal path:** only when neither known Quadlet exists. Retain
 the historical kit layout, place its ARM64 engine at
-`/home/synth/brrdfeeder-src/engine/target/release/engine`, and reapply
+`/home/operator/brrdfeeder-src/engine/target/release/engine`, and reapply
 `cap_net_admin,cap_net_raw,cap_sys_time=ep` after extraction (tar loses file
-capabilities). Provision `/home/synth/config.yaml` and credentials separately,
+capabilities). Provision `/home/operator/config.yaml` and credentials separately,
 and keep helpers beside the installer. This historical binary reads relative
 to its home working directory: a different selected legacy config exits 2.
-Preview with `--config /home/synth/config.yaml --verify` and `--dry-run`.
+Preview with `--config /home/operator/config.yaml --verify` and `--dry-run`.
 Apply retains the historical automatic user-service handoff/restart, prints
 deprecation, and records a rollback receipt. Do not use this legacy procedure
-on robin, cardinal, or cathartes.
+on test-node-1, test-node-2, or test-node-3.

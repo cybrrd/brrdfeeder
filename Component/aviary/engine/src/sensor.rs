@@ -10,12 +10,12 @@
 //! receiver + a lock-free health snapshot, and the engine keeps
 //! its current spawn-pattern visibility.
 //!
-//! Pack-ratified design corrections (2026-05-26 round-robin):
+//! Reviewed design corrections (2026-05-26 round-robin):
 //!   - **No tracing-subscriber smuggle.** The engine uses `println!`/
 //!     `eprintln!` today. Sensors emit `[<name>] ...` to match the
 //!     existing visual idiom. Migration to `tracing` is a separate
 //!     pre-Wave-8.0 task; bundling it into a sensor cut would be a
-//!     Systemic Parasite (Gemini's term, 2026-05-26).
+//!     Systemic Parasite (the reviewer's term, 2026-05-26).
 //!   - **No H3 computation in the engine.** Wave 6.3 lock places
 //!     lat/lon → H3 res7/res8 at the lake-writer's row-decoration
 //!     step. Sensors emit lat/lon only; the existing ingest path
@@ -25,7 +25,7 @@
 //! The trait + first impl are the ONLY surface this cut touches in
 //! the engine. The wire-format extension (GPS-derived lat/lon
 //! flowing into `AuditEnvelope.frame.node.location`) is the natural
-//! next cut once we observe `gps:u-blox-7` going Healthy on cardinal.
+//! next cut once we observe `gps:u-blox-7` going Healthy on test-node-2.
 
 use std::sync::Arc;
 

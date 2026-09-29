@@ -53,4 +53,4 @@ subprocess.run(['gh', 'release', 'create', ctx['tag'], '--repo', 'cybrrd/brrdfee
                 '--draft', '--verify-tag', '--generate-notes', '--title', ctx['tag'],
                 '--notes-file', str(out/'notes.md'), *assets], check=True)
 with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-    summary.write('\nDraft created; Cy reviews and publishes it.\n'+'\n'.join(notes)+'\n')
+    summary.write('\nDraft created; the release approver reviews and publishes it.\n'+'\n'.join(notes)+'\n')

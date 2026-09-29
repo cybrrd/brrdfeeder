@@ -25,7 +25,7 @@ class History(unittest.TestCase):
         self.db=self.log/'wtmp.db'
         with sqlite3.connect(self.db) as db:
             db.execute('CREATE TABLE wtmp(ID INTEGER PRIMARY KEY, Type INTEGER, User TEXT, Login INTEGER, Logout INTEGER, TTY TEXT, RemoteHost TEXT, Service TEXT)')
-            db.executemany('INSERT INTO wtmp(User,Login) VALUES(?,1)',[('sagan',),('synth',)])
+            db.executemany('INSERT INTO wtmp(User,Login) VALUES(?,1)',[('alice',),('operator',)])
         self.db.chmod(0o644)
         self.alias=self.lib/'wtmpdb/wtmp.db';self.alias.symlink_to('../../log/wtmp.db')
         (self.log/'wtmp').write_bytes(bytes(6400))

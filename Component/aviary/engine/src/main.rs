@@ -45,7 +45,7 @@ use tokio_util::sync::CancellationToken;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
-    // #185 Drop 2 — the host updater's cryptographic pre-flight. Run as a
+    // Legacy signed-policy cryptographic pre-flight. Run as a
     // throwaway `verify-blue <file>` invocation (no capabilities, no NATS):
     // parse + Ed25519-verify the draft against the compile-pinned key, exit 0
     // if valid. The host updater refuses to pull/restart on a non-zero exit.
@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let radio = RadioState::new();
     let (tx, rx) = mpsc::channel::<NormalizedTelemetry>(1024);
 
-    // #178 (2026-06-17, Cy + Gemini + Synth) — the SINGLE multiplexed,
+    // #178 (2026-06-17, the development team and reviewers) — the SINGLE multiplexed,
     // supervised NATS connection. Previously the engine opened five independent
     // clients (telemetry / heartbeat / audit / substrate-audit / green-tick) and
     // only telemetry carried the warm-capture armor; the heartbeat liveness nerve
@@ -282,10 +282,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // populates a shared `Arc<ArcSwap<Option<GpsFix>>>` ("latest fix")
     // and logs each fix at INFO; it does NOT yet flow into the audit
     // envelope's NodeLocation stamper (that's the next cut, gated on
-    // observing the sensor go Healthy on cardinal).
+    // observing the sensor go Healthy on test-node-2).
     //
     // Device path is hardcoded to /dev/ttyACM1 for the MVP — matches
-    // the u-blox 7 enumeration on cardinal's Anker hub Port 1. Config-
+    // the u-blox 7 enumeration on test-node-2's Anker hub Port 1. Config-
     // driven selection (sensors.gps.device in config.yaml) is a small
     // follow-on cut once the integration shape stabilizes.
     let gps_cancel = CancellationToken::new();
@@ -488,10 +488,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Wave 6.5 Green Protocol — 1 Hz AirspaceState tick publisher.
-    // Pack-consensus 2026-06-04 (Cy + Gemini + Synth). Gated on env
+    // Design decision 2026-06-04 (the development team and reviewers). Gated on env
     // var BRRDFEEDER_ENABLE_AIRSPACE_PUBLISHER=true. Default-off so
     // this lands safely alongside the existing per-frame backhaul
-    // path; flip the env var to cut over once the cardinal-side
+    // path; flip the env var to cut over once the test-node-2-side
     // emission is validated against the Phase 2 globe-web consumer
     // (also default-off behind --enable-airspace-consumer).
     let airspace_publisher_enabled = std::env::var("BRRDFEEDER_ENABLE_AIRSPACE_PUBLISHER")

@@ -31,16 +31,16 @@ verify:
   - "tools/test-bt-dongle-gate.sh (offline fixtures: 876e/8771 accept, a728 reject with kernel commits, unknown stop, dry-run no-touch)"
 status: open
 note: >-
-  Field-evidenced on cathartes 2026-09-17: exclusive USER startup, runtime 1M+Coded
+  Field-evidenced on test-node-3 2026-09-17: exclusive USER startup, runtime 1M+Coded
   selection, Healthy state and 364 decoded session frames (15 Amazon MK30 serials,
   both BLE PHYs, plus DJI Wi-Fi). Remains open only for controlled passive-air,
   quiet/loss/recovery and bounded-shutdown evidence; do not claim those from a bus log.
   D8 adds only an offline-tested arrival gate and does not convert fixture output into
   hardware evidence or close any of those remaining runtime assays.
 provenance:
-  decided: "2026-09-15 — implementation proposed under Synth dispatch, Cy T1 review pending"
-  witness: "Cy field run + Synth node logs recorded 2026-09-17; D1 performs no node contact"
-  evidence: "governance/reviews/2026-09-17-amazon-mk30-rid/ (repo root), FINDING.md, papillion-session-tally.txt and papillion-session-frames-2026-09-17.jsonl"
+  decided: "2026-09-15 — implementation proposed under the development team dispatch, the release approver T1 review pending"
+  witness: "the release approver field run + the development team node logs recorded 2026-09-17; D1 performs no node contact"
+  evidence: "governance/reviews/2026-09-17-amazon-mk30-rid/ (repo root), FINDING.md, papillion-session-count.txt and papillion-session-frames-2026-09-17.jsonl"
 references:
   - "REQ-BRRD-003, REQ-BRRD-004, REQ-BRRD-005, REQ-BRRD-006, REQ-BRRD-011"
   - "docs/decisions/0005-rid-ble-ingest-path.md"

@@ -224,7 +224,7 @@ pub async fn start_capture_loop(
     // Green Protocol tick_publisher. When `Some`, each successful
     // payload is also recorded into the store (parallel-path tap to
     // the existing backhaul send). When `None`, this is a no-op —
-    // legacy single-path mode. Pack-consensus 2026-06-04.
+    // legacy single-path mode. Design decision 2026-06-04.
     observation_store: Option<Arc<crate::tick_publisher::ObservationStore>>,
     forensic_config: Option<crate::node_config::SavefileYaml>,
     forensic_audit: mpsc::Sender<crate::audit::SubstrateAuditEvent>,
@@ -525,7 +525,7 @@ impl PostParse {
             data,
         };
 
-        // Wave 6.5 Green Protocol tap (pack-consensus 2026-06-04):
+        // Wave 6.5 Green Protocol tap (design decision 2026-06-04):
         // record the observation into the shared store before
         // handing the payload off to backhaul. The tick_publisher
         // reads from this store once per second and emits the
@@ -595,7 +595,7 @@ mod tests {
     fn verify_req_brrd_014_shared_pipeline_gps_dedup_store_backpressure() {
         use cybrrd_rid_protocol::models::{RidTransport, TelemetryData};
         for transport in [None, Some(RidTransport::Bt4Legacy), Some(RidTransport::Bt5LongRange)] {
-            let mut data: TelemetryData = serde_json::from_str(r#"{"protocol":"ASTM_F3411_22a","mac_address":"01:02:03:04:05:06","drone_id":"SYNTH-LOOP-20260915","pos":{"lat":40.8817,"lon":-95.6901,"alt_m":120},"signal_rssi_dbm":-45}"#).unwrap();
+            let mut data: TelemetryData = serde_json::from_str(r#"{"protocol":"ASTM_F3411_22a","mac_address":"01:02:03:04:05:06","drone_id":"TEST-LOOP-20260915","pos":{"lat":40.8817,"lon":-95.6901,"alt_m":120},"signal_rssi_dbm":-45}"#).unwrap();
             data.transport = transport;
             let (tx, mut rx) = mpsc::channel(1);
             let counters = DropCounters::new();

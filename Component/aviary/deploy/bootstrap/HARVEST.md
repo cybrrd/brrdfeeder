@@ -3,15 +3,15 @@
 # Bootstrap kit — harvested into version control 2026-07-18
 
 **This kit provisions customer hardware and, until now, existed in exactly one place: on the
-feeders themselves.** No repo copy, no backup. If robin had died, the install ritual would have
-died with it — the pack's one rule (no store may be the sole holder) violated on a
+feeders themselves.** No repo copy, no backup. If test-node-1 had died, the install ritual would have
+died with it — the development team's one rule (no store may be the sole holder) violated on a
 customer-facing artifact. That is FABLE5 **B4 (installer version-control)** as a live risk rather
 than a checkbox, and closing it is why this directory exists.
 
 ## Provenance
 
-Harvested from `robin:~/brrdfeeder-bootstrap/` on 2026-07-18 during edge-beta Increment 0.
-Original build: **2026-06-07 18:10:08**, built on **cardinal** by `synth`, kernel `7.0.0-1009-raspi`.
+Harvested from `test-node-1:~/brrdfeeder-bootstrap/` on 2026-07-18 during edge-beta Increment 0.
+Original build: **2026-06-07 18:10:08**, built on **test-node-2** by `operator`, kernel `7.0.0-1009-raspi`.
 
 **Verified by execution** — the harvested files match the sha256 values recorded in the kit's own
 `manifest.txt`:
@@ -35,7 +35,7 @@ misdirection is what let the installer live unversioned on devices for six weeks
 
 | File | Purpose |
 |---|---|
-| `brrdfeeder-install.sh` | The install ritual (657 lines). "Path D substrate-architectural install" — Synth-drafted 2026-06-06, Gemini-ratified architecture (udev contract + systemd-user-unit + Quadlet-ready abstraction), Cy crosses the host-tenant wall via `sudo bash`. Closes task #149 (udev symlinks) and #146 (systemd unit surviving reboot/power-cycle/SSH disconnect). |
+| `brrdfeeder-install.sh` | The install ritual (657 lines). "Path D substrate-architectural install" — the development team-drafted 2026-06-06, the reviewer-ratified architecture (udev contract + systemd-user-unit + Quadlet-ready abstraction), the release approver crosses the host-tenant wall via `sudo bash`. Closes task #149 (udev symlinks) and #146 (systemd unit surviving reboot/power-cycle/SSH disconnect). |
 | `manifest.txt` | Build manifest: engine ELF description, sizes, sha256s, and the source capabilities (`cap_net_admin,cap_net_raw=ep`) with the load-bearing note that **tar does not preserve them**. |
 | `config.yaml.mobile.template` | Mobile-profile config template. |
 | `README.md` | Kit README as shipped. |
@@ -49,7 +49,7 @@ shipped to customer premises, so this is a genuine open item, not an oversight i
 Note the distinction that matters for authoring it: `manifest.txt` is a **build** manifest (what was
 produced) — CTS-001 also wants an **install** manifest (what lands on the host, where, with what
 ownership and capabilities) so that clean severance is checkable rather than hopeful. The
-`brrdfeeder-install-audit.log` on each node (206 lines on robin) is raw material for that.
+`brrdfeeder-install-audit.log` on each node (206 lines on test-node-1) is raw material for that.
 
 **Authoring the uninstaller requires a full read of the 657-line installer**, because an uninstaller
 that misses artifacts leaves residue and one that over-reaches destroys host state that was never

@@ -274,7 +274,7 @@ func publishHost(args []string) error {
 	if e := m.valid(time.Now()); e != nil {
 		return e
 	}
-	// Cy's Friday ruling: preparation only until a separately validated S5
+	// the release approver's Friday ruling: preparation only until a separately validated S5
 	// host-artifact signing endpoint is approved. No caller ever loads the key.
 	if e := atomicJSON(*out, m, 0644); e != nil {
 		return e

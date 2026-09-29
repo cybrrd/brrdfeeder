@@ -536,7 +536,7 @@ mod tests {
         assert!((pack.drone_pos.unwrap().lat - 40.7608).abs() < 1e-6);
     }
 
-    /// Verbatim real DJI Mini 5 Pro broadcast captured by cardinal 2026-05-07.
+    /// Verbatim real DJI Mini 5 Pro broadcast captured by test-node-2 2026-05-07.
     /// IDType nibble of the BASIC_ID byte 1 (0x12) is 0x1 → SerialNumber.
     #[test]
     fn real_dji_mini5pro_decodes_serial_and_position() {

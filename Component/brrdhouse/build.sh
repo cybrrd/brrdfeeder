@@ -38,4 +38,4 @@ podman image inspect "$tag" --format '{{.Digest}} {{.Architecture}} {{.Config.Us
 podman save --format oci-archive -o "brrdhouse-$arch.oci.tar" "$tag"
 printf 'OCI archive manifest (compressed transport digest):\n'
 tar -xOf "brrdhouse-$arch.oci.tar" index.json
-printf '\nPublish (Cy only): skopeo copy --preserve-digests --authfile /path/to/publish-auth.json oci-archive:brrdhouse-%s.oci.tar docker://%s\n' "$arch" "$tag"
+printf '\nPublish (the release approver only): skopeo copy --preserve-digests --authfile /path/to/publish-auth.json oci-archive:brrdhouse-%s.oci.tar docker://%s\n' "$arch" "$tag"

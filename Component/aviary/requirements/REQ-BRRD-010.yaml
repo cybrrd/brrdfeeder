@@ -31,8 +31,8 @@ references:
   - "REQ-BRRD-004 (upstream correlation), REQ-BRRD-006 (raw ODID convergence), REQ-BRRD-009 (unauthenticated claim)"
   - "bluBRRD L4 record { esp32_millis, phy, rssi, adv_addr, odid_msg[25] } — pack memory project_blubrrd"
 provenance:
-  decided: "2026-07-21 (Cy — Nozomi threat-model harvest; full proposal concurred this session)"
-  witness: "Cy + Synth"
+  decided: "2026-07-21 (the release approver — Nozomi threat-model harvest; full proposal concurred this session)"
+  witness: "the release approver and development team"
   evidence: >-
     Ratified in discussion, not yet built. Companion of REQ-BRRD-009. The
     host-authoritative + clock-provenance timestamp is the REQ carrying the bluBRRD

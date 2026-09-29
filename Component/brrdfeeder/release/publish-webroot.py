@@ -4,7 +4,7 @@
 """One LOCAL operator publish into an existing webroot; no SSH/network/service calls.
 
 Dev preserves public install.sh. Mainstream must be explicitly selected after
-the dev proof and Cy approval. Each replacement is atomic; the batch is ordered
+the dev proof and the release approver approval. Each replacement is atomic; the batch is ordered
 (artifacts, release, bootstrap), not falsely claimed as one filesystem transaction.
 """
 import argparse

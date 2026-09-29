@@ -362,16 +362,16 @@ mod tests {
     use super::*;
     use ed25519_dalek::{Signature, VerifyingKey};
 
-    // Golden vector — identical to the Go signer's signer_test.go (E-CNP-001 §4.2).
-    // Test key c252b980…; sig 83e0e197… over the reference policy.
+    // E-CNP-001 §4.2 vector with a generic fixture node identifier.
+    // Re-signed with the published ephemeral test seed below; never a production key.
     const GOLDEN_PUBKEY_HEX: &str =
         "c252b980a6efdd931abfb38896a608d4d1ddd1e12acb663ae70c96358f007693";
-    const GOLDEN_SIG_HEX: &str = "83e0e197459adf41aa67af64f27a46362f06d0c0c94f6d2e728704a74db8f540b9a0ae993e60b7b5b844b392ffea4d1e66faffab7a2a11853999ceb961659d08";
+    const GOLDEN_SIG_HEX: &str = "65f2fb1e9c450866a30fbba99f4c9c6d92ccef7a5b7bf5635833d2325cb56560f5075d33dc39742cd0844698d248a0e636b0aa9f2e47df21eacb5a1685b69406";
 
     fn golden() -> BluePolicy {
         BluePolicy {
             schema: "cybrrd.blue.policy.v1".into(),
-            node_id: "brrdfeeder-saker-robin-001".into(),
+            node_id: "bf-00000001".into(),
             channel: "rc".into(),
             target_image: "ghcr.io/macawi-ai/brrdfeeder-open@sha256:c696bae13182868b699c78b0baa563cf997b28260c63daf0d9ad895c7ff5d50e".into(),
             target_build_seq: 1042,
@@ -393,10 +393,10 @@ mod tests {
         [k]
     }
 
-    /// THE proving ground: our §4.1 byte-string must equal the Go signer's exactly.
+    /// The §4.1 canonical bytes must match the independently signed fixture exactly.
     #[test]
     fn test_e_cnp_001_canonicalization() {
-        let want = "cybrrd.blue.policy.v1||brrdfeeder-saker-robin-001||rc||ghcr.io/macawi-ai/brrdfeeder-open@sha256:c696bae13182868b699c78b0baa563cf997b28260c63daf0d9ad895c7ff5d50e||1042||sha256:5e63a18e00000000000000000000000000000000000000000000000000000000||off_hours||false||1781800000000||1782059200000||command.cybrrd.com||1781799000000||a7b3d9f2e4c1a8b6";
+        let want = "cybrrd.blue.policy.v1||bf-00000001||rc||ghcr.io/macawi-ai/brrdfeeder-open@sha256:c696bae13182868b699c78b0baa563cf997b28260c63daf0d9ad895c7ff5d50e||1042||sha256:5e63a18e00000000000000000000000000000000000000000000000000000000||off_hours||false||1781800000000||1782059200000||command.cybrrd.com||1781799000000||a7b3d9f2e4c1a8b6";
         assert_eq!(String::from_utf8(golden().canonical_bytes()).unwrap(), want);
     }
 
@@ -425,7 +425,7 @@ mod tests {
     #[test]
     fn test_full_gate_verified() {
         assert_eq!(
-            check(&golden(), "brrdfeeder-saker-robin-001", 0, 0, &golden_keyring()),
+            check(&golden(), "bf-00000001", 0, 0, &golden_keyring()),
             Verdict::Verified
         );
     }
@@ -442,7 +442,7 @@ mod tests {
     fn test_replay_rejected() {
         // last_applied at/after this policy's issued time → replay.
         assert_eq!(
-            check(&golden(), "brrdfeeder-saker-robin-001", 1781799000000, 0, &golden_keyring()),
+            check(&golden(), "bf-00000001", 1781799000000, 0, &golden_keyring()),
             Verdict::RejectedReplay
         );
     }
@@ -451,7 +451,7 @@ mod tests {
     fn test_downgrade_rejected() {
         // last_applied seq >= target, no rollback → downgrade.
         assert_eq!(
-            check(&golden(), "brrdfeeder-saker-robin-001", 0, 1042, &golden_keyring()),
+            check(&golden(), "bf-00000001", 0, 1042, &golden_keyring()),
             Verdict::RejectedDowngrade
         );
     }
@@ -465,11 +465,10 @@ mod tests {
         p.sig = hex::encode(sk.sign(&p.canonical_bytes()).to_bytes());
     }
 
-    /// The ultimate cross-language proof: Rust signing the golden policy yields
-    /// the BYTE-IDENTICAL signature the Go signer produced. If this holds, the
-    /// canonical byte-string is provably identical across the language boundary.
+    /// Rust signing must reproduce the independently computed fixture signature
+    /// (Python cryptography Ed25519, using only the published test seed).
     #[test]
-    fn test_rust_signing_reproduces_go_signature() {
+    fn test_rust_signing_reproduces_fixture_signature() {
         let mut p = golden();
         sign_with_golden(&mut p);
         assert_eq!(p.sig, GOLDEN_SIG_HEX);
@@ -482,7 +481,7 @@ mod tests {
         p.target_build_seq = 5; // below last_applied (1042) — only rollback may pass
         sign_with_golden(&mut p);
         assert_eq!(
-            check(&p, "brrdfeeder-saker-robin-001", 0, 1042, &golden_keyring()),
+            check(&p, "bf-00000001", 0, 1042, &golden_keyring()),
             Verdict::Verified
         );
     }
@@ -522,7 +521,7 @@ mod tests {
         let bytes = serde_json::to_vec(&golden()).unwrap();
         let out = process_blue(
             &bytes,
-            "brrdfeeder-saker-robin-001",
+            "bf-00000001",
             &PolicyState::default(),
             Some(0),
             &golden_keyring(),
@@ -560,7 +559,7 @@ mod tests {
         let before = std::fs::read(&state).unwrap();
         let bytes = serde_json::to_vec(&golden()).unwrap();
         write_pending_update(&state, &bytes).unwrap();
-        assert_eq!(reconcile_pending_update(&state, None, "brrdfeeder-saker-robin-001", &golden_keyring()), None);
+        assert_eq!(reconcile_pending_update(&state, None, "bf-00000001", &golden_keyring()), None);
         assert_eq!(std::fs::read(&state).unwrap(), before, "unverified boot advanced watermark");
         assert_eq!(std::fs::read(pending_update_path(&state)).unwrap(), bytes, "unverified boot consumed draft");
         std::fs::remove_file(pending_update_path(&state)).unwrap();
@@ -579,7 +578,7 @@ mod tests {
     fn test_process_blue_replay_via_persisted_state() {
         let bytes = serde_json::to_vec(&golden()).unwrap();
         let st = PolicyState { last_applied_unix_ms: 1781799000000, last_applied_build_seq: 0 };
-        let out = process_blue(&bytes, "brrdfeeder-saker-robin-001", &st, Some(0), &golden_keyring());
+        let out = process_blue(&bytes, "bf-00000001", &st, Some(0), &golden_keyring());
         assert_eq!(out.verdict, Verdict::RejectedReplay);
     }
 
@@ -591,7 +590,7 @@ mod tests {
         let bytes = serde_json::to_vec(&golden()).unwrap(); // golden target_build_seq = 1042
         let out = process_blue(
             &bytes,
-            "brrdfeeder-saker-robin-001",
+            "bf-00000001",
             &PolicyState::default(),
             Some(2000),
             &golden_keyring(),
@@ -622,7 +621,7 @@ mod tests {
         assert!(pending_update_path(&state).exists());
         // running == target (1042): we ARE the applied build → reconcile + advance.
         let seq =
-            reconcile_pending_update(&state, Some(1042), "brrdfeeder-saker-robin-001", &golden_keyring());
+            reconcile_pending_update(&state, Some(1042), "bf-00000001", &golden_keyring());
         assert_eq!(seq, Some(1042));
         let st = PolicyState::load(&state);
         assert_eq!(st.last_applied_build_seq, 1042);
@@ -640,7 +639,7 @@ mod tests {
         write_pending_update(&state, &raw).unwrap();
         assert_eq!(write_pending_update(&state, b"replacement").unwrap_err().kind(), std::io::ErrorKind::AlreadyExists);
         std::fs::write(dir.join("update_transaction.json"), br#"{"active":true}"#).unwrap();
-        assert_eq!(reconcile_pending_update(&state, Some(1042), "brrdfeeder-saker-robin-001", &golden_keyring()), None);
+        assert_eq!(reconcile_pending_update(&state, Some(1042), "bf-00000001", &golden_keyring()), None);
         assert!(!state.exists(), "startup advanced watermark before host health gate");
         assert_eq!(std::fs::read(pending_update_path(&state)).unwrap(), raw);
         std::fs::remove_dir_all(dir).unwrap();
@@ -655,7 +654,7 @@ mod tests {
         write_pending_update(&state, &bytes).unwrap();
         // running != target → not yet applied → leave the draft for the host updater.
         let seq =
-            reconcile_pending_update(&state, Some(41), "brrdfeeder-saker-robin-001", &golden_keyring());
+            reconcile_pending_update(&state, Some(41), "bf-00000001", &golden_keyring());
         assert_eq!(seq, None);
         assert!(pending_update_path(&state).exists());
         let _ = std::fs::remove_file(pending_update_path(&state));

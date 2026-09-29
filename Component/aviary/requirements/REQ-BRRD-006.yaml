@@ -24,8 +24,8 @@ verify:
     tree and confirm exactly one ODID decode implementation exists.
 status: open
 provenance:
-  decided: "2026-07-21 (Cy — multi-source RID ingest design; fork 4 ratified this session)"
-  witness: "Cy + Synth"
+  decided: "2026-07-21 (the release approver — multi-source RID ingest design; fork 4 ratified this session)"
+  witness: "the release approver and development team"
   evidence: >-
     Ratified in discussion, not yet built. Convergence point defined by the
     bluBRRD L4 record (raw odid_msg[25]); see pack memory 'project_blubrrd'.

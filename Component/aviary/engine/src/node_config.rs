@@ -282,7 +282,7 @@ fn default_heartbeat_interval_secs() -> u64 {
 // sensor continues to broadcast its config-static install location,
 // which means an adversary could earn reputation at site X, physically
 // move the sensor to site Y, and spoof captures-from-Y as captures-at-X.
-// This is the "Reputation-Portability Attack" Cy identified 2026-05-26.
+// This is the "Reputation-Portability Attack" the release approver identified 2026-05-26.
 //
 // Default policy (Wave 7.4): required=true. Operators who genuinely
 // want dev/test mode without GPS must explicitly set required=false,
@@ -346,7 +346,7 @@ fn valid_hex_identity(value: &str, count: usize, width: usize) -> bool {
 pub struct GpsYaml {
     #[serde(default)]
     pub clock: ClockYaml,
-    /// CDC-ACM device path. Default `/dev/ttyACM1` matches the cardinal
+    /// CDC-ACM device path. Default `/dev/ttyACM1` matches the test-node-2
     /// hardware layout (u-blox 7 on the Anker hub Port 1, 2026-05-26).
     #[serde(default = "default_gps_device")]
     pub device: String,
@@ -393,10 +393,10 @@ impl Default for GpsYaml {
 /// REQ-BRRD-001: bind the GPS via the udev-stable symlink, never a raw `/dev/ttyACM*`.
 ///
 /// `/dev/ttyACM*` enumeration order is non-deterministic across power-cycles (the
-/// 2026-05/06 "port jumpiness" incidents). On robin the symlink currently resolves to
+/// 2026-05/06 "port jumpiness" incidents). On test-node-1 the symlink currently resolves to
 /// `ttyACM1` — which is what this default used to hardcode, so it worked *by luck*. Had
 /// enumeration shifted, the symlink would have followed the real GPS while this default
-/// silently bound whatever landed on ACM1 (on robin: the BLE adapter). Deterministic
+/// silently bound whatever landed on ACM1 (on test-node-1: the BLE adapter). Deterministic
 /// failure with a clear device name beats lucky success.
 ///
 /// The udev rule that creates this symlink lives at `deploy/udev/99-cybrrd-brrdfeeder.rules`
@@ -709,7 +709,7 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
     ///
     /// This is the contract's teeth. `/dev/ttyACM*` enumeration is
     /// non-deterministic across power-cycles; a raw-path default silently binds
-    /// whatever enumerated into that slot. On robin the symlink resolves to
+    /// whatever enumerated into that slot. On test-node-1 the symlink resolves to
     /// `ttyACM1` — exactly what this default used to hardcode — so the old
     /// default worked by luck, and `ttyACM0` there is the BLE adapter. If this
     /// test fails because someone "fixed" the default back to a raw path, the

@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # aviary — the cyBRRD sensor codebase (one codebase, four build-time profiles)
 **Platform:** cyBRRD · **Index:** C1AVI — hosts C1BRD (profile `opensource`, fielded) · C1SEN + C1WDN (profile `enterprise`, design) · sensor-side C1HMB (profile `hummingbrrd`, design) · **Family:** A · **Status:** active
-**Source of record:** CYB1 (this directory) since 2026-09-13; provenance in BUILD_INFO.md · supersedes gitea `cy/aviary` @ 309c0d0 (to be archived read-only, R3) and github `macawi-ai/BRRDfeeder` @ ef0eec2 (ADR 0001)
+**Source lineage:** maintained since 2026-09-13; supersedes the archived predecessor repositories at commits 309c0d0 and ef0eec2 (ADR 0001).
 **Roster:** design/cybrrd-component-roster.md · **The product is called BRRDfeeder** (R8) — its public cut lives at `Component/brrdfeeder/`
 # aviary
 
@@ -10,8 +10,8 @@
 
 The [bootstrap procedure](deploy/bootstrap/README.md) refreshes an existing
 rootful Quadlet while preserving its image. Pass each node's config explicitly:
-cathartes `/etc/brrdfeeder/config.yaml`, robin
-`/home/synth/brrdfeeder/config.yaml`, cardinal `/home/synth/config.yaml`.
+test-node-3 `/etc/brrdfeeder/config.yaml`, test-node-1
+`/home/operator/brrdfeeder/config.yaml`, test-node-2 `/home/operator/config.yaml`.
 After authorized kit scp/extraction, run `--config <path> --verify`, then
 `--dry-run`, review the diff, and apply. Apply records
 `/var/lib/brrdfeeder-deploy/<ts>/installer/` and exits 3 (restart required)
@@ -48,7 +48,7 @@ a superset from a subset.**
 
 | Profile | Status | Backed by |
 |---|---|---|
-| **Opensource** | **fielded** | Live on cardinal, robin, cathartes-aura. Flight-validated RF→edge→NATS→JetStream. |
+| **Opensource** | **fielded** | Live on test-node-2, test-node-1, field-node. Flight-validated RF→edge→NATS→JetStream. |
 | SOHO | **design** | Decided, not built. Hardware gated (see below). |
 | Enterprise | design | Warden/Sentinel split defined; MPR designed. |
 | hummingBRRD | design | Not started. |
@@ -93,7 +93,7 @@ capabilities.toml   THE capability manifest — single source of truth
 
 ## The flock
 
-cardinal · robin · cathartes-aura — fielded opensource nodes, cooperative detection.
+test-node-2 · test-node-1 · field-node — fielded opensource nodes, cooperative detection.
 **kestrel** — the SOHO reference candidate. **Sýc** (Tengmalm's Owl, *Sýc rousný*) — the
 void-listener: bearings on aircraft that transmit no Remote ID and no Bluetooth. Named for
 the owl whose asymmetric ear placement yields a three-dimensional fix on prey that never

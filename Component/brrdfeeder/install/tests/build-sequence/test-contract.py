@@ -26,8 +26,8 @@ class BuildSequence(unittest.TestCase):
         repo=root/'repo';repo.mkdir()
         for name in SCRIPTS:
             dst=repo/name;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(ROOT/name,dst)
-        env=dict(os.environ,GIT_AUTHOR_NAME='Synth',GIT_AUTHOR_EMAIL='synth@cybrrd.com',
-            GIT_COMMITTER_NAME='Synth',GIT_COMMITTER_EMAIL='synth@cybrrd.com')
+        env=dict(os.environ,GIT_AUTHOR_NAME='Development Team',GIT_AUTHOR_EMAIL='operator@cybrrd.com',
+            GIT_COMMITTER_NAME='Development Team',GIT_COMMITTER_EMAIL='operator@cybrrd.com')
         for args in [['init','-b','main'],['add','.'],['commit','-m','Synthetic one-commit sequence fixture']]:
             subprocess.run(['git',*args],cwd=repo,env=env,check=True,capture_output=True)
         binary=root/'bin';binary.mkdir()

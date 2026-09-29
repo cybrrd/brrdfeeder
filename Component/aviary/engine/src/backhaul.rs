@@ -6,8 +6,8 @@
 //! ## History
 //! This module *was* the Warm-Capture Supervisor (#176, ratified 2026-06-16):
 //! it owned a dedicated telemetry NATS connection plus all the edge-buffering /
-//! wedge-detect / in-place-reconnect armor. #178 (ratified 2026-06-17, Cy +
-//! Gemini + Synth) lifted that supervisor out into [`crate::nats_publisher`] and
+//! wedge-detect / in-place-reconnect armor. #178 (ratified 2026-06-17, the release approver +
+//! the reviewer + the development team) lifted that supervisor out into [`crate::nats_publisher`] and
 //! generalized it to carry ALL message types (telemetry / heartbeat / audit /
 //! substrate-audit / green-tick) over ONE connection. The armor is now shared by
 //! every path — most importantly the heartbeat liveness nerve, which previously

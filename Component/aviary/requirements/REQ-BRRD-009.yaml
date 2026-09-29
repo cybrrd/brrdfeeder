@@ -32,8 +32,8 @@ references:
   - "ASTM F3411-22a §5.4.5 (Authentication Message, Auth Type field) — authentication is OPTIONAL and unkeyed in practice"
   - "REQ-BRRD-004 (upstream correlation), feedback_evidentiary_defensibility_doctrine (Daubert)"
 provenance:
-  decided: "2026-07-21 (Cy — Nozomi threat-model harvest; full proposal concurred this session)"
-  witness: "Cy + Synth"
+  decided: "2026-07-21 (the release approver — Nozomi threat-model harvest; full proposal concurred this session)"
+  witness: "the release approver and development team"
   evidence: >-
     Ratified in discussion, not yet built. Companion of REQ-BRRD-010 (preserve
     spoof-detection metadata). Design context in pack memory reference_nozomi_rid_spoofing.

@@ -8,7 +8,7 @@
 # $15 Sentinel cannot inherit cloud/std dependencies through it. The boundary
 # is enforced at the compiler, not by convention.
 #
-# Indestructibility contract (Gemini System-5 guardrail): the decoder must
+# Indestructibility contract (the reviewer System-5 guardrail): the decoder must
 # NEVER panic on malformed/malicious over-the-air RF. Over-capacity input is
 # truncated or rejected (Result::Err); it never reallocates or crashes.
 [package]

@@ -91,7 +91,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -f /var/log/apt/history.log /var/log/apt/term.log /var/log/dpkg.log \
              /var/cache/ldconfig/aux-cache
 
-# Match host synth user (uid 1001, gid 20 dialout) so bind-mounted volumes
+# Match host operator user (uid 1001, gid 20 dialout) so bind-mounted volumes
 # from the host (config.yaml ro, creds ro) align by UID under UserNS=keep-id.
 # K28 F-1: useradd embeds a day number in shadow. File-mtime clamping alone
 # cannot fix it. Require the helper's commit epoch, not the build's wall clock.

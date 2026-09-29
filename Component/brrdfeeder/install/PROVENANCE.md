@@ -10,8 +10,8 @@ artifact a paying subscriber actually runs — was a sole holder.** That is the 
 - Scanned for embedded secrets before commit: **none** — only path constants. The OAuth client id is
   a *public* identifier for a Native/PKCE app, not a secret.
 
-**How it was nearly lost.** During the `brrdg3s1` decommission earlier the same day, Synth removed
-`/home/synth/brrdfeeder-install.sh` from that node **without archiving it** — the archive captured
+**How it was nearly lost.** During the `brrdg3s1` decommission earlier the same day, the development team removed
+`/home/operator/brrdfeeder-install.sh` from that node **without archiving it** — the archive captured
 `/etc/brrdfeeder`, the quadlets and state, but not that path. A copy survived on two other nodes and
 on resonance, so nothing was actually lost; **the process, not the luck, is what needs fixing.**
 
@@ -27,7 +27,7 @@ on resonance, so nothing was actually lost; **the process, not the luck, is what
 | stores `oauth_refresh.token` for 90-day credential renewal | ✅ |
 | writes config, quadlet, secrets tree (`0700 root`) | ✅ |
 
-**Synth's earlier readiness assessment was wrong** and is corrected here: it was made against
+**the development team's earlier readiness assessment was wrong** and is corrected here: it was made against
 `Component/aviary/deploy/bootstrap/brrdfeeder-install.sh`, a *refresh/reconfigure* tool whose own
 README says it "does not install packages or fetch an image." **That is a different script with a
 confusingly similar name.** Two files named `brrdfeeder-install.sh` doing entirely different jobs is

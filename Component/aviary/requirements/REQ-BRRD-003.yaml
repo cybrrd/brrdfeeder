@@ -25,7 +25,7 @@ verify:
   - "cargo test node_config::tests::installer_legacy_keys_warn_and_primary_parse_errors_survive"
 status: open
 status_note: >-
-  2026-09-19 (Synth) — corrected from `bound` to `open`, and the original claim is
+  2026-09-19 (the development team) — corrected from `bound` to `open`, and the original claim is
   left on record here rather than erased. `requirements/README.md` defines `bound`
   as "code binding + automated CI verification both in place and passing", and
   `open` as "statement ratified; code binding or automated verification
@@ -41,7 +41,7 @@ status_note: >-
   (register C-2), and a `contract-trace` check that fails the build.
 provenance:
   decided: "2026-07-13"
-  witness: "Cy"
+  witness: "the release approver"
   evidence: >-
     grep 2026-07-13 @806eebd: storage_class / target_subject / owner_id /
     hardware.* / engine.* consumed nowhere in engine, cybrrd-rid-protocol, or
@@ -50,4 +50,4 @@ rollout_gate: >-
   2026-09-18 D1 restores installer compatibility for the two named legacy keys;
   all other unknown keys still fail. storage_class still belongs to installer
   hardening, not runtime engine policy; target_subject is ignored in favor of
-  the derived subject. Synth owns image build/rollout; D1 is branch-only.
+  the derived subject. The development team owns image build/rollout; D1 is branch-only.

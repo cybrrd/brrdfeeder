@@ -33,8 +33,8 @@ references:
   - "CVE-2023-31191 (critical; BlueMark DroneScout ds230) — adjacent-channel suppression: a spoofed same-MAC frame on an adjacent channel at higher RSSI drops the real drone's frames (made invisible). Defended by publishing every observation with no edge dedup/suppression"
   - "CVE-2023-29156 (DroneScout 500 ms MQTT dedup timer) — same-MAC injection inside the window discards real RID. Same defense"
 provenance:
-  decided: "2026-07-21 (Cy — multi-source RID ingest design; fork 2 ratified this session)"
-  witness: "Cy + Synth"
+  decided: "2026-07-21 (the release approver — multi-source RID ingest design; fork 2 ratified this session)"
+  witness: "the release approver and development team"
   evidence: >-
     Ratified in discussion, not yet built. Companion decisions REQ-BRRD-005
     (local-durable) and REQ-BRRD-006 (single decoder). Design captured in pack

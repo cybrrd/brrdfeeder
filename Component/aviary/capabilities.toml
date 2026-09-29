@@ -10,7 +10,7 @@
 # status; it has a status PER PROFILE. This is what makes the product line honest:
 # `hummingbrrd = "none"` on bluetooth stops being a promise someone has to remember and
 # becomes a claim the build can refute. (This example used to read `opensource = "none"`
-# on bluetooth; that posture was reversed by Cy's ruling of 2026-09-22 — see the
+# on bluetooth; that posture was reversed by the release approver's ruling of 2026-09-22 — see the
 # bluetooth4_legacy notes. An illustrative example that has gone false is worse than no
 # example, because it teaches the reader the wrong contract.)
 #
@@ -46,8 +46,8 @@ ECOLOGEE SUBSTR8 platform / RealityBricks. Warden is NOT a Remote-ID receiver.""
 role = "subtraction"
 hardware = "Raspberry Pi 4/5 + USB Wi-Fi (ALFA) + USB GNSS + microSD"
 status = "fielded"                  # the ONLY profile with live field validation
-notes = """Formerly `brrdfeeder-open`. The lightweight cut. Live on cardinal, robin,
-cathartes-aura. This is the only profile whose capabilities are backed by flight evidence."""
+notes = """Formerly `brrdfeeder-open`. The lightweight cut. Live on test-node-2, test-node-1,
+field-node. This is the only profile whose capabilities are backed by flight evidence."""
 
 [profile.hummingbrrd]
 role = "subtraction"
@@ -68,9 +68,9 @@ opensource  = "implemented"
 hummingbrrd = "planned"
 
 [rid_transport.wifi_nan]
-notes = """Pre-beta commitment (Cy, 2026-07-13): same radio, software-only.
+notes = """Pre-beta commitment (the release approver, 2026-07-13): same radio, software-only.
 decode_nan_action is currently a stub returning None — NO NAN decode exists yet.
-Cy 2026-09-22: released in a FUTURE version. `planned` is the honest status and it
+The release approver 2026-09-22: released in a FUTURE version. `planned` is the honest status and it
 MUST NOT be claimed publicly as working until the stub is replaced."""
 [rid_transport.wifi_nan.status]
 soho        = "planned"
@@ -86,7 +86,7 @@ ADR 0005: the controller stays DOWN with bluetoothd disabled, which is a require
 of RID capture, not a fault. De-framing in cybrrd-rid-protocol/src/ble.rs is bound by
 REQ-BRRD-013; passive sensor runtime by REQ-BRRD-014.
 
-RULING — Cy, 2026-09-22: Bluetooth is NOT withheld from Open. This reverses the
+RULING — the release approver, 2026-09-22: Bluetooth is NOT withheld from Open. This reverses the
 2026-07-19 posture, which recorded BLE as a COMMERCIAL DIFFERENTIATOR deliberately
 withheld from the opensource cut ("it is the moat"). That posture had already been
 overtaken by the substrate and nobody noticed: 31f2484 (2026-09-15) added BLE
@@ -172,7 +172,7 @@ itself. Enterprise-only; the transition into ECOLOGEE SUBSTR8."""
 [sensors.sdr_wideband.status]
 soho        = "none"
 enterprise  = "planned"
-opensource  = "planned"      # Cy 2026-09-22: future version, not a structural absence
+opensource  = "planned"      # the release approver 2026-09-22: future version, not a structural absence
 hummingbrrd = "none"
 
 # ── Declared contract debt (no-silent-caps) ─────────────────────────────────
@@ -188,7 +188,7 @@ hummingbrrd = "none"
 # Verified on origin/main 2026-09-22, not only on the fielded d021d681.
 # Consequence: "globe.cybrrd.com displays drones AND operator stations" is NOT true
 # today. Declared here rather than discovered by a customer.
-# Owner: Cy to rule on scope; fix is an operators array on the envelope plus a globe
+# Owner: the release approver to rule on scope; fix is an operators array on the envelope plus a globe
 # renderer.
 #
 # RESOLVED 2026-09-22 — sensors.ble_sniffer needed no ruling; the question was a

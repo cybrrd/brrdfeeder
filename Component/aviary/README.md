@@ -8,6 +8,8 @@
 
 ## Fleet installer refresh
 
+Node/account labels below are illustrative; field-evidence labels are anonymized.
+
 The [bootstrap procedure](deploy/bootstrap/README.md) refreshes an existing
 rootful Quadlet while preserving its image. Pass each node's config explicitly:
 test-node-3 `/etc/brrdfeeder/config.yaml`, test-node-1

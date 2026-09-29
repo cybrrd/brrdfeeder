@@ -1,6 +1,9 @@
 BRRDfeeder bootstrap kit manifest
 =================================
 
+Historical provenance only: account and host labels are anonymized. Artifact
+hashes refer to the original archived bytes, not the current edited source tree.
+
 CURRENT KIT — 2026-09-18 D11 build
 ----------------------------------
 Archive:      brrdfeeder-bootstrap-kit-fcd232e2096a.tar.gz

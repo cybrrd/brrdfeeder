@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Wave 6.5 Green Protocol — 1 Hz AirspaceState tick publisher.
 //!
-//! Design decision 2026-06-04 (the development team and reviewers). The test-node-2 emits
+//! Design decision 2026-06-04 (the development team and reviewers). Each sensor emits
 //! one batched AirspaceState envelope per second on
 //! `cybrrd.green.airspace.<node_id>`, carrying all drones observed in
 //! the current tick window. Parallel-path to the existing per-frame
@@ -18,7 +18,7 @@
 //!    reliability (TCP); we don't double up at the app layer.
 //!
 //! 2. **The metronome never goes silent.** Every 1000 ms a tick fires.
-//!    If the test-node-2 observed no drones in that window, the envelope's
+//!    If the sensor observed no drones in that window, the envelope's
 //!    `drones` array is empty. Empty IS substrate-truth — "I am alive,
 //!    nothing in airspace this second." Distinct from a missing tick
 //!    (network outage / engine crash); consumers detect those via
@@ -91,8 +91,8 @@ const SUBJECT_PREFIX: &str = "cybrrd.green.airspace";
 const ENVELOPE_VERSION: &str = "2.0";
 
 /// Maximum age of an observation before it's pruned from the store.
-/// Mirrors the approved 10 s stale threshold (2× test-node-2
-/// heartbeat) from the reviewer directive 2026-06-04. Phase 3 will surface
+/// Mirrors the approved 10 s stale threshold (2× the default sensor
+/// heartbeat) from the design review on 2026-06-04. Phase 3 will surface
 /// `position_state="stale"` for observations approaching this; Phase 1
 /// silently prunes.
 const STALE_THRESHOLD_MS: u64 = 10_000;
@@ -306,7 +306,7 @@ pub async fn run_tick_publisher(
         tick_seq = tick_seq.saturating_add(1);
         let now_ms = system_time_ms();
 
-        // Snapshot the test-node-2's current witness identity. Live GPS
+        // Snapshot the sensor's current witness identity. Live GPS
         // fix when fresh, config-static otherwise. Wave 7.4 attestation
         // ride-along.
         let (node_location, edge_certainty) =
@@ -369,7 +369,7 @@ fn system_time_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// Resolve the test-node-2's witness location for this tick. Live GPS
+/// Resolve the sensor's witness location for this tick. Live GPS
 /// when fresh; falls back to static config when GPS is stale or
 /// absent. Mirrors `capture.rs::stamp_node_with_gps` semantics so the
 /// per-frame audit envelope and the AirspaceState envelope agree on

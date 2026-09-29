@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[5]
 # Initial character classes keep the policy's regex definitions distinct from
 # actual prose. Product examples and the cyclic scheduling term are not people.
 PATTERN = re.compile(r"(?<!\w)(?:[s]ynth|[c]y|[j]amie|[k]imi|[c]odex|[g]lm|[g]emini|"
-    r"[c]airn|[t]ally|[f]athom|[c]olophon|[c]rucible|[c]laude(?! Code CLI)|"
+    r"[c]airn|[t]ally|[f]athom|[c]olophon|[c]rucible|[c]laude(?! Code CLI\b)|"
     r"[t]yler|[e]ric|[s]agan|[s]aker|(?<!round-)[r]obin|[c]ardinal|[c]athartes|"
     r"the [p]ack|[p]ack-(?:consensus|canonical|ratified)|#185 [D]rop 2|"
     r"BRRDfeeder [O]pen tier)\b", re.I)

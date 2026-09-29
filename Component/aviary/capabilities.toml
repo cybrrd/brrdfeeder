@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
+# Field-node labels in historical evidence notes are anonymized.
 # aviary — consolidated capability manifest
 #
 # Executable Contracts binding (pack-stack docs/metasystem/executable-contracts.md).

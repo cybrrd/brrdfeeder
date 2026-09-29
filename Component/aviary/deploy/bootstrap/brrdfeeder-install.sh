@@ -37,9 +37,8 @@ fi
 # Idempotency: safe to re-run. Each step checks state before mutation.
 #
 # Usage:
-#   sudo bash /home/operator/brrdfeeder-install.sh           # apply
-#   sudo bash /home/operator/brrdfeeder-install.sh --dry-run # plan-only
-#   sudo bash /home/operator/brrdfeeder-install.sh --verify  # check state only
+#   sudo BRRDFEEDER_LEGACY_USER=operator bash brrdfeeder-install.sh
+#   Add --dry-run to preview or --verify to inspect without changes.
 
 set -euo pipefail
 
@@ -53,7 +52,10 @@ TARGET_USER=${BRRDFEEDER_LEGACY_USER:-}
   echo 'FATAL: set BRRDFEEDER_LEGACY_USER to an existing non-root operator account.' >&2
   exit 2
 }
-TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6) || {
+  echo 'FATAL: selected legacy operator account does not exist.' >&2
+  exit 2
+}
 [[ $TARGET_HOME =~ ^/home/[a-z_][a-z0-9_-]*$ ]] || {
   echo 'FATAL: legacy account must have a dedicated /home/<account> directory.' >&2
   exit 2
@@ -1137,7 +1139,7 @@ gate "Automatic startup"
 say "user-linger is ON, unit is enabled for default.target. The engine will"
 say "auto-start on reboot via systemd --user with Restart=always."
 say "To inspect: run systemctl --user status brrdfeeder-engine.service in the $TARGET_USER session."
-say "To re-run this script safely (idempotent): sudo bash $0"
-say "To verify state without changes:           sudo bash $0 --verify"
+say "To re-run: sudo BRRDFEEDER_LEGACY_USER=$TARGET_USER bash $0"
+say "To verify: sudo BRRDFEEDER_LEGACY_USER=$TARGET_USER bash $0 --verify"
 say
 say "Device naming and automatic service startup are configured."

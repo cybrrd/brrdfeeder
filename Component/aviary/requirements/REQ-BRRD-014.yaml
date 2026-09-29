@@ -40,7 +40,7 @@ note: >-
 provenance:
   decided: "2026-09-15 — implementation proposed under the development team dispatch, the release approver T1 review pending"
   witness: "the release approver field run + the development team node logs recorded 2026-09-17; D1 performs no node contact"
-  evidence: "governance/reviews/2026-09-17-amazon-mk30-rid/ (repo root), FINDING.md, papillion-session-count.txt and papillion-session-frames-2026-09-17.jsonl"
+  evidence: "Private field evidence retained under governance/reviews/2026-09-17-amazon-mk30-rid/: findings, session counts and decoded frames. These records are not part of the public cut."
 references:
   - "REQ-BRRD-003, REQ-BRRD-004, REQ-BRRD-005, REQ-BRRD-006, REQ-BRRD-011"
   - "docs/decisions/0005-rid-ble-ingest-path.md"

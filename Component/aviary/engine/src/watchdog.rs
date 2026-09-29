@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────
 //   The 2026-05-13 Alfa cable-bump lesson.
 //
-//   the release approver bumped the Alfa's USB cable while clearing the table for CM5
+//   An operator bumped the Alfa's USB cable while clearing the table for CM5
 //   programming. The driver hit a `-71 EPROTO` error storm, the
 //   device de-registered, the kernel re-enumerated it — and it came
 //   back in `managed` mode (the default), not `monitor` mode, with a

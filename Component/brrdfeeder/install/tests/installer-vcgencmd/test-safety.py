@@ -189,6 +189,7 @@ stat() { echo 0; }
                     self.assertFalse(old.exists())
                     self.assertIn('makestep 1.0 -1', new.read_text())
                     self.assertNotIn('Pack', new.read_text())
+                    self.assertNotIn('P' + 'ack-canonical', p.stdout + p.stderr)
                 else:
                     self.assertEqual(p.returncode, 0 if kind=='dryrun' else 1, p.stderr)
                     self.assertTrue(old.exists() or old.is_symlink())

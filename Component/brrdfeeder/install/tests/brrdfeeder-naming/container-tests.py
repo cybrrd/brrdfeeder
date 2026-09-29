@@ -85,6 +85,8 @@ class JournaldFixture(unittest.TestCase):
         path.write_text(content); path.chmod(0o644)
     def record(self,name,result):
         (OUT/name).write_text(f'argv: {result.args}\nrc: {result.returncode}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}\n')
+        for marker in ('BRRDfeeder ' + 'Open tier', 'P' + 'ack-canonical', '#185 ' + 'Drop 2'):
+            self.assertNotIn(marker, result.stdout + result.stderr)
 
 class UninstallPlan(JournaldFixture):
     def plan(self):

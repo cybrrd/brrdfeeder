@@ -128,6 +128,7 @@ for group in groups:
         for name in ('run-go-proofs','run-rework-proofs','run-rust-proofs'):
             run(name,[sys.executable,RELEASE/'tests'/(name+'.py')],timeout=3600)
     elif group == 'containers':
+        run('ownership-image-packaging',[sys.executable,HERE/'ownership/check-images.py'])
         image = os.environ.get('TEST_OS_IMAGE')
         if not image:
             p.error('containers requires TEST_OS_IMAGE: an immutable, prebuilt disposable OS fixture')

@@ -1,0 +1,59 @@
+id: REQ-BRRD-008
+title: Wi-Fi RID capture — channel plan and anti-fixation hop discipline
+statement: >-
+  WHILE the Hunter is capturing Wi-Fi Remote ID, it SHALL rotate across a
+  configured channel set on a TIMER, and a detected RID frame SHALL NOT
+  indefinitely defer rotation. Because the Wi-Fi Beacon transport is legally
+  permitted on ANY 2.4 GHz channel (2400-2483 MHz) OR ANY 5 GHz channel
+  (5150-5895 MHz), the channel set SHALL span the full supported 2.4 GHz (ch 1-13)
+  and configured 5 GHz (ch 36-165) ranges, and SHALL NOT be narrowed to 1/6/11.
+  Channel 6 (2.437 GHz — NAN-mandated + Beacon social) and channel 149 (5.745 GHz
+  — NAN-optional + Beacon social) SHALL be the cf-dominant priority, implemented
+  as revisit-interleave, NOT extended dwell. Lock-on (gluing to a channel after a
+  RID frame) SHALL be DISABLED by default; WHEN enabled it SHALL be hard-capped AND
+  budget-released. channel_set, per-channel dwell, revisit weighting, and mode
+  SHALL be soft configuration.
+rationale: >-
+  Field regression: early BRRDfeeders locked onto a channel on first contact and
+  went deaf to other channels (attention capture). The channel-table research
+  (F3411-22a, primary source) settles the design: NAN is pinned to ch6/ch149
+  (§5.4.8.6 BWF0090), but the Wi-Fi Beacon transport may sit on ANY channel across
+  the full 2.4 and 5 GHz bands (§5.4.9.3 BWFB0030) — so a ch6- or 1/6/11-only
+  schedule would go blind to most Beacon-only aircraft. The standard itself hops
+  the BT5 secondary channel for entropy on the transmit side ((curr+9)%36,
+  BB50080), so a fixating receiver is strictly worse than the emitter.
+  Revisit-interleave beats long dwell: it favours the social channels (ch6 NAN
+  ~1 Hz) while bounding the max blind-gap on every other channel — the Beacon
+  band-sweep emits at <=200 TU (~5 Hz), so a short dwell catches it per visit.
+  Multiple phased feeders (REQ-BRRD-004) raise capture probability without any
+  single node fixating.
+binds:
+  - "engine/src/hunter.rs (HunterConfig: channel_set / dwell_default / dwell_priority / priority_channels; lock_on_duration=0 default)"
+  - "engine/src/nl80211.rs (set_channel; supported 2.4 ch1-14 + 5 GHz UNII bands)"
+verify:
+  - >-
+    PENDING (assay): with a bench RID emitter, confirm the Hunter never defers
+    rotation beyond the configured cap on continuous frames; confirm the ch6 revisit
+    gap < 1s in cf-dominant; confirm a Beacon-only emitter on an ARBITRARY 5 GHz
+    channel (not a priority channel) is still captured within one full sweep. Prove
+    lock_on=0 disables deferral (revert to show the check bites) before a pass counts.
+status: open
+references:
+  - "ASTM F3411-22a §5.4.1.1-5.4.1.4 — the four broadcast transports (BT Legacy, BT5 Long Range, Wi-Fi NAN, Wi-Fi Beacon = vendor IE in the SSID beacon frame) [quoted first-hand from full -22a, 2026-07-21]"
+  - "ASTM F3411-22a §5.4.6.2 / Fig.4 (BB40010) — BT Legacy advertising channels 37/38/39 (2402-2480 MHz); Wi-Fi 1/6/11 are the non-overlapping router defaults, not a RID constraint"
+  - "ASTM F3411-22a §5.4.7 (BB50010/20/30/40) — BT5 LR: Legacy ADV_NONCONN_IND + Extended ADV_EXT_IND/AUX_ADV_IND; LE Coded S=8; Extended must accompany Legacy"
+  - "ASTM F3411-22a §5.4.7.5 Table 16 (BB50080) — BT5 secondary channel = (Current Channel + 9) % 36, hopped 'to ensure some entropy... minimize the effects of external interference'; Aux PHY 010 = LE Coded"
+  - "ASTM F3411-22a §5.4.8.6 (BWF0090) — Wi-Fi NAN: ch6 (2.437 GHz) mandatory, ch149 (5.745 GHz) optional. NOTE: -22a appears to drop the -19 'operate ONLY' qualifier (zoom-verify pending; immaterial since Beacon spans all channels). NAN static Cluster ID 50-6F-9A-01-00-FF, Master Pref 0xFE, Random 0xEA (BWF0050/70/80) — set so multiple receivers can receive in parallel"
+  - "ASTM F3411-22a §5.4.9.3 (BWFB0030/40/50/60) — Wi-Fi Beacon: (a) ANY 2.4 GHz ch 2400-2483 (<=200 TU); (b) ANY 5 GHz ch 5150-5895 (<=200 TU); (c) OR social ch6/ch149 at the dynamic update rate. Vendor IE 221, OUI FA-0B-BC (ASD-STAN), Vendor Type 0x0D"
+  - "opendroneid/receiver-android, cyber-defence-campus/RemoteIDReceiver — continuous configurable-dwell scan (leading practice)"
+provenance:
+  decided: "2026-07-21 (Cy — item-1 scan discipline; ratified after full F3411-22a channel-table research this session)"
+  witness: "Cy + Synth"
+  evidence: >-
+    Design agreed (cf-dominant via revisit-interleave, lock-on disabled by default,
+    timer-driven rotation). Full ASTM F3411-22a acquired 2026-07-21 and the RF
+    channel clauses (§5.4.6-5.4.9) quoted first-hand — superseding the -19 interim
+    citations and CLOSING the buy-and-review task. Research surfaced that Wi-Fi
+    Beacon is legal on the full 2.4 + 5 GHz bands (§5.4.9.3), correcting an earlier
+    narrowing to 1/6/11. Mode presets map onto the existing but unwired HunterConfig
+    knobs. See pack memory project_blubrrd + the ingest-turbine design.

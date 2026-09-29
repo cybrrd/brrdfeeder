@@ -1,0 +1,46 @@
+id: REQ-BRRD-013
+title: Bluetooth Remote ID de-framing conforms to F3411 BB4/BB5
+statement: >-
+  WHEN bluetooth4_legacy or bluetooth5_long_range AD data carries service UUID
+  0xFFFA and application code 0x0D, the host SHALL de-frame its counter and ODID
+  payload through the same core decoder as Wi-Fi; it SHALL reject bad signatures,
+  incomplete payloads and BLE packs exceeding nine messages, and preserve
+  optional transport and message-counter metadata in canonical telemetry.
+rationale: >-
+  REQ-BRRD-006 prohibits a second source-specific ODID decoder. This bound
+  contract concerns de-framing, not RF passivity, Coded S=8 or timing certification.
+binds:
+  - "cybrrd-rid-core/src/lib.rs"
+  - "cybrrd-rid-protocol/src/ble.rs"
+  - "cybrrd-rid-protocol/src/models.rs"
+  - "capabilities.toml::rid_transport.bluetooth4_legacy"
+  - "capabilities.toml::rid_transport.bluetooth5_long_range"
+verify:
+  - "cybrrd-rid-protocol::ble::tests::verify_bb40030_legacy_ad_structure"
+  - "cybrrd-rid-protocol::ble::tests::verify_bb40030_rejects_wrong_uuid_or_appcode"
+  - "cybrrd-rid-protocol::ble::tests::verify_bb50110_secondary_pack_decodes"
+  - "cybrrd-rid-protocol::ble::tests::verify_bb50120_pack_max_nine"
+  - "cybrrd-rid-protocol::ble::tests::verify_bur0050_message_counter_surfaces"
+  - "cybrrd-rid-protocol::ble::tests::verify_bb50030_lr_vector_decodes"
+status: open
+status_note: >-
+  2026-09-19 (Synth) — corrected from `bound` to `open`, and the original claim is
+  left on record here rather than erased. `requirements/README.md` defines `bound`
+  as "code binding + automated CI verification both in place and passing", and
+  `open` as "statement ratified; code binding or automated verification
+  incomplete". The code binding is in place; the automated half is not, and never
+  was in this repository. CYB1 runs no CI that executes these tests — the component
+  workflow files sit under `Component/*/.github/workflows/`, a path Gitea Actions
+  does not read, and the README's own `contract-trace` check is still marked
+  "(planned)". `open` is the table's own term for exactly this state, so this is a
+  correction of a mis-stated claim, not a downgrade of the work. Any manual
+  verification evidence is cited under `provenance`. Restoring `bound` honestly
+  requires all three of: the root workflow carried on
+  `chore/toolchain-pinning-2026-09-18` (register C-1), the build-home decision
+  (register C-2), and a `contract-trace` check that fails the build.
+provenance:
+  decided: "2026-09-15 — Synth dispatch, authorized by Cy"
+  witness: "Local protocol pulses in governance/reviews/2026-09-15-rid-ble-REPORT.md"
+references:
+  - "F3411 corpus: BB40030, BB50030, BB50110, BB50120, BUR0050"
+  - "REQ-BRRD-006; ADR 0005"

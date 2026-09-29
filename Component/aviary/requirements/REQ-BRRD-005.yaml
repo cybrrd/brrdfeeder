@@ -1,0 +1,31 @@
+id: REQ-BRRD-005
+title: Every observation is locally durable before the uplink — no sole-holder, no silent loss
+statement: >-
+  WHEN the ingest service accepts a CRC-verified observation, it SHALL persist it
+  to a local durable spool (the source of truth) independent of the NATS JetStream
+  uplink. WHILE the uplink is unavailable, the service SHALL retain observations
+  locally and SHALL drain them to the uplink on reconnect. The service SHALL NOT
+  drop an observation silently; any dropped observation SHALL be counted and the
+  count exposed as a metric.
+rationale: >-
+  No observation may be sole-held by a link that can wedge. NATS flush() reports
+  success for ~60s into a black-hole; a wedge is detected via connection_state(),
+  not flush(). Local-durable = truth, NATS = projection — the git-truth /
+  DB-projection doctrine at the sensor edge, and the evidentiary rule that forbids
+  silent evidence loss. Measurable loss, never silent loss (same principle as the
+  L2 sequence counter).
+binds:
+  - "L5 sensor-bridge daemon (UNBUILT): local spool/WAL + JetStream publisher with reconnect-drain + drop counter"
+verify:
+  - >-
+    PENDING (assay): sever NATS mid-stream; confirm observations persist to the
+    local spool with zero silent loss, drain (deduplicated by message-id) on
+    reconnect, and that the drop counter is exposed as a metric. Prove the check
+    can fail (block the spool path) before trusting a pass.
+status: open
+provenance:
+  decided: "2026-07-21 (Cy — multi-source RID ingest design; fork 3 ratified this session)"
+  witness: "Cy + Synth"
+  evidence: >-
+    Ratified in discussion, not yet built. Same L5 daemon as REQ-BRRD-004/006.
+    Anchors: NATS flush-wedge lesson; the-one-rule (no store the sole holder).

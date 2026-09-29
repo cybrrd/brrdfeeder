@@ -1,0 +1,28 @@
+{{define "status"}}
+<section class="engine {{if .Live}}healthy{{else}}offline{{end}}" data-engine-state="{{if .Live}}healthy{{else}}offline{{end}}"{{if .Live}} data-engine-written-at="{{.Status.WrittenAt.Format "2006-01-02T15:04:05.999999999Z07:00"}}"{{end}}>
+<div><p class="eyebrow">ENGINE</p><h2>{{if .Live}}Engine running{{else}}Offline · Status unavailable{{end}}</h2><p>{{.Reason}}</p></div>
+<div class="stamp"><span>{{if .Live}}Recent report{{else}}No current report{{end}}</span><p>Checked {{.Checked}}</p>{{if .Age}}<p>Report age {{.Age}} · budget {{.Budget}} seconds</p>{{end}}</div>
+</section>
+<section class="repairs"><h2>Needs attention <span class="count">{{len .Repairs}}</span></h2>{{if .Repairs}}<ul>{{range .Repairs}}<li><h3>{{.Problem}}</h3><p>{{.Action}}</p></li>{{end}}</ul>{{else}}<p>No issues detected in the current report. Radio activity does not establish drone detection.</p>{{end}}</section>
+{{with .StartupGPS}}<section class="card gps-card" data-gps-rating="{{$.GPSRating}}"><p class="eyebrow">POSITION · GPS receiver observations</p><h2>GPS: {{$.GPSRating}}</h2><p>{{$.GPSActivity}}</p>{{if ne $.GPSRating "Good"}}<p class="notice">{{$.GPSPlacement}}</p>{{end}}<p>At the last waiter report; not an engine heartbeat. Unknown means not received recently.</p><dl>
+<dt>Satellites used</dt><dd>{{if .SatellitesUsed}}{{.SatellitesUsed}}{{else}}Unknown{{end}}</dd>
+<dt>Satellites in view</dt><dd>{{if .SatellitesView}}{{.SatellitesView}}{{else}}Unknown{{end}}</dd>
+<dt>Fix quality</dt><dd>{{if .Quality}}{{.Quality}}{{else}}Unknown{{end}}</dd>
+<dt>HDOP</dt><dd>Not reported by this waiter version</dd>
+<dt>Fix mode</dt><dd>{{if .Mode}}{{.Mode}}{{else}}Unknown{{end}}</dd>
+<dt>Maximum SNR</dt><dd>{{if .MaxSNR}}{{.MaxSNR}} dB-Hz{{else}}Unknown{{end}}</dd>
+<dt>Average SNR</dt><dd>{{if .AvgSNR}}{{.AvgSNR}} dB-Hz{{else}}Unknown{{end}}</dd>
+<dt>Last valid NMEA age</dt><dd>{{if .NMEAAge}}{{.NMEAAge}} seconds at report{{else}}Unknown (no valid sentence received){{end}}</dd>
+</dl><p>Quality 0 means no fix; modes 1/2/3 mean no fix / 2D / 3D. Satellites in view without a fix means the receiver sees satellites but has not locked. An increasing NMEA age means the receiver is no longer reporting valid sentences. SNR uses reported values from complete satellite-view cycles, not blank readings.</p></section>{{end}}
+{{if .Live}}
+<div class="grid">
+<section class="card"><p class="eyebrow">RADIOS</p><h2>{{.Radio}}</h2>
+{{range .Status.Inventory.Capture}}<dl><dt>Interface</dt><dd>{{.Interface}}</dd><dt>Driver</dt><dd>{{if .Driver}}{{.Driver}}{{else}}Not reported{{end}}</dd><dt>Monitor capture</dt><dd>{{if .Monitor}}{{if deref .Monitor}}Confirmed{{else}}Not active{{end}}{{else}}Not reported{{end}}</dd><dt>Channel</dt><dd>{{if .Channel}}{{.Channel}}{{else}}Not reported{{end}}</dd></dl>{{else}}<p>No capture interface reported.</p>{{end}}
+<h3>Bluetooth</h3><p>RID.BLE state: {{.BLE}}</p><p>Radio block: {{.RFKill}}</p>{{if .RFKillObserved}}<p class="muted">Current block state observed {{.RFKillObserved}}.</p>{{end}}{{with .Status.Inventory.BLE}}<dl><dt>Address</dt><dd>{{.Address}}</dd><dt>USB device</dt><dd>{{if .USB}}{{.USB}}{{else}}Not reported{{end}}</dd><dt>Inventory observed</dt><dd>{{.Observed}}</dd></dl>{{with .Rfkill}}<p class="muted">Historical block observation: {{if or .Soft .Hard}}blocked{{else}}not blocked{{end}} at {{.Observed}}. This history does not describe the current radio state or raise an attention item.</p>{{end}}{{else}}<p>Inventory not reported</p>{{end}}</section>
+<section class="card gps-card" data-gps-rating="{{.GPSRating}}"><p class="eyebrow">POSITION</p><h2>GPS: {{.GPSRating}}</h2><p>{{.GPSActivity}}</p>{{if ne .GPSRating "Good"}}<p class="notice">{{.GPSPlacement}}</p>{{end}}<dl>{{with .Status.Inventory.GPS}}<dt>GPS device path</dt><dd>{{.Device}}</dd><dt>Satellites used</dt><dd>{{if .Satellites}}{{.Satellites}}{{else}}Not reported{{end}}</dd><dt>HDOP</dt><dd>{{if .HDOP}}{{.HDOP}}{{else}}Not reported or invalid{{end}}</dd><dt>Fix quality</dt><dd>{{if .Quality}}{{.Quality}}{{else}}Not reported{{end}}</dd>{{else}}<dt>Satellites used / HDOP / fix quality</dt><dd>Not reported</dd>{{end}}<dt>Satellites in view / per-satellite SNR</dt><dd>not reported by this engine version</dd></dl><p>Fix quality 0 means no fix; positive values describe the receiver's fix type.</p></section>
+<section class="card"><p class="eyebrow">CONNECTION</p><h2>{{.NATS}}</h2><p>The engine's connection to its messaging service (NATS).</p><dl><dt>Last successful publish</dt><dd>{{if .Status.Links.Published}}{{.Status.Links.Published}}{{else}}None reported{{end}}</dd></dl></section>
+<section class="card"><p class="eyebrow">FRAME ACTIVITY</p><h2>{{.Status.Links.Frames}} <small>in the last hour</small></h2><p>Raw capture packets and Bluetooth reports. These are not counts of drones or delivered messages.</p><dl><dt>Last activity</dt><dd>{{if .Status.Links.LastFrame}}{{.Status.Links.LastFrame}}{{else}}None reported{{end}}</dd></dl></section>
+</div>
+<section class="software"><h2>Reported software</h2><dl><dt>Engine version</dt><dd>{{if .Status.Heartbeat.Version}}{{.Status.Heartbeat.Version}}{{else}}Not reported{{end}}</dd><dt>Image digest</dt><dd>{{if .Status.Heartbeat.Digest}}{{.Status.Heartbeat.Digest}}{{else}}Not reported{{end}}</dd></dl><p class="muted">Values reported by the engine; this page does not verify the installed image.</p></section>
+{{else}}<section class="card"><h2>Live details unavailable</h2><p>Radio, GPS, connection, frame activity and software details will return when a valid, current engine report is available.</p></section>{{end}}
+{{end}}

@@ -1,0 +1,15 @@
+[package]
+name = "cybrrd-rid-protocol"
+version = "0.3.0"
+edition = "2021"
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+# The no_std/heapless decode core (#168 Option B). This crate is the std/serde
+# wrapper: it owns the JSON wire types and adapts the core's heapless output.
+cybrrd-rid-core = { path = "../cybrrd-rid-core" }
+
+[dev-dependencies]
+serde_json = "1.0"

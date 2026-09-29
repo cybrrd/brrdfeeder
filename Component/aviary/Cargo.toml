@@ -1,0 +1,41 @@
+# Top-level workspace manifest for the BRRDfeeder Rust source tree.
+#
+# Master repository: github.com/cybrrd/brrdfeeder
+# Platform exports:  github.com/cybrrd/brrdfeeder    (RPi 4/5 + CM4/CM5 hobbyist)
+#                    github.com/cybrrd/brrdfeeder-standard (CM4/CM5 commercial)
+#                    github.com/cybrrd/brrdfeeder-lite     (ESP32-S3, NOT this workspace)
+#
+# Lite is intentionally excluded — ESP32-S3 firmware is a different
+# substrate (no Podman, native flash, embedded toolchain) and lives
+# in its own repo.
+
+[workspace]
+resolver = "2"
+members = [
+    "engine",
+    "cybrrd-rid-core",
+    "cybrrd-rid-protocol",
+]
+# `orchestrator` retired 2026-07-18 (edge-beta Increment 0 / Executable Contracts spec §8):
+# it was the customer install ritual, superseded by the handbook path
+# (brrdfeeder-install.sh + Device-Flow enrolment per provisioning.md), and its presence
+# contradicted capabilities.toml. Archived — not deleted — at archive/orchestrator/.
+# Excluded so cargo never treats the archived crate as an ambiguous workspace member.
+exclude = ["archive/*", "fuzz"]
+
+[workspace.package]
+authors = ["Macawi AI Pack <pack@macawi.ai>"]
+edition = "2021"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/cybrrd/brrdfeeder"
+rust-version = "1.88"
+
+# Release profile — optimized for ARM64 edge nodes (Pi 4/5, CM4/CM5).
+# LTO on, single codegen unit, panic=abort for smaller binary + cleaner
+# crash semantics on the edge.
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

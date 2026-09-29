@@ -1,0 +1,43 @@
+id: REQ-BRRD-012
+title: Local monitor plane — a per-node rim consumer serving the operator console
+statement: >-
+  Each BRRDfeeder node SHALL run a local monitor plane as its own rootless Podman
+  container — a LOCAL rim consumer of the node's Tier-0 NATS — serving an operator
+  management console over local HTTPS with authentication. The console SHALL present,
+  at minimum, a status pane listing each connected node (system name + id) with its
+  per-level status: L2 bus connectivity, L3 stream activity expressed as a FLOW RATE,
+  L4 payload, and L5 session/credential state where applicable — plus the bound device
+  port (udev symlink). The monitor plane SHALL consume locally and SHALL render local
+  status WITHOUT requiring upstream/membrane connectivity.
+rationale: >-
+  The operator (customer) must see local sensor health authoritatively, without
+  depending on the metasystem being reachable. A local rim consumer of the same
+  one-publisher Tier-0 stream keeps the publisher single-destination (MACAWI-T2-NAT-001
+  §4 locality) while giving the operator legible local visibility; per T1 only rim
+  consumers deserialize the EcologeeEnvelope, and this is one. Flow rate (not raw
+  status) is the chosen L3 health signal because it shows "pressure" — a stalled stream
+  is visible as falling flow before it is fully down. Offline-capable-by-design: the
+  edge stays legible even when the membrane is severed.
+binds:
+  - "deploy/quadlets (UNBUILT): monitor-plane.container — rootless Podman, local HTTPS + auth"
+  - "monitor-plane console app (UNBUILT): Tier-0 NATS rim consumer; status pane (per-node L2-L5 + flow rate + bound port)"
+verify:
+  - >-
+    PENDING (assay): bring up the container; reach the console via local HTTPS + login;
+    confirm the status pane shows bluBRRD (id) and GPS with per-level L2-L5 state, flow
+    rates, and the bound port (/dev/cybrrd_*); sever the upstream membrane and confirm the
+    local console still renders live local status.
+status: open
+references:
+  - "MACAWI-T2-NAT-001 — T1 FedEx (rim consumers deserialize), §4 locality (raw liveness edge-local)"
+  - "REQ-BRRD-011 (the health signals it consumes), REQ-BRRD-001 (udev-stable bound port shown in the pane)"
+  - "bluBRRD L1-L5 levels (pack memory project_blubrrd); ECOLOGEE E-VSM Color Protocol"
+  - "Layout inspiration (interface deferred): Wiki.js console (left narrow nav), Claude Code site, Zeek.org"
+notes: "Interface design deliberately deferred (Cy) — this REQ governs the plane's existence, locality, and the status-pane data contract, not the visual design."
+provenance:
+  decided: "2026-07-22 (Cy — the local monitor plane; shape confirmed this session)"
+  witness: "Cy + Synth"
+  evidence: >-
+    New component. A local rim consumer of the one-publisher Tier-0 stream (Cy: 'keeps our
+    publisher writing to just one destination'). Design captured in pack memory
+    project_brrdfeeder_monitor_plane. See ADR-0003.

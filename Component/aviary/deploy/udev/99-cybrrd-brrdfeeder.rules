@@ -1,0 +1,9 @@
+# cyBRRD BRRDfeeder substrate-stable device naming.
+# u-blox 7 GPS / GNSS receiver
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1546", ATTRS{idProduct}=="01a7", SYMLINK+="cybrrd_gps", GROUP="dialout", MODE="0660"
+# Nordic Semiconductor nRF52 Connectivity (BLE) — optional
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1915", ATTRS{idProduct}=="c00a", SYMLINK+="cybrrd_ble", GROUP="dialout", MODE="0660"
+
+# Dedicated feeder only: permits the configured opt-in targeted HCI unblock.
+# Alternative: bluetooth group + matching supplemental group in the Quadlet.
+KERNEL=="rfkill", SUBSYSTEM=="misc", GROUP="dialout", MODE="0660"

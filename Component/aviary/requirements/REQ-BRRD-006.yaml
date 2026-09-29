@@ -1,0 +1,29 @@
+id: REQ-BRRD-006
+title: One host-side OpenDroneID decoder — every source emits raw ODID
+statement: >-
+  WHEN a source reader (Wi-Fi capture or the bluBRRD/BLE reader) emits an
+  observation, it SHALL emit the raw OpenDroneID message bytes undecoded, plus
+  transport metadata, and a single host-side OpenDroneID decoder in the ingest
+  shaft SHALL decode every source. A source reader SHALL NOT implement its own
+  OpenDroneID decoding.
+rationale: >-
+  The OpenDroneID message is identical across all four broadcast transports
+  (ASTM F3411). Converging every reader at the raw-ODID byte boundary yields one
+  decode codebase — one place to fix an ODID defect and one behaviour to keep
+  bit-exact for reproducibility (a Daubert challenge probes decode determinism).
+  Divergent per-transport decoders are exactly how the Wi-Fi and BLE paths drift
+  silently. bluBRRD's L4 record already ships raw odid_msg[25].
+binds:
+  - "L5 ingest shaft (UNBUILT): single OpenDroneID decoder (opendroneid-core-c or equivalent); Wi-Fi + bluBRRD readers emit raw ODID"
+verify:
+  - >-
+    PENDING (assay): feed byte-identical raw ODID via the Wi-Fi and BLE paths and
+    confirm byte-identical decoded output from the single decoder; scan the source
+    tree and confirm exactly one ODID decode implementation exists.
+status: open
+provenance:
+  decided: "2026-07-21 (Cy — multi-source RID ingest design; fork 4 ratified this session)"
+  witness: "Cy + Synth"
+  evidence: >-
+    Ratified in discussion, not yet built. Convergence point defined by the
+    bluBRRD L4 record (raw odid_msg[25]); see pack memory 'project_blubrrd'.

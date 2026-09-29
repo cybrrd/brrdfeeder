@@ -1,0 +1,11 @@
+[Unit]
+Description=Separate BRRDfeeder host-updater poll timer
+
+[Timer]
+OnBootSec=7min
+OnUnitInactiveSec=15min
+RandomizedDelaySec=5min
+Unit=brrdfeeder-host-update.service
+
+[Install]
+WantedBy=timers.target

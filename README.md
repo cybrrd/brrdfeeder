@@ -1,0 +1,21 @@
+# BRRDfeeder
+
+[![Scorecard workflow](https://github.com/cybrrd/brrdfeeder/actions/workflows/scorecard.yml/badge.svg)](https://github.com/cybrrd/brrdfeeder/actions/workflows/scorecard.yml)
+
+BRRDfeeder receives Remote ID observations. This repository contains its engine,
+BRRDhouse local console, installer and update tooling.
+
+- [Engine](Component/aviary/README.md)
+- [Installer](Component/brrdfeeder/install/README.md)
+- [Console](Component/brrdhouse/README.md)
+- [Release workflow and maintainer setup](.github/RELEASING.md)
+- [Security reporting](SECURITY.md)
+- [Contribution policy](CONTRIBUTING.md)
+
+The Scorecard badge reports workflow status, not a numerical security rating.
+Detailed results go to GitHub code scanning. Outside contributions are not
+accepted, and public Issues and Discussions are disabled.
+
+Licensing is described in the component LICENSE files. Release approval and
+publishing a draft release remain maintainer actions; successful CI alone does
+not authorize a release.

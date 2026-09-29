@@ -1,0 +1,13 @@
+[Unit]
+# #185 Drop 2 successor: explicitly invoked signed release recovery, no watcher.
+Description=BRRDfeeder verified update, health gate and automatic rollback
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/brrdfeeder-updater.sh
+TimeoutStartSec=20min
+UMask=0077

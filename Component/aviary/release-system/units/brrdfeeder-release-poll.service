@@ -1,0 +1,10 @@
+[Unit]
+Description=BRRDfeeder release convergence and interrupted-update recovery
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/brrdfeeder-release-launch poll
+TimeoutStartSec=20min
+UMask=0077

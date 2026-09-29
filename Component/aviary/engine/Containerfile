@@ -1,0 +1,145 @@
+# syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+# Containerfile — brrdfeeder-engine
+#
+# Built by .github/workflows/build-container.yml via docker buildx with
+# qemu-binfmt for cross-architecture (x86 runner → arm64 image).
+#
+# Runtime image is debian-bookworm-slim with libpcap0.8 + ca-certificates.
+# The engine binary has cap_net_admin,cap_net_raw=ep set via setcap (file
+# capabilities are inherited on exec; ambient caps are NOT used because
+# the engine may run under either root or user-mode systemd).
+#
+# Image: ghcr.io/cybrrd/brrdfeeder:latest
+
+# ===========================================================================
+# Stage 1 — Build the Rust workspace (cross-compile from BUILDPLATFORM)
+# ===========================================================================
+FROM --platform=$BUILDPLATFORM docker.io/library/rust:1.88.0-slim-bookworm@sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca434cf21430d89 AS builder
+
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+ARG TARGETARCH
+
+# Native + cross toolchain. libpcap headers required at compile time for
+# the pcap-rs crate's bindgen step. When TARGETARCH != native, install
+# arm64-cross toolchain + multiarch libpcap-dev.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config \
+        clang \
+        libclang-dev \
+        ca-certificates \
+        gcc \
+        libpcap0.8-dev \
+    && dpkg --add-architecture arm64 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc-aarch64-linux-gnu \
+        libpcap0.8-dev:arm64 \
+    && rustup target add aarch64-unknown-linux-gnu \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+ENV PKG_CONFIG_ALLOW_CROSS=1
+ENV PKG_CONFIG_aarch64_unknown_linux_gnu=aarch64-linux-gnu-pkg-config
+
+# D39: exact tool release and its published Cargo.lock; builder-only tool.
+# The embedded .dep-v0 graph travels with the shipped executable.
+RUN cargo install cargo-auditable --version =0.7.0 --locked
+
+WORKDIR /src
+COPY . .
+
+# D33: builder inputs are bound into the binary; unknown/malformed values remain
+# absent. Runtime ENV and OCI labels cannot override these compiler inputs.
+ARG GIT_SHA=unknown
+ARG BUILD_SEQ=0
+# Build only the engine binary for arm64 (the workspace's runtime artifact).
+# Cargo will compile cybrrd-rid-protocol as a path-dep automatically.
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/target,sharing=locked \
+    BRRDFEEDER_BUILD_GIT_SHA="$GIT_SHA" BRRDFEEDER_BUILD_SEQUENCE="$BUILD_SEQ" cargo auditable build --locked --release \
+        --target aarch64-unknown-linux-gnu \
+        --package engine \
+    && cp target/aarch64-unknown-linux-gnu/release/engine /engine \
+    && cargo tree -p engine --locked --offline --target aarch64-unknown-linux-gnu --edges normal --prefix none --format '{p}' > /engine-runtime-tree.txt \
+    && cargo tree -p engine --locked --offline --target aarch64-unknown-linux-gnu --edges normal,build --prefix none --format '{p}' > /engine-build-tree.txt \
+    && cargo tree -p engine --locked --offline --edges normal --prefix none --format '{p}' > /engine-host-tree.txt \
+    && sed 's/^/D39_RUNTIME /' /engine-runtime-tree.txt \
+    && sed 's/^/D39_BUILD /' /engine-build-tree.txt \
+    && sed 's/^/D39_HOST /' /engine-host-tree.txt
+
+# ===========================================================================
+# Stage 2 — Runtime image (minimal Debian + libpcap)
+# ===========================================================================
+FROM --platform=linux/arm64 docker.io/library/debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
+
+# Runtime deps: libpcap0.8 for capture, ca-certs for TLS to ingest.cybrrd.com,
+# libcap2-bin for setcap, tzdata so the engine's UTC timestamps are clean.
+# D36: D35's byte comparison found exactly these three generated logs and
+# ldconfig's auxiliary cache differed with identical packages. Scrub in this
+# same layer; retain /etc/ld.so.cache (used by the runtime loader) and dpkg's
+# package database (the external SBOM input). No other logs are guessed away.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpcap0.8 \
+        ca-certificates \
+        libcap2-bin \
+        tzdata \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
+    && rm -f /var/log/apt/history.log /var/log/apt/term.log /var/log/dpkg.log \
+             /var/cache/ldconfig/aux-cache
+
+# Match host synth user (uid 1001, gid 20 dialout) so bind-mounted volumes
+# from the host (config.yaml ro, creds ro) align by UID under UserNS=keep-id.
+# K28 F-1: useradd embeds a day number in shadow. File-mtime clamping alone
+# cannot fix it. Require the helper's commit epoch, not the build's wall clock.
+ARG SOURCE_DATE_EPOCH
+RUN case "$SOURCE_DATE_EPOCH" in ''|*[!0-9]*) echo 'SOURCE_DATE_EPOCH must be a commit epoch' >&2; exit 64 ;; esac; \
+    (groupmod -g 20 dialout 2>/dev/null || groupadd -g 20 dialout || true) \
+    && SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" useradd -u 1001 -g 20 -M -s /usr/sbin/nologin -d /var/lib/brrdfeeder brrdfeeder \
+    && mkdir -p /etc/brrdfeeder/secrets /var/lib/brrdfeeder/capture \
+    && chown -R 1001:20 /etc/brrdfeeder/secrets /var/lib/brrdfeeder \
+    && chmod 0755 /etc/brrdfeeder/secrets
+
+COPY --from=builder /engine /usr/local/bin/brrdfeeder-engine
+# Same verifier/config parser, separate inode without file capabilities. Linux
+# rejects the capture binary under the updater's empty capability bounding set.
+COPY --from=builder /engine /usr/local/libexec/brrdfeeder-policy
+
+# File capabilities. cap_net_admin + cap_net_raw are probed at startup (Wave
+# 7.1 verify). cap_sys_time (#183) lets the engine step CLOCK_REALTIME from GPS
+# UTC on a no-RTC node — NOT a hard startup requirement (clock_discipline
+# degrades gracefully), but needed for the field clock-step; it also requires
+# the container bounding set to carry CAP_SYS_TIME (Quadlet AddCapability).
+RUN setcap cap_net_admin,cap_net_raw,cap_sys_time=ep /usr/local/bin/brrdfeeder-engine
+
+USER 1001:20
+
+# WORKDIR sets PWD for the engine. The engine's main.rs looks for
+# `config.yaml` in PWD (or `../config.yaml`). Bind-mounted host config
+# lands at /etc/brrdfeeder/config.yaml.
+WORKDIR /etc/brrdfeeder
+
+# OCI provenance labels (substrate-truth metadata)
+ARG GIT_SHA=unknown
+ARG GIT_REF=unknown
+ARG BUILD_DATE=unknown
+# Monotonic build_seq = 1000 + git rev-list --count HEAD (anti-downgrade axis).
+# Offset reserves private-history releases before the public snapshot; never lower it.
+# NOTE: no inline comment on the ARG line — Dockerfile parses it as a blank ARG name.
+ARG BUILD_SEQ=0
+LABEL org.opencontainers.image.source="https://github.com/cybrrd/brrdfeeder"
+LABEL org.opencontainers.image.revision="${GIT_SHA}"
+LABEL org.opencontainers.image.ref.name="${GIT_REF}"
+LABEL org.opencontainers.image.created="${BUILD_DATE}"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later"
+LABEL org.opencontainers.image.title="brrdfeeder-engine"
+
+# Labels remain build assertions for inventory; the engine uses binary-baked
+# metadata above, not runtime ENV. Image digest is supplied at container start.
+LABEL com.macawi.brrdfeeder.build_seq="${BUILD_SEQ}"
+LABEL org.opencontainers.image.description="cyBRRD BRRDfeeder edge engine — Anastomotic Reticulum + Bohr Spool + Green Protocol metronome"
+LABEL org.opencontainers.image.vendor="Macawi AI"
+LABEL org.opencontainers.image.documentation="https://github.com/cybrrd/brrdfeeder#readme"
+
+ENTRYPOINT ["/usr/local/bin/brrdfeeder-engine"]

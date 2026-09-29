@@ -1,0 +1,37 @@
+id: REQ-BRRD-010
+title: Every observation carries the signal-layer metadata upstream spoof-detection needs
+statement: >-
+  WHEN the feeder emits a Remote ID observation, it SHALL include, alongside the raw
+  ODID, the signal-layer provenance: RSSI, channel/frequency, PHY/transport, the
+  host-authoritative capture timestamp WITH its clock-provenance label
+  (GPS-disciplined vs free-running), the transmitter address (Wi-Fi TA / BLE
+  adv_addr), and the sensor identity. The feeder SHALL NOT drop these fields as a
+  payload-size optimization.
+rationale: >-
+  Spoof and replay detection is an upstream function (REQ-BRRD-004), and it depends
+  on exactly the signal-layer fields the attacks manipulate: the DroneScout CVEs
+  (2023-31191 / 29156) turn on channel + RSSI + MAC, and cross-sensor triangulation
+  needs RSSI + disciplined timestamp + sensor position. Stripping this metadata at
+  the edge would blind the metasystem to the very signatures that expose injection —
+  the same MAC on two channels, anomalous RSSI, impossible velocity across sensors.
+  This is the Kittler "attend to the trail, not just the message" posture made
+  concrete in the wire record.
+binds:
+  - "L5 ingest shaft (UNBUILT): observation schema fields (rssi, channel/freq, phy, captured_at + clock_source, tx_addr, sensor_id)"
+verify:
+  - >-
+    PENDING (assay): confirm every published observation (Wi-Fi and BLE) carries
+    RSSI, channel/freq, PHY, host capture-timestamp + clock-provenance label, tx
+    address, and sensor id; confirm none are omitted in the production binary payload.
+status: open
+references:
+  - "Nozomi Networks WP — CVE-2023-31191/29156 exploit channel+RSSI+MAC; detection needs them preserved (pack memory reference_nozomi_rid_spoofing)"
+  - "REQ-BRRD-004 (upstream correlation), REQ-BRRD-006 (raw ODID convergence), REQ-BRRD-009 (unauthenticated claim)"
+  - "bluBRRD L4 record { esp32_millis, phy, rssi, adv_addr, odid_msg[25] } — pack memory project_blubrrd"
+provenance:
+  decided: "2026-07-21 (Cy — Nozomi threat-model harvest; full proposal concurred this session)"
+  witness: "Cy + Synth"
+  evidence: >-
+    Ratified in discussion, not yet built. Companion of REQ-BRRD-009. The
+    host-authoritative + clock-provenance timestamp is the REQ carrying the bluBRRD
+    L4 timestamp discipline into the observation schema.

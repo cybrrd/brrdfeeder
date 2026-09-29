@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Reference contract only: the standard package installer renders this user service
+# from --console-image and --console-listen. No separate console install procedure.
+[Unit]
+Description=BRRDhouse read-only LAN status
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=ghcr.io/cybrrd/brrdhouse@sha256:RELEASE_DIGEST
+ContainerName=brrdhouse
+Network=host
+UserNS=keep-id:uid=65532,gid=65532
+User=65532:65532
+DropCapability=all
+NoNewPrivileges=true
+ReadOnly=true
+ReadOnlyTmpfs=false
+# Dedicated public status directory, NEVER the engine's credential/config dir.
+# The package installer executes the shipped provision-status.sh automatically.
+# Host owner must be the resolved brrdfeeder service UID/GID, directory mode 0755.
+# Mount the directory, not the file, so atomic replacements and unlink are seen.
+Pull=never
+Volume=/var/lib/brrdfeeder-status:/var/lib/brrdfeeder-status:ro
+Exec=--listen=LAN_IP:8080 --allowed-hosts=LAN_IP:8080,UNIT_HOSTNAME.local:8080 --status-file=/var/lib/brrdfeeder-status/status.json
+# The installer adds --memory=96m --memory-swap=96m ONLY after verifying
+# memory is available/writable in this user's delegated cgroup. Stock Pi hosts
+# may have no memory controller; unconditional Podman limits prevent startup.
+PodmanArgs=--pids-limit=64
+
+[Service]
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target

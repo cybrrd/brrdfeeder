@@ -1,0 +1,68 @@
+# config.yaml — BRRDfeeder mobile node template
+#
+# PLACEHOLDERS to customize before running brrdfeeder-install.sh:
+#   * node.id              — set to your mobile node identifier
+#   * capture.interface    — set to your physical Alfa monitor-mode iface
+#                            (run `ip -br link` to see the wlx* name;
+#                             auto-named by udev from the dongle MAC)
+#
+# node.location: lat=0 lon=0 is a placeholder, not a measured location.
+# The mobile feeder uses live GPS position after acquiring a fix.
+
+node:
+  # WHAT: atomic, public-readable local engine status (optional).
+  # WHY: ADR 0007 tier-1 console source; no listener or credentials.
+  # WHEN-to-tune: uncomment to enable; absent/null is OFF, path is the default.
+  # DEPENDS: existing trusted writable parent; console needs read/traverse access.
+  # status_file: /var/lib/brrdfeeder/status.json
+  # WHAT: mandatory status refresh cadence, in seconds (default 30).
+  # WHY: bound SD writes while keeping written_at fresh; important changes write early.
+  # WHEN-to-tune: lower for freshness, raise for SD wear; clamped to heartbeat interval.
+  # DEPENDS: status_file enabled; consumers MUST mark age > 3x effective interval stale.
+  # status_interval_secs: 30
+  id: "brrdfeeder-mobile-001"   # CUSTOMIZE: e.g. brrdfeeder-tacoma-001
+
+  # SKU tier — drives install-script hardening behavior.
+  #   "ephemeral"  = BRRDfeeder. Install script applies tmpfs/RAM
+  #                  hardening for MicroSD cards: journald Storage=volatile,
+  #                  /home/synth/capture/ mounted as 50M tmpfs, engine
+  #                  stdout via journald. Use this for any RPi-on-SD-card
+  #                  hobbyist deployment.
+  #   "persistent" = BRRDfeeder Standard/Commercial. Disk-backed logs,
+  #                  on-disk PCAP capture. Use for CM4/CM5/BPI-W3/eMMC/NVMe.
+  storage_class: "ephemeral"
+  # Engine accepts this installer-only key with a deprecation warning.
+
+  location:
+    latitude: 0.0               # GPS-live overrides; null-island fallback
+    longitude: 0.0
+    elevation_meters: 0
+
+capture:
+  # CUSTOMIZE: run `ip -br link` and substitute your wlx<mac> interface
+  interface: "wlxCHANGEME"
+  hunter:
+    enabled: true
+    lock_on_duration_ms: 2000
+    lock_on_min_ms: 500
+
+backhaul:
+  broker_urls:
+    - "tls://ingest.cybrrd.com:4222"
+  credentials_path: "/home/synth/secrets/brrdfeeder.creds"
+  target_subject: "cybrrd.telemetry.frame.rid"
+  # Deprecated for the engine: subject is derived; retained for old installer configs.
+
+tuning:
+  edge_processing:
+    deduplication_window_ms: 1000
+  heartbeat:
+    interval_secs: 5
+
+# Stable device naming installed by brrdfeeder-install.sh udev rules:
+sensors:
+  rid_ble:
+    # Installer persists Bluetooth soft-unblocked so USER-channel startup is deterministic after reboot.
+    unblock_rfkill: true
+  gps:
+    device: "/dev/cybrrd_gps"

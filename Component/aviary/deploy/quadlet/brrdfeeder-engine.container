@@ -1,0 +1,60 @@
+[Unit]
+Description=BRRDfeeder engine — non-root process, dedicated host radios
+After=network-online.target
+Wants=network-online.target
+# The BRRDfeeder installer owns this system timer. Wants is non-fatal on persistent
+# tiers but ensures a provisioned black box starts with the engine.
+After=brrdfeeder-blackbox.timer
+Wants=brrdfeeder-blackbox.timer
+
+[Container]
+# Operator replaces with the complete pinned image after cathartes proof.
+Image=localhost/brrdfeeder-engine:verified
+ContainerName=brrdfeeder-engine
+User=1001:20
+Network=host
+LogDriver=journald
+DropCapability=ALL
+AddCapability=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_TIME
+# Do NOT set NoNewPrivileges=true: exec must acquire the image's three file
+# capabilities. No ambient/all capabilities and no root user required.
+Volume=/etc/brrdfeeder/config.yaml:/etc/brrdfeeder/config.yaml:ro,Z
+Volume=/etc/brrdfeeder/secrets:/etc/brrdfeeder/secrets:ro,Z
+Volume=/var/lib/brrdfeeder:/var/lib/brrdfeeder:rw,Z
+AddDevice=/dev/cybrrd_gps:/dev/cybrrd_gps:rw
+# Remove this mapping if rfkill support is not provisioned. It does not enable
+# unblock: sensors.rid_ble.unblock_rfkill remains explicitly false by default.
+AddDevice=/dev/rfkill:/dev/rfkill:rw
+Environment=BRRDFEEDER_ENABLE_AIRSPACE_PUBLISHER=true
+# D33: only this startup's host-inspected container can supply image identity.
+# INVOCATION_ID is expanded by systemd in the generated podman command.
+# Declare the cidfile explicitly rather than inheriting it from the quadlet
+# generator. podman 5.4.2 emits --cidfile itself and this line is a PROVEN no-op
+# there (dry-run ExecStart is byte-identical with and without it). podman 5.7.0
+# moved quadlet to name-based container identification and emits NO cidfile, which
+# silently broke the step-4 identity handoff in the field on 2026-09-21 while every
+# other part of the configuration looked correct. The identity helper needs the
+# container id for THIS systemd invocation; a container NAME survives across
+# invocations and cannot supply that. Asserted by tools/check-quadlet-cidfile.sh.
+PodmanArgs=--cidfile=%t/%N.cid
+Environment=BRRDFEEDER_IDENTITY_INVOCATION=${INVOCATION_ID}
+Volume=%t/brrdfeeder-identity:/run/brrdfeeder-identity:ro,Z
+# Conmon readiness must precede ExecStartPost; application/health readiness
+# would deadlock an engine waiting for its post-start identity handoff.
+Notify=false
+ReadOnly=true
+
+[Service]
+RuntimeDirectory=brrdfeeder-identity
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=no
+ExecStartPre=-/usr/local/libexec/brrdfeeder-image-identity prepare %t/brrdfeeder-identity
+ExecStartPost=-/usr/local/libexec/brrdfeeder-image-identity resolve %t/brrdfeeder-identity %t/%N.cid
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+KillMode=mixed
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target

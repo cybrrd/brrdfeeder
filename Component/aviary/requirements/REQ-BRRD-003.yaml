@@ -1,0 +1,51 @@
+id: REQ-BRRD-003
+title: Config surface honesty — unknown keys refuse to load
+statement: >-
+  WHEN the engine loads config.yaml, IF the file contains a key the engine does
+  not consume, THEN the engine SHALL refuse to start, with an error naming the
+  unknown key.
+  The two installer-legacy keys node.storage_class and backhaul.target_subject
+  are explicit compatibility exceptions: accept with a one-line deprecation
+  warning, never apply them as engine settings. Try the parent config path only
+  when the primary path is missing, never after parse/permission/validation errors.
+rationale: >-
+  2026-07-13 tri-audit finding: the shipped reference config advertised
+  hardware.bluetooth_sensor.enabled, capture.write_pcap_to_disk, pcap_directory
+  and more — all silently dropped by serde (only the retired orchestrator ever
+  read them). An operator reading the config believed capabilities existed that
+  did not. Config surface is a capability claim; the substrate must refuse the
+  lie (Executable Contracts binding 4).
+binds:
+  - "engine/src/node_config.rs (serde deny_unknown_fields on every config struct)"
+verify:
+  - "cargo test node_config::tests::unknown_config_key_is_refused"
+  - "cargo test node_config::tests::shipped_reference_config_parses (golden — the reference config.yaml must always match the real engine schema)"
+  - "cargo test node_config::tests::installer_legacy_keys_warn_and_primary_parse_errors_survive"
+status: open
+status_note: >-
+  2026-09-19 (Synth) — corrected from `bound` to `open`, and the original claim is
+  left on record here rather than erased. `requirements/README.md` defines `bound`
+  as "code binding + automated CI verification both in place and passing", and
+  `open` as "statement ratified; code binding or automated verification
+  incomplete". The code binding is in place; the automated half is not, and never
+  was in this repository. CYB1 runs no CI that executes these tests — the component
+  workflow files sit under `Component/*/.github/workflows/`, a path Gitea Actions
+  does not read, and the README's own `contract-trace` check is still marked
+  "(planned)". `open` is the table's own term for exactly this state, so this is a
+  correction of a mis-stated claim, not a downgrade of the work. Any manual
+  verification evidence is cited under `provenance`. Restoring `bound` honestly
+  requires all three of: the root workflow carried on
+  `chore/toolchain-pinning-2026-09-18` (register C-1), the build-home decision
+  (register C-2), and a `contract-trace` check that fails the build.
+provenance:
+  decided: "2026-07-13"
+  witness: "Cy"
+  evidence: >-
+    grep 2026-07-13 @806eebd: storage_class / target_subject / owner_id /
+    hardware.* / engine.* consumed nowhere in engine, cybrrd-rid-protocol, or
+    cybrrd-rid-core source.
+rollout_gate: >-
+  2026-09-18 D1 restores installer compatibility for the two named legacy keys;
+  all other unknown keys still fail. storage_class still belongs to installer
+  hardening, not runtime engine policy; target_subject is ignored in favor of
+  the derived subject. Synth owns image build/rollout; D1 is branch-only.

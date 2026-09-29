@@ -1,0 +1,11 @@
+# Standalone HOST artifact, never a dependency on an engine/console image.
+FROM docker.io/library/golang@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195 AS builder
+WORKDIR /release
+COPY . .
+ARG TARGETARCH=arm64
+ARG BUILD_SEQ=1
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH GOTOOLCHAIN=local GOPROXY=off \
+    go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid= -X main.updaterBuild=$BUILD_SEQ" -o /brrdfeeder-release .
+FROM scratch
+COPY --from=builder /brrdfeeder-release /brrdfeeder-release
+COPY --from=builder /usr/local/go/LICENSE /GO-LICENSE

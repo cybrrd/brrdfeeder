@@ -1,0 +1,662 @@
+
+[[ $EUID -eq 0 ]] || fatal "Must run as root (sudo bash $0). Condo Tenancy: this is THE tenant-wall crossing."
+
+valid_image_pin() {
+  local repository=${2:-$IMAGE_REPOSITORY}
+  [[ $1 == "$repository"@sha256:* && ${1#"$repository"@sha256:} =~ ^[a-f0-9]{64}$ ]]
+}
+CONTAINER_IMAGE=$REQUESTED_IMAGE
+if [[ -f "$QUADLET_FILE" ]]; then
+  INSTALLED_IMAGE=$(sed -n 's/^Image=//p' "$QUADLET_FILE")
+  valid_image_pin "$INSTALLED_IMAGE" || fatal "Existing Quadlet has no unique approved digest pin; explicit operator migration required (no tag resolution)."
+  [[ -z "$REQUESTED_IMAGE" || "$REQUESTED_IMAGE" == "$INSTALLED_IMAGE" ]] || fatal "Refusing to replace the installed digest: updates belong to the Blue/updater path."
+  CONTAINER_IMAGE=$INSTALLED_IMAGE
+fi
+valid_image_pin "$CONTAINER_IMAGE" || fatal "Fresh install requires --image ${IMAGE_REPOSITORY}@sha256:<approved-release-digest>; tags are not accepted."
+readonly CONTAINER_IMAGE
+
+CONSOLE_IMAGE=$REQUESTED_CONSOLE_IMAGE
+if [[ -f "$CONSOLE_QUADLET_FILE" ]]; then
+  INSTALLED_CONSOLE_IMAGE=$(sed -n 's/^Image=//p' "$CONSOLE_QUADLET_FILE")
+  valid_image_pin "$INSTALLED_CONSOLE_IMAGE" "$CONSOLE_REPOSITORY" || fatal "Existing console Quadlet has no unique approved digest pin; no tag resolution."
+  [[ -z "$REQUESTED_CONSOLE_IMAGE" || "$REQUESTED_CONSOLE_IMAGE" == "$INSTALLED_CONSOLE_IMAGE" ]] \
+    || fatal "Refusing to replace the installed console digest; reinstall is not an update channel."
+  CONSOLE_IMAGE=$INSTALLED_CONSOLE_IMAGE
+  if [[ -z "$CONSOLE_LISTEN" ]]; then
+    CONSOLE_LISTEN=$(sed -n 's/^Exec=--listen=\([^ ]*\) .*/\1/p' "$CONSOLE_QUADLET_FILE")
+  fi
+fi
+valid_image_pin "$CONSOLE_IMAGE" "$CONSOLE_REPOSITORY" \
+  || fatal "Fresh install requires --console-image ${CONSOLE_REPOSITORY}@sha256:<approved-release-digest>; tags are not accepted."
+readonly CONSOLE_IMAGE
+[[ -n "$CONSOLE_LISTEN" ]] || fatal "Fresh install requires --console-listen <literal-LAN-IP>:8080 (IPv6: [address]:8080)."
+LISTEN_PATTERN='^[][0-9a-fA-F:.]+$'
+[[ $CONSOLE_LISTEN =~ $LISTEN_PATTERN ]] || fatal "Console listener must be a literal IP:port, not a hostname, wildcard or shell expression."
+if ! PASSWD_RECORD=$(getent passwd "$TARGET_USER"); then
+  if [[ $DRY_RUN -eq 1 ]]; then
+    say "[dry-run] would create system account $TARGET_USER (UID/GID allocated on apply)"
+    TARGET_UID=ALLOCATED_ON_APPLY
+    TARGET_GID=ALLOCATED_ON_APPLY
+    TARGET_HOME=$SERVICE_HOME
+  elif [[ $VERIFY_ONLY -eq 1 ]]; then
+    fatal "Service account $TARGET_USER is absent; run the installer without --verify to create it."
+  else
+    run useradd --system --user-group --no-create-home --home-dir "$SERVICE_HOME" --shell /usr/sbin/nologin "$TARGET_USER" \
+      || fatal "Cannot create system account $TARGET_USER; check account tools/name collisions and retry."
+    record_created_account "$TARGET_USER"
+    PASSWD_RECORD=$(getent passwd "$TARGET_USER") \
+      || fatal "Created service account $TARGET_USER cannot be resolved through getent passwd."
+  fi
+fi
+if [[ -n "$PASSWD_RECORD" ]]; then
+  [[ "$PASSWD_RECORD" != *$'\n'* ]] || fatal "Ambiguous service account record for $TARGET_USER."
+  IFS=: read -r ACCOUNT_NAME _ TARGET_UID TARGET_GID _ TARGET_HOME TARGET_SHELL <<< "$PASSWD_RECORD"
+  SYSTEM_UID_MAX=$(awk '$1 == "SYS_UID_MAX" { print $2; exit }' /etc/login.defs)
+  SYSTEM_UID_MAX=${SYSTEM_UID_MAX:-999}
+  [[ "$ACCOUNT_NAME" == "$TARGET_USER" && "$TARGET_UID" =~ ^[0-9]+$ && "$TARGET_GID" =~ ^[0-9]+$ \
+     && "$SYSTEM_UID_MAX" =~ ^[0-9]+$ ]] || fatal "Invalid service account record for $TARGET_USER."
+  [[ "$TARGET_UID" -gt 0 && "$TARGET_UID" -le "$SYSTEM_UID_MAX" && "$TARGET_GID" -gt 0 \
+     && "$TARGET_HOME" == /* && "$TARGET_HOME" != / \
+     && ( "$TARGET_SHELL" == /usr/sbin/nologin || "$TARGET_SHELL" == /sbin/nologin ) ]] \
+    || fatal "Unsafe existing $TARGET_USER account: require non-root system UID/GID, absolute non-root home and nologin shell; refusing to repurpose a login account."
+  [[ $(id -u "$TARGET_USER") == "$TARGET_UID" && $(id -g "$TARGET_USER") == "$TARGET_GID" ]] \
+    || fatal "Service account $TARGET_USER identity is inconsistent."
+  SERVICE_GROUP_RECORD=$(getent group "$TARGET_GID") || fatal "Cannot resolve service group for $TARGET_USER."
+  IFS=: read -r SERVICE_GROUP _ _ SERVICE_MEMBERS <<< "$SERVICE_GROUP_RECORD"
+  [[ "$SERVICE_GROUP" == "$TARGET_USER" && ( -z "$SERVICE_MEMBERS" || "$SERVICE_MEMBERS" == "$TARGET_USER" ) ]] \
+    || fatal "Service group must be dedicated to $TARGET_USER; refusing shared credential access."
+elif [[ $DRY_RUN -ne 1 || ${TARGET_UID:-} != ALLOCATED_ON_APPLY ]]; then
+  fatal "Service account $TARGET_USER cannot be resolved through getent passwd."
+fi
+DIALOUT_RECORD=$(getent group dialout) || fatal "Required dialout group is absent; provision the Debian system group before retrying."
+IFS=: read -r _ _ DIALOUT_GID _ <<< "$DIALOUT_RECORD"
+[[ "$DIALOUT_GID" =~ ^[0-9]+$ && "$DIALOUT_GID" -gt 0 ]] || fatal "Invalid dialout group ID."
+readonly TARGET_UID TARGET_GID TARGET_HOME DIALOUT_GID
+readonly LEGACY_CONFIG="${TARGET_HOME}/brrdfeeder/config.yaml"
+readonly LEGACY_CREDS="${TARGET_HOME}/brrdfeeder/secrets/brrdfeeder.creds"
+ok "service user $TARGET_USER (uid=$TARGET_UID gid=$TARGET_GID home=$TARGET_HOME; dialout=$DIALOUT_GID)"
+
+if [[ $DRY_RUN -eq 0 ]] && { ! command -v jq >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; }; then
+  say "installing enrollment bootstrap deps (jq, curl)…"
+  apt-get update -qq && apt-get install -y -qq jq curl ca-certificates
+  ok "enrollment bootstrap deps present"
+fi
+
+run install -d -m 0755 -o root -g root "$ETC_DIR"
+run install -d -m 0750 -o root -g "$TARGET_GID" "$SECRETS_DIR"
+ok "config tree present: $ETC_DIR (secrets/ 0750 root:service-group)"
+
+run install -d -m 0750 -o "$TARGET_UID" -g "$TARGET_GID" "$STATE_DIR"
+ok "state dir present: $STATE_DIR (service-owned)"
+
+if [[ ! -f "$CONFIG_PATH" && -f "$LEGACY_CONFIG" ]]; then
+  say "migrating legacy config: $LEGACY_CONFIG → $CONFIG_PATH"
+  run install -m 0644 -o root -g root "$LEGACY_CONFIG" "$CONFIG_PATH"
+fi
+if [[ ! -f "$CREDS_PATH" && -f "$LEGACY_CREDS" ]]; then
+  say "migrating legacy creds: $LEGACY_CREDS → $CREDS_PATH"
+  run install -m 0600 -o root -g root "$LEGACY_CREDS" "$CREDS_PATH"
+fi
+
+
+manual_creds_instructions() {
+  warn "Manual provisioning fallback:"
+  warn "  scp brrdfeeder.creds <host>:/tmp/ && sudo install -m 0600 -o root -g root /tmp/brrdfeeder.creds $CREDS_PATH"
+}
+
+zitadel_device_flow() {
+  local _xtrace=0; case $- in *x*) _xtrace=1; set +x ;; esac
+  _restore_xtrace() { [[ $_xtrace -eq 1 ]] && set -x || true; }
+
+  local B="" Y="" G="" R=""
+  if [[ -t 1 ]]; then B=$'\033[1m'; Y=$'\033[1;33m'; G=$'\033[1;32m'; R=$'\033[0m'; fi
+
+  gate enrollment "Zitadel Device Flow — binding this feeder to your cyBRRD account"
+
+  local auth_resp
+  auth_resp=$(curl -sf -X POST "${OAUTH_ISSUER}/oauth/v2/device_authorization" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data-urlencode "client_id=${OAUTH_CLIENT_ID}" \
+    --data-urlencode "scope=${OAUTH_SCOPE}") \
+    || { warn "device_authorization request failed (network or ${OAUTH_ISSUER} unreachable)"; _restore_xtrace; return 1; }
+
+  local device_code user_code verification_uri_complete expires_in interval
+  device_code=$(jq -re '.device_code' <<<"$auth_resp")                         || { warn "bad device_authorization response"; _restore_xtrace; return 1; }
+  user_code=$(jq -re '.user_code' <<<"$auth_resp")
+  log_secret device-code "$device_code"
+  log_secret device-code "$user_code"
+  verification_uri_complete=$(jq -re '.verification_uri_complete // .verification_uri' <<<"$auth_resp")
+  expires_in=$(jq -re '.expires_in // 300' <<<"$auth_resp")
+  interval=$(jq -re '.interval // 5' <<<"$auth_resp")
+
+  printf '\n\n'
+  echo "${B}  ╔═══════════════════════════════════════════════════════════════╗${R}"
+  echo "${B}  ║   ⏸  INSTALL PAUSED — ONE STEP NEEDS YOU                       ║${R}"
+  echo "${B}  ╚═══════════════════════════════════════════════════════════════╝${R}"
+  echo
+  echo "     ${B}1.${R} On your phone or computer, open this link:"
+  echo
+  echo "        ${Y}${verification_uri_complete}${R}"
+  echo
+  echo "     ${B}2.${R} Confirm the code shown there matches:   ${Y}${B}${user_code}${R}"
+  echo
+  echo "     ${B}3.${R} Sign in with your cyBRRD account and click Approve."
+  echo "        (This binds the feeder to you + your leaderboard score.)"
+  echo
+  echo "     The install will continue ${G}automatically${R} the moment you approve."
+  echo "     No need to come back to this screen. Code expires in $((expires_in / 60)) min."
+  echo
+  printf '     Waiting for your approval'
+
+  local deadline=$(( $(date +%s) + expires_in ))
+  local token_resp http_code body err access_token refresh_token
+  while true; do
+    if (( $(date +%s) >= deadline )); then
+      echo; warn "device code expired before approval — re-run the script for a fresh code"
+      _restore_xtrace; return 1
+    fi
+    run sleep "$interval"
+
+    token_resp=$(curl -s -w '\n%{http_code}' -X POST "${OAUTH_ISSUER}/oauth/v2/token" \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
+      --data-urlencode "device_code=${device_code}" \
+      --data-urlencode "client_id=${OAUTH_CLIENT_ID}")
+    http_code=$(tail -n1 <<<"$token_resp")
+    body=$(sed '$d' <<<"$token_resp")
+
+    if [[ "$http_code" == "200" ]]; then
+      access_token=$(jq -re '.access_token' <<<"$body") || { echo; warn "token response missing access_token"; _restore_xtrace; return 1; }
+      refresh_token=$(jq -r '.refresh_token // empty' <<<"$body")
+      printf '\n\n'
+      echo "  ${G}${B}✓ Approved — thank you. Continuing the install…${R}"
+      echo
+      break
+    fi
+
+    err=$(jq -r '.error // "unknown_error"' <<<"$body" 2>/dev/null || echo "unparseable")
+    case "$err" in
+      authorization_pending) printf '.' ;;                       # quiet progress
+      slow_down)             interval=$(( interval + 5 )) ;;     # RFC 8628 §3.5
+      expired_token)         echo; warn "code expired — re-run for a fresh one"; _restore_xtrace; return 1 ;;
+      access_denied)         echo; warn "authorization DENIED in the browser"; _restore_xtrace; return 1 ;;
+      *)                     echo; warn "token endpoint error: $err"; _restore_xtrace; return 1 ;;
+    esac
+  done
+
+  gate enrollment "Exchanging token at flock for NATS credentials"
+  local creds_resp creds_code creds_body hdrs
+  hdrs=$(mktemp)
+  creds_resp=$(curl -s -D "$hdrs" -w '\n%{http_code}' -X POST "$FLOCK_ENROLL_URL" \
+    -H "Authorization: Bearer ${access_token}" \
+    -H "Content-Type: application/json" \
+    -d "{\"node_hostname\":\"$(hostname)\"}") || true
+  creds_code=$(tail -n1 <<<"$creds_resp")
+  creds_body=$(sed '$d' <<<"$creds_resp")
+
+  if [[ "$creds_code" != "200" ]]; then
+    warn "flock enrollment endpoint returned HTTP ${creds_code:-none} — flock v0 may not be deployed yet"
+    run rm -f "$hdrs"; _restore_xtrace; return 1
+  fi
+
+  if ! grep -q "BEGIN NATS USER JWT" <<<"$creds_body"; then
+    warn "flock response does not look like a NATS .creds file"
+    run rm -f "$hdrs"; _restore_xtrace; return 1
+  fi
+
+  local assigned_id
+  assigned_id=$(awk -F': ' 'tolower($1)=="x-cybrrd-node-id" {gsub(/\r/,"",$2); print $2}' "$hdrs")
+  run rm -f "$hdrs"
+  if [[ -n "$assigned_id" ]]; then
+    run sed -i "s/^\(\s*id:\s*\).*/\1\"${assigned_id}\"/" "$CONFIG_PATH"
+    ok "node identity assigned by flock: ${assigned_id} (written to config.yaml)"
+  else
+    warn "flock did not return X-Cybrrd-Node-Id — config node.id left as-is"
+  fi
+
+  umask 077
+  printf '%s\n' "$creds_body" > "$CREDS_PATH"
+  run chmod 0640 "$CREDS_PATH"; run chown root:"$TARGET_GID" "$CREDS_PATH"
+  if [[ -n "$refresh_token" ]]; then
+    printf '%s\n' "$refresh_token" > "$REFRESH_TOKEN_PATH"
+    run chmod 0600 "$REFRESH_TOKEN_PATH"; run chown root:root "$REFRESH_TOKEN_PATH"
+    ok "refresh token stored (enables non-interactive creds renewal)"
+  fi
+  ok "NATS creds written to $CREDS_PATH (0640 root:service-group)"
+  _restore_xtrace
+  return 0
+}
+
+if [[ ! -f "$CREDS_PATH" ]]; then
+  if [[ $DRY_RUN -eq 1 ]]; then
+    say "[dry-run] would run Zitadel Device Flow enrollment"
+  elif [[ -t 0 ]]; then
+    if ! zitadel_device_flow; then
+      warn "Device Flow enrollment did not complete."
+      manual_creds_instructions
+      fatal "creds required — enroll (re-run) or provision manually, then re-run."
+    fi
+  else
+    warn "NATS creds not found and no interactive terminal for Device Flow."
+    manual_creds_instructions
+    fatal "creds required — provision and re-run."
+  fi
+fi
+run chmod 0640 "$CREDS_PATH"
+run chown root:"$TARGET_GID" "$CREDS_PATH"
+ok "NATS creds present at $CREDS_PATH (0640 root:service-group)"
+
+CFG_IFACE="$(awk '/^capture:/{f=1;next} f&&/^[a-z]/{f=0} f&&/interface:/{gsub(/["'"'"' ]/,"",$2);print $2;exit}' "$CONFIG_PATH")"
+if [[ -n "$CFG_IFACE" ]]; then
+  if ip link show "$CFG_IFACE" >/dev/null 2>&1; then
+    ok "capture interface $CFG_IFACE present"
+  else
+    warn "capture interface $CFG_IFACE NOT present — plug the adapter before the engine can capture"
+  fi
+fi
+
+if [[ $VERIFY_ONLY -eq 1 ]]; then
+  gate "Verify-only mode — checking current substrate state"
+  [[ -f "$UDEV_RULES_FILE" ]]   && ok "udev rules present: $UDEV_RULES_FILE"   || warn "udev rules ABSENT"
+  [[ -L "/dev/$GPS_SYMLINK" ]]  && ok "/dev/$GPS_SYMLINK -> $(readlink -f /dev/$GPS_SYMLINK)" || warn "/dev/$GPS_SYMLINK MISSING"
+  [[ -L "/dev/$BLE_SYMLINK" ]]  && ok "/dev/$BLE_SYMLINK -> $(readlink -f /dev/$BLE_SYMLINK)" || warn "/dev/$BLE_SYMLINK MISSING (optional)"
+  [[ -f "$QUADLET_FILE" ]]      && ok "Quadlet present: $QUADLET_FILE"        || warn "Quadlet ABSENT"
+  [[ -f "$CHRONY_DROPIN" ]]     && ok "chrony makestep hardening present"     || warn "chrony hardening ABSENT"
+  command -v podman &>/dev/null && ok "podman installed: $(podman --version)" || warn "podman NOT installed"
+  command -v jq &>/dev/null     && ok "jq installed"                          || warn "jq NOT installed"
+  systemctl is-active chrony >/dev/null 2>&1 && ok "chrony ACTIVE" || warn "chrony NOT active"
+  VSC="$(get_storage_class "$CONFIG_PATH")"
+  [[ -z "$VSC" ]] && VSC="(unset, defaults persistent)"
+  say "config node.storage_class = $VSC"
+  [[ -f "$JOURNALD_DROPIN" ]]   && ok "journald drop-in present (Open hardening installed)" \
+                                || say "journald drop-in absent (persistent storage_class — disk journal)"
+  systemctl is-active brrdfeeder-engine.service >/dev/null 2>&1 \
+    && ok "brrdfeeder-engine.service is ACTIVE" \
+    || warn "brrdfeeder-engine.service is NOT active"
+  exit 0
+fi
+
+gate host-packages "Step 1 — host packages (podman, jq, curl, chrony, usbutils)"
+
+if command -v podman &>/dev/null && command -v jq &>/dev/null \
+   && command -v curl &>/dev/null && command -v chronyd &>/dev/null \
+   && command -v lsusb &>/dev/null && command -v newuidmap &>/dev/null \
+   && python3 -c 'import yaml' 2>/dev/null && dpkg-query -W -f='${Status}' dbus-user-session 2>/dev/null | grep -q 'install ok installed'; then
+  ok "prerequisites already installed"
+else
+  run apt-get update
+  run apt-get install -y --no-install-recommends podman jq curl ca-certificates chrony usbutils \
+    uidmap dbus-user-session fuse-overlayfs python3 python3-yaml
+  ok "host packages installed"
+fi
+
+gate images "Immutable image preflight (inspect-and-assert; no signature claim)"
+if [[ $DRY_RUN -eq 1 ]]; then
+  say "[dry-run] would pull if absent and assert RepoDigests contains $CONTAINER_IMAGE"
+else
+  if ! podman image exists "$CONTAINER_IMAGE"; then
+    run_step images/pull-engine podman pull "$CONTAINER_IMAGE" || fatal "Digest-pinned image pull failed; deployment not changed."
+  fi
+  IMAGE_REPO_DIGESTS=$(podman image inspect "$CONTAINER_IMAGE" --format '{{range .RepoDigests}}{{println .}}{{end}}') \
+    || fatal "Cannot inspect the pinned image; deployment not changed."
+  printf '%s\n' "$IMAGE_REPO_DIGESTS" | grep -qxF "$CONTAINER_IMAGE" \
+    || fatal "Pinned image RepoDigests mismatch; deployment not changed."
+  ok "image integrity bound to installer/operator-approved digest (NOT signature verified)"
+fi
+
+gate console "Step 1c — intrinsic BRRDhouse console (rootless, digest-pinned)"
+
+console_run() {
+  runuser -u "$CONSOLE_USER" -- sh -c 'cd "$1" && shift && exec "$@"' sh "$CONSOLE_HOME" \
+    env XDG_RUNTIME_DIR="/run/user/$CONSOLE_UID" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$CONSOLE_UID/bus" "$@"
+}
+
+if [[ $DRY_RUN -eq 1 ]]; then
+  say "[dry-run] would create locked console user, enable linger, verify $CONSOLE_IMAGE, run shipped status provisioner and configure node.status_file"
+else
+  run python3 - "$CONSOLE_LISTEN" <<'LISTEN_PY'
+import ipaddress, sys
+value = sys.argv[1]
+try:
+    host, port = value.rsplit(':', 1)
+    address = ipaddress.ip_address(host.strip('[]'))
+    assert str(int(port)) == port and 1024 <= int(port) <= 65535
+    assert address.is_private and not address.is_unspecified and not address.is_multicast and not address.is_link_local
+    assert value == (f'[{address}]:{port}' if address.version == 6 else f'{address}:{port}')
+except (ValueError, AssertionError):
+    sys.exit('Console listener must be a specific private LAN (or loopback) IP and unprivileged port; no WAN, tailnet, wildcard or link-local binding.')
+LISTEN_PY
+  if ! getent passwd "$CONSOLE_USER" >/dev/null; then
+    run useradd --create-home --user-group --home-dir "$CONSOLE_HOME" --shell /usr/sbin/nologin "$CONSOLE_USER"
+    record_created_account "$CONSOLE_USER"
+  fi
+  CONSOLE_RECORD=$(getent passwd "$CONSOLE_USER")
+  [[ $CONSOLE_RECORD != *$'\n'* ]] || fatal "Ambiguous console account."
+  IFS=: read -r CONSOLE_NAME _ CONSOLE_UID CONSOLE_GID _ CONSOLE_ACCOUNT_HOME CONSOLE_SHELL <<< "$CONSOLE_RECORD"
+  [[ $CONSOLE_NAME == "$CONSOLE_USER" && $CONSOLE_UID =~ ^[0-9]+$ && $CONSOLE_GID =~ ^[0-9]+$ \
+     && $CONSOLE_UID -gt 0 && $CONSOLE_GID -gt 0 && $CONSOLE_UID != "$TARGET_UID" && $CONSOLE_GID != "$TARGET_GID" \
+     && $CONSOLE_ACCOUNT_HOME == "$CONSOLE_HOME" && $CONSOLE_SHELL == /usr/sbin/nologin ]] \
+    || fatal "Unsafe existing console account; require a dedicated non-root, non-login brrdhouse identity."
+  [[ $(id -u "$CONSOLE_USER") == "$CONSOLE_UID" && $(id -g "$CONSOLE_USER") == "$CONSOLE_GID" \
+     && $(id -G "$CONSOLE_USER") == "$CONSOLE_GID" ]] || fatal "Console account must have no supplementary groups."
+  [[ $(getent group "$CONSOLE_GID") == "$CONSOLE_USER:x:$CONSOLE_GID:" \
+     && $(passwd -S "$CONSOLE_USER" | awk '{print $2}') == L ]] || fatal "Console group must be dedicated and account password locked."
+  for subid_file in /etc/subuid /etc/subgid; do
+    awk -F: -v user="$CONSOLE_USER" '$1==user && $2>=65536 && $3>=65536 {found=1} END {exit !found}' "$subid_file" \
+      || fatal "No subordinate ID range for $CONSOLE_USER in $subid_file; fix host useradd allocation before retrying."
+  done
+  run loginctl enable-linger "$CONSOLE_USER"
+  run systemctl start "user@$CONSOLE_UID.service"
+  if ! console_run podman image exists "$CONSOLE_IMAGE"; then
+    run_step images/pull-console console_run podman pull "$CONSOLE_IMAGE" || fatal "Console digest-pinned pull failed; deployment not changed."
+  fi
+  CONSOLE_REPO_DIGESTS=$(console_run podman image inspect "$CONSOLE_IMAGE" --format '{{range .RepoDigests}}{{println .}}{{end}}') \
+    || fatal "Cannot inspect pinned console image."
+  printf '%s\n' "$CONSOLE_REPO_DIGESTS" | grep -qxF "$CONSOLE_IMAGE" || fatal "Console RepoDigests mismatch; deployment not changed."
+  run install -d -m 0755 -o root -g root /usr/local/libexec
+  cat > "$STATUS_PROVISIONER" <<'STATUS_PROVISIONER_EOF'
+set -euo pipefail
+fail() { printf 'BRRDhouse status provisioning: %s\n' "$*" >&2; exit 1; }
+[[ $# -eq 0 ]] || fail 'No arguments accepted; the public status path is fixed.'
+[[ $(id -u) -eq 0 ]] || fail 'Run as root to provision service-owned storage.'
+readonly directory=/var/lib/brrdfeeder-status
+record=$(getent passwd brrdfeeder) || fail 'Install the engine service account first.'
+[[ $record != *$'\n'* ]] || fail 'Ambiguous brrdfeeder account.'
+IFS=: read -r name _ service_uid service_gid _ service_home service_shell <<< "$record"
+system_uid_max=$(awk '$1 == "SYS_UID_MAX" {print $2; exit}' /etc/login.defs)
+system_uid_max=${system_uid_max:-999}
+[[ $name == brrdfeeder && $service_uid =~ ^[0-9]+$ && $service_gid =~ ^[0-9]+$ && $system_uid_max =~ ^[0-9]+$ ]] || fail 'Invalid service identity.'
+[[ $service_uid -gt 0 && $service_uid -le $system_uid_max && $service_gid -gt 0 && $service_home == /* && $service_home != / ]] || fail 'Require a non-root system account with a dedicated home.'
+case "$service_shell" in */nologin|*/false) ;; *) fail 'Refusing a login account.';; esac
+[[ $(id -u brrdfeeder) == "$service_uid" && $(id -g brrdfeeder) == "$service_gid" ]] || fail 'Inconsistent service identity.'
+group_record=$(getent group "$service_gid") || fail 'Cannot resolve service group.'
+IFS=: read -r group_name _ _ members <<< "$group_record"
+[[ $group_name == brrdfeeder && ( -z $members || $members == brrdfeeder ) ]] || fail 'Require the dedicated brrdfeeder group.'
+[[ ! -L $directory ]] || fail 'Public status directory must not be a symlink.'
+if [[ -e $directory ]]; then
+  [[ -d $directory ]] || fail 'Public status path is not a directory.'
+  owner=$(stat -c %u "$directory")
+  [[ $owner == 0 || $owner == "$service_uid" ]] || fail 'Directory belongs to another account.'
+  shopt -s nullglob dotglob
+  for entry in "$directory"/*; do
+    [[ $entry == "$directory/status.json" && -f $entry && ! -L $entry ]] || fail 'Directory contains unexpected entries; review it before provisioning.'
+    [[ $(stat -c %a "$entry") == 644 && $(stat -c %h "$entry") == 1 ]] || fail 'Existing status must be a single-link regular file, mode 0644.'
+  done
+fi
+install -d -m 0755 -o "$service_uid" -g "$service_gid" "$directory"
+[[ $(stat -c '%u:%g:%a' "$directory") == "$service_uid:$service_gid:755" ]] || fail 'Directory ownership/mode verification failed.'
+printf 'Provisioned %s owner=%s:%s mode=0755; engine RW, console RO.\n' "$directory" "$service_uid" "$service_gid"
+printf 'Next: follow README unit setup to mount it in the engine and enable node.status_file.\n'
+STATUS_PROVISIONER_EOF
+  run chmod 0755 "$STATUS_PROVISIONER"
+  run chown root:root "$STATUS_PROVISIONER"
+  "$STATUS_PROVISIONER"
+  say "Continuing the provisioner's mount/config steps automatically; no manual console setup is needed."
+  run python3 - "$CONFIG_PATH" "$STATUS_DIR/status.json" <<'STATUS_CONFIG_PY'
+import os, pathlib, sys, tempfile, yaml
+path = pathlib.Path(sys.argv[1])
+class UniqueLoader(yaml.SafeLoader):
+    pass
+def mapping(loader, node, deep=False):
+    result = {}
+    for k, v in node.value:
+        key = loader.construct_object(k, deep=deep)
+        if key in result:
+            raise ValueError(f'duplicate config key: {key}')
+        result[key] = loader.construct_object(v, deep=deep)
+    return result
+UniqueLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, mapping)
+if path.is_symlink():
+    sys.exit('Refusing symlink config')
+config = yaml.load(path.read_text(), Loader=UniqueLoader)
+if not isinstance(config, dict) or not isinstance(config.get('node'), dict):
+    sys.exit('Config requires a node mapping; no duplicate node section will be added')
+config['node']['status_file'] = sys.argv[2]
+fd, temp = tempfile.mkstemp(prefix='.config-status-', dir=path.parent)
+try:
+    with os.fdopen(fd, 'w') as output:
+        yaml.safe_dump(config, output, sort_keys=False)
+        output.flush()
+        os.fchmod(output.fileno(), 0o644)
+        os.fsync(output.fileno())
+    os.replace(temp, path)
+finally:
+    if os.path.exists(temp): os.unlink(temp)
+STATUS_CONFIG_PY
+fi
+
+gate udev "Step 3 — udev rules"
+
+SUBSYSTEM=="tty", ATTRS{idVendor}=="${NORDIC_VENDOR}", ATTRS{idProduct}=="${NORDIC_PRODUCT}", SYMLINK+="${BLE_SYMLINK}", GROUP="dialout", MODE="0660"
+KERNEL=="rfkill", SUBSYSTEM=="misc", GROUP="dialout", MODE="0660"
+EOF
+)
+
+if [[ -f "$UDEV_RULES_FILE" ]] && diff -q <(echo "$NEW_UDEV_CONTENT") "$UDEV_RULES_FILE" >/dev/null 2>&1; then
+  ok "udev rules already current"
+else
+  if [[ $DRY_RUN -eq 1 ]]; then
+    say "[dry-run] would write:"
+    echo "$NEW_UDEV_CONTENT" | sed 's/^/  /'
+  else
+    echo "$NEW_UDEV_CONTENT" > "$UDEV_RULES_FILE"
+    run chmod 0644 "$UDEV_RULES_FILE"
+    ok "wrote $UDEV_RULES_FILE"
+  fi
+fi
+
+run udevadm control --reload-rules
+run udevadm trigger --subsystem-match=tty --action=change
+run udevadm trigger --subsystem-match=misc --sysname-match=rfkill --action=change
+run udevadm settle --timeout=5
+if [[ $DRY_RUN -eq 1 ]]; then
+  say "[dry-run] would install $IDENTITY_INSTALL"
+else
+  run install -d -m 0755 -o root -g root /usr/local/libexec
+  cat > "$IDENTITY_INSTALL" <<'IDENTITY_SH_EOF'
+set -euo pipefail
+export LC_ALL=C
+mode=${1:-}
+state_dir=${2:-}
+cidfile=${3:-}
+invocation=${INVOCATION_ID:-}
+[[ $invocation =~ ^[a-f0-9]{32}$ ]] || { echo '[identity] invalid invocation; unknown' >&2; exit 1; }
+[[ $state_dir == /* && -d $state_dir && ! -L $state_dir ]] || exit 1
+[[ $(stat -c %u -- "$state_dir") == "$EUID" ]] || exit 1
+permissions=$(stat -c %a -- "$state_dir")
+(( (8#$permissions & 0022) == 0 )) || exit 1
+
+write_record() {
+    local state=$1 cid=${2:-} digest=${3:-} tmp
+    tmp=$(mktemp "$state_dir/.identity.XXXXXXXX")
+    chmod 0644 "$tmp"
+    printf '{"schema_version":1,"invocation_id":"%s","state":"%s"' "$invocation" "$state" > "$tmp"
+    if [[ $state == known ]]; then
+        printf ',"container_id":"%s","image_digest":"%s"' "$cid" "$digest" >> "$tmp"
+    fi
+    printf '}\n' >> "$tmp"
+    mv -fT -- "$tmp" "$state_dir/identity.json"
+}
+
+case "$mode" in
+    prepare) write_record pending ;;
+    resolve)
+        write_record pending
+        trap 'rc=$?; if (( rc != 0 )); then write_record unverified || true; fi' EXIT
+        [[ -f $cidfile && ! -L $cidfile ]] || exit 1
+        cid=$(<"$cidfile")
+        [[ $cid =~ ^[a-f0-9]{64}$ ]] || exit 1
+        inspected=$(timeout 5 podman container inspect --format '{{.Id}} {{.ImageDigest}} {{.State.Running}}' "$cid") || {
+            echo '[identity] WARNING reason=running_identity_unverified; container inspection failed' >&2
+            exit 1
+        }
+        read -r actual digest running extra <<< "$inspected"
+        [[ $actual == "$cid" && $digest =~ ^sha256:[a-f0-9]{64}$ && $running == true && -z $extra ]] || {
+            echo '[identity] WARNING reason=running_identity_unverified; no running-container manifest digest' >&2
+            exit 1
+        }
+        write_record known "$actual" "$digest"
+        printf '[identity] container_id=%s image_digest=%s source=podman_container_inspect\n' "$actual" "$digest"
+        ;;
+    *) echo 'usage: brrdfeeder-image-identity prepare|resolve RUNTIME_DIR [CIDFILE]' >&2; exit 2 ;;
+esac
+IDENTITY_SH_EOF
+  run chmod 0755 "$IDENTITY_INSTALL"
+  run chown root:root "$IDENTITY_INSTALL"
+fi
+
+QUADLET_DIR="$(dirname "$QUADLET_FILE")"
+[[ -d "$QUADLET_DIR" ]] || run install -d -m 0755 "$QUADLET_DIR"
+
+NEW_QUADLET=$(cat <<EOF
+
+[Unit]
+Description=cyBRRD BRRDfeeder engine (containerized)
+Documentation=https://github.com/cybrrd/brrdfeeder
+After=network-online.target chrony.service
+Wants=network-online.target
+
+[Container]
+Image=${CONTAINER_IMAGE}
+ContainerName=brrdfeeder-engine
+
+User=${TARGET_UID}:${TARGET_GID}
+GroupAdd=${DIALOUT_GID}
+
+Network=host
+LogDriver=journald
+DropCapability=ALL
+AddCapability=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_TIME
+ReadOnly=true
+Pull=never
+
+AddDevice=/dev/${GPS_SYMLINK}:/dev/${GPS_SYMLINK}:rw
+AddDevice=/dev/rfkill:/dev/rfkill:rw
+
+Volume=${CONFIG_PATH}:/etc/brrdfeeder/config.yaml:ro
+Volume=${SECRETS_DIR}:/etc/brrdfeeder/secrets:ro
+
+Volume=${STATE_DIR}:/var/lib/brrdfeeder
+Volume=${STATUS_DIR}:${STATUS_DIR}:rw
+
+Tmpfs=/etc/brrdfeeder/capture:size=50M,mode=01777
+
+Environment=BRRDFEEDER_ENABLE_AIRSPACE_PUBLISHER=true
+PodmanArgs=--cidfile=%t/%N.cid
+Environment=BRRDFEEDER_IDENTITY_INVOCATION=\${INVOCATION_ID}
+Volume=%t/brrdfeeder-identity:/run/brrdfeeder-identity:ro
+Notify=false
+
+[Service]
+RuntimeDirectory=brrdfeeder-identity
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=no
+ExecStartPre=-/usr/local/libexec/brrdfeeder-image-identity prepare %t/brrdfeeder-identity
+ExecStartPost=-/usr/local/libexec/brrdfeeder-image-identity resolve %t/brrdfeeder-identity %t/%N.cid
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+KillMode=mixed
+KillSignal=SIGTERM
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target
+EOF
+)
+
+if [[ -f "$QUADLET_FILE" ]] && diff -q <(echo "$NEW_QUADLET") "$QUADLET_FILE" >/dev/null 2>&1; then
+  ok "Quadlet already current — no change"
+else
+  if [[ -f "$QUADLET_FILE" ]]; then
+    backup="${QUADLET_FILE}.bak.$(date +%Y%m%d-%H%M%S)"
+    run cp "$QUADLET_FILE" "$backup"
+    say "backed up existing Quadlet to $backup"
+  fi
+  if [[ $DRY_RUN -eq 1 ]]; then
+    say "[dry-run] would write Quadlet to $QUADLET_FILE"
+  else
+    echo "$NEW_QUADLET" > "$QUADLET_FILE"
+    run chmod 0644 "$QUADLET_FILE"
+    ok "wrote $QUADLET_FILE"
+  fi
+fi
+
+if [[ $DRY_RUN -eq 1 ]]; then
+  say "[dry-run] would write rootless console Quadlet at $CONSOLE_QUADLET_FILE"
+else
+  CONSOLE_PORT=${CONSOLE_LISTEN##*:}
+  UNIT_HOSTNAME=$(hostname -s)
+  [[ $UNIT_HOSTNAME =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] || fatal "Hostname is not a safe DNS label for console Host validation."
+  cat > "$CONSOLE_QUADLET_FILE" <<CONSOLE_QUADLET_EOF
+[Unit]
+Description=BRRDhouse intrinsic read-only LAN status console
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=${CONSOLE_IMAGE}
+ContainerName=brrdhouse
+Network=host
+UserNS=keep-id:uid=65532,gid=65532
+User=65532:65532
+DropCapability=all
+NoNewPrivileges=true
+ReadOnly=true
+ReadOnlyTmpfs=false
+Pull=never
+Volume=${STATUS_DIR}:${STATUS_DIR}:ro
+Exec=--listen=${CONSOLE_LISTEN} --allowed-hosts=${CONSOLE_LISTEN},${UNIT_HOSTNAME}:${CONSOLE_PORT},${UNIT_HOSTNAME}.local:${CONSOLE_PORT} --status-file=${STATUS_DIR}/status.json
+PodmanArgs=--pids-limit=64 --memory=96m --memory-swap=96m
+
+[Service]
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target
+CONSOLE_QUADLET_EOF
+  run chmod 0644 "$CONSOLE_QUADLET_FILE"
+  run chown root:root "$CONSOLE_QUADLET_FILE"
+  run install -d -m 0755 -o root -g root "/etc/containers/systemd/users/$CONSOLE_UID"
+  run ln -sfn "$CONSOLE_QUADLET_FILE" "/etc/containers/systemd/users/$CONSOLE_UID/brrdhouse.container"
+fi
+
+gate images-retained "Step 6 — retaining the immutable image checked in Step 1b (no tag refresh)"
+
+gate migration "Step 7 — stop any existing legacy user-mode service"
+
+OLD_USER_UNIT="${TARGET_HOME}/.config/systemd/user/brrdfeeder-engine.service"
+OLD_USER_QUADLET="${TARGET_HOME}/.config/containers/systemd/brrdfeeder-engine.container"
+
+if [[ -f "$OLD_USER_UNIT" ]] || [[ -f "$OLD_USER_QUADLET" ]]; then
+  say "found legacy user-mode unit — migrating"
+  if [[ $DRY_RUN -eq 0 ]]; then
+    sudo -u "$TARGET_USER" \
+      XDG_RUNTIME_DIR=/run/user/$TARGET_UID \
+      DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$TARGET_UID/bus \
+      systemctl --user stop brrdfeeder-engine.service 2>/dev/null || true
+    sudo -u "$TARGET_USER" \
+      XDG_RUNTIME_DIR=/run/user/$TARGET_UID \
+      DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$TARGET_UID/bus \
+      systemctl --user disable brrdfeeder-engine.service 2>/dev/null || true
+    [[ -f "$OLD_USER_UNIT" ]] && rm -f "$OLD_USER_UNIT"
+    [[ -f "$OLD_USER_QUADLET" ]] && rm -f "$OLD_USER_QUADLET"
+    sudo -u "$TARGET_USER" \
+      XDG_RUNTIME_DIR=/run/user/$TARGET_UID \
+      DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$TARGET_UID/bus \
+      systemctl --user daemon-reload 2>/dev/null || true
+    ok "legacy user-mode unit removed"
+  fi
+else
+  ok "no legacy user-mode unit found"
+fi
+
+gate services "Step 8 — daemon-reload + start brrdfeeder-engine.service"
+
+run systemctl daemon-reload
+run console_run systemctl --user daemon-reload
+run console_run systemctl --user restart brrdhouse.service
+ok "rootless brrdhouse.service started"

@@ -1,0 +1,210 @@
+# aviary — consolidated capability manifest
+#
+# Executable Contracts binding (pack-stack docs/metasystem/executable-contracts.md).
+# THE single source of truth for what each profile does and does not do. Any public
+# claim that contradicts this file is a BUILD DEFECT, not a docs nit.
+#
+# NEW IN AVIARY — the profile dimension (ADR 0001). A capability no longer has one
+# status; it has a status PER PROFILE. This is what makes the product line honest:
+# `hummingbrrd = "none"` on bluetooth stops being a promise someone has to remember and
+# becomes a claim the build can refute. (This example used to read `opensource = "none"`
+# on bluetooth; that posture was reversed by Cy's ruling of 2026-09-22 — see the
+# bluetooth4_legacy notes. An illustrative example that has gone false is worse than no
+# example, because it teaches the reader the wrong contract.)
+#
+# Statuses: implemented | planned | none
+#   implemented — code exists on this profile's build path
+#   planned     — committed, not built (MUST NOT be claimed publicly as working)
+#   none        — deliberately absent on this profile (structural, not a gap)
+
+schema = 2
+system = "aviary"
+updated = "2026-09-22"
+reference_profile = "soho"          # ADR 0001 — subtract from the superset
+
+# ── Profiles ────────────────────────────────────────────────────────────────
+
+[profile.soho]
+role = "reference"
+hardware = "NanoPi Zero2 + M.2 MT7925 (Wi-Fi 7 2x2 + BT 5.4) + eMMC + external-antenna GNSS"
+status = "design"                   # HONEST: decided, NOT yet built (ADR 0001 risk)
+notes = """The reference platform. eMMC + programmer ordered (not arrived); MT7925 has
+NO DRIVER BOUND on kestrel as of 2026-07-19; triband antenna in design; GNSS part NOT YET
+SELECTED (see docs/findings/0001 — selection is gated on the dB-Hz acceptance test).
+Most statuses below are therefore `planned`. That is the truthful state, not pessimism."""
+
+[profile.enterprise]
+role = "superset"
+hardware = "Warden (aggregating, non-receiving) + N Sentinels (receiving) + specialised sensors"
+status = "design"
+notes = """The only tier ABOVE the reference. Adds MPR and is the transition into the
+ECOLOGEE SUBSTR8 platform / RealityBricks. Warden is NOT a Remote-ID receiver."""
+
+[profile.opensource]
+role = "subtraction"
+hardware = "Raspberry Pi 4/5 + USB Wi-Fi (ALFA) + USB GNSS + microSD"
+status = "fielded"                  # the ONLY profile with live field validation
+notes = """Formerly `brrdfeeder-open`. The lightweight cut. Live on cardinal, robin,
+cathartes-aura. This is the only profile whose capabilities are backed by flight evidence."""
+
+[profile.hummingbrrd]
+role = "subtraction"
+hardware = "ESP32-S3, phone-paired (Android)"
+status = "design"
+notes = "Hobby tier. 2.4 GHz Wi-Fi only; 5 GHz contingent on future ESP32 chipset support."
+
+# ── ASTM F3411 Remote-ID transports ─────────────────────────────────────────
+
+[rid_transport.wifi_beacon]
+notes = """802.11 vendor-IE Beacon path. Golden: DJI Mini 5 Pro verbatim frame
+(cybrrd-rid-protocol) + 376-frame Mavic 3T pcap assay (2026-07-13). Live-entry regression
+(router::ingest_frame) pending promotion — FABLE5 B1. Contracted by REQ-BRRD-007."""
+[rid_transport.wifi_beacon.status]
+soho        = "planned"
+enterprise  = "planned"
+opensource  = "implemented"
+hummingbrrd = "planned"
+
+[rid_transport.wifi_nan]
+notes = """Pre-beta commitment (Cy, 2026-07-13): same radio, software-only.
+decode_nan_action is currently a stub returning None — NO NAN decode exists yet.
+Cy 2026-09-22: released in a FUTURE version. `planned` is the honest status and it
+MUST NOT be claimed publicly as working until the stub is replaced."""
+[rid_transport.wifi_nan.status]
+soho        = "planned"
+enterprise  = "planned"
+opensource  = "planned"
+hummingbrrd = "planned"
+
+[rid_transport.bluetooth4_legacy]
+notes = """Present on the SOHO reference at zero marginal cost — the MT7925 M.2 module
+carries BT 5.4 on the same silicon as Wi-Fi. On opensource it is a discrete USB
+controller (Realtek RTL8761BUE, 0bda:876e) taken over a raw HCI USER channel per
+ADR 0005: the controller stays DOWN with bluetoothd disabled, which is a requirement
+of RID capture, not a fault. De-framing in cybrrd-rid-protocol/src/ble.rs is bound by
+REQ-BRRD-013; passive sensor runtime by REQ-BRRD-014.
+
+RULING — Cy, 2026-09-22: Bluetooth is NOT withheld from Open. This reverses the
+2026-07-19 posture, which recorded BLE as a COMMERCIAL DIFFERENTIATOR deliberately
+withheld from the opensource cut ("it is the moat"). That posture had already been
+overtaken by the substrate and nobody noticed: 31f2484 (2026-09-15) added BLE
+de-framing and the passive receive sensor, b4784f0 (2026-09-17) took it to the field
+against Amazon MK30 traffic, and brrdg1s1 — an opensource-profile Pi 4 — has been
+reporting `[rid_ble] detected PHY=1M+Coded; exclusive passive scan` ever since. The
+manifest said `none` for five days while the fielded node said otherwise. Recorded
+here rather than quietly corrected, because a reversal that leaves no trace is how
+the next contradiction gets built."""
+[rid_transport.bluetooth4_legacy.status]
+soho        = "implemented"
+enterprise  = "implemented"
+opensource  = "implemented"
+hummingbrrd = "none"
+
+[rid_transport.bluetooth5_long_range]
+notes = """BT5 Coded-PHY (long range). Same posture as bluetooth4_legacy, including the
+2026-09-22 ruling that Bluetooth is NOT withheld from BRRDfeeder. Coded-PHY availability is
+detected at runtime and reported by the engine itself — brrdg1s1 logs
+`[rid_ble] hciN detected PHY=1M+Coded` at each start, which is the capability evidence;
+do not probe the controller with hcitool to confirm it, as that resets an adapter the
+engine holds exclusively. cybrrd-rid-protocol/src/ble.rs: REQ-BRRD-013 bound by offline
+LR vector. ADR 0005 (0005-rid-ble-ingest-path.md); REQ-BRRD-014 raw sensor runtime.
+No RF cadence or S=8 runtime conformance claim."""
+[rid_transport.bluetooth5_long_range.status]
+soho        = "implemented"
+enterprise  = "implemented"
+opensource  = "implemented"
+hummingbrrd = "none"
+
+# ── Sensors ─────────────────────────────────────────────────────────────────
+
+[sensors.gps]
+notes = """u-blox NMEA-0183 over CDC-ACM. Trust primitive: position+time anchor
+(REQ-BRRD-002 gate); udev-stable device binding (REQ-BRRD-001).
+SOHO uses an EXTERNAL-ANTENNA receiver — see docs/findings/0001 (20 dB RFI): the external
+antenna is an engineering requirement, not a preference."""
+[sensors.gps.status]
+soho        = "planned"
+enterprise  = "planned"
+opensource  = "implemented"
+hummingbrrd = "none"
+
+[sensors.ble_sniffer]
+notes = """Discrete BLE sniffer (e.g. Nordic nRF52). Distinct from the MT7925's integrated
+BT — this is the dedicated-radio path. The former BRRDfeeder README claim of an nRF52
+on /dev/cybrrd_ble was retired 2026-07-13: no such code path existed."""
+[sensors.ble_sniffer.status]
+soho        = "none"
+enterprise  = "planned"
+opensource  = "none"
+hummingbrrd = "none"
+
+[sensors.rid_ble]
+notes = """The BLE Remote-ID receive path that is actually fielded — distinct from
+`ble_sniffer` below, which is the Nordic nRF52840 dedicated-sniffer role (Wave 7.2,
+not built). On BRRDfeeder this is a discrete Realtek RTL8761BUE USB controller (0bda:876e)
+taken over a raw HCI USER channel per ADR 0005: the controller stays DOWN with
+bluetoothd disabled, which is a requirement of RID capture, not a fault. The engine
+binds it by BD address, not hciN, so a USB re-enumeration does not lose it.
+Contracted by REQ-BRRD-014 (passive, PHY-capability-detected, identity-bound,
+health-signaled). Added 2026-09-22: the manifest carried an entry for the sensor that
+does NOT exist (ble_sniffer) and none for the sensor that does. That omission is why
+the Bluetooth contradiction had nowhere to be caught.
+
+KNOWN BLIND SPOT — the engine computes rid_ble health (Initializing/Healthy/Degraded/
+Failed, REQ-BRRD-014) and logs it, but publishes it on NO NATS subject. Verified
+2026-09-22 across all `cybrrd.>` subjects: 68 payloads, zero carrying rid_ble state.
+So BLE works and cannot be witnessed remotely. heartbeat.rs:295 already names
+`ble_sniffer` as a canonical radio role alongside `wifi_monitor`, so the schema has a
+slot — the rid_ble adapter should register as a radio there."""
+[sensors.rid_ble.status]
+soho        = "implemented"
+enterprise  = "implemented"
+opensource  = "implemented"
+hummingbrrd = "none"
+
+[sensors.sdr_wideband]
+notes = """Void-listening: non-cooperative detection of aircraft transmitting NO Remote-ID
+and NO Bluetooth. Named tier — `Sýc` (Tengmalm's / Boreal Owl, Sýc rousný), for the owl
+whose asymmetric ear placement yields a 3-D acoustic fix on prey that never announces
+itself. Enterprise-only; the transition into ECOLOGEE SUBSTR8."""
+[sensors.sdr_wideband.status]
+soho        = "none"
+enterprise  = "planned"
+opensource  = "planned"      # Cy 2026-09-22: future version, not a structural absence
+hummingbrrd = "none"
+
+# ── Declared contract debt (no-silent-caps) ─────────────────────────────────
+# Debt is ALLOWED. Silent debt is not.
+#
+# OPEN 2026-09-22 — operator_station_to_globe. RID operator data is decoded and
+# persisted but never reaches the live globe view. cybrrd-rid-protocol parses message
+# 0x50 (Operator ID) and 0x40 (System -> operator position) into NormalizedTelemetry,
+# and backhaul.rs serialises that whole struct onto cybrrd.telemetry.frame.rid.<node>,
+# so the lake receives it. But AirspaceStateEnvelope (engine/src/tick_publisher.rs)
+# carries only `drones: Vec<AirspaceDroneObservation>`, which has no operator fields,
+# and tick_publisher.rs:444-445 sets operator_pos/operator_id to None explicitly.
+# Verified on origin/main 2026-09-22, not only on the fielded d021d681.
+# Consequence: "globe.cybrrd.com displays drones AND operator stations" is NOT true
+# today. Declared here rather than discovered by a customer.
+# Owner: Cy to rule on scope; fix is an operators array on the envelope plus a globe
+# renderer.
+#
+# RESOLVED 2026-09-22 — sensors.ble_sniffer needed no ruling; the question was a
+# category error. `ble_sniffer` is the Nordic nRF52840 dedicated-sniffer role (Wave
+# 7.2, pending, genuinely not built) and `none` on opensource is correct. The fielded
+# Realtek USER-channel receiver is a DIFFERENT sensor and now has its own entry,
+# [sensors.rid_ble], contracted by REQ-BRRD-014.
+#
+# OPEN 2026-09-22 — rid_ble health is unpublished. See the [sensors.rid_ble] notes.
+# A capability that cannot be witnessed from the carrier plane is how the Bluetooth
+# contradiction survived five days; declared here so it is not silent.
+#
+# RESOLVED 2026-07-19 — profile_scoped_contract_trace. The gate carried forward from
+# BRRDfeeder parsed `status = "..."` as a scalar and, against this schema, found ZERO
+# capability statuses and passed vacuously: green while checking nothing. It has been
+# rewritten for the profile dimension (engine/tests/contract_trace.rs) and now enforces
+# four rules including an explicit anti-vacuity guard. Refutation-checked in both
+# directions: omitting a profile from a status table fails RULE 3; marking bluetooth
+# `implemented` on the opensource profile fails RULE 2 by name.
+
+[contract_debt]

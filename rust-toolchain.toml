@@ -1,0 +1,5 @@
+# D20: pin the verified shared floor; version bumps require floor CI + review.
+[toolchain]
+channel = "1.88.0"
+profile = "minimal"
+components = ["clippy", "rustfmt"]

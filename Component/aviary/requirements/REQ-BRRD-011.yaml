@@ -1,0 +1,46 @@
+id: REQ-BRRD-011
+title: Source-health signaling — E-VSM colors, in-band, raw edge-local / summary upstream
+statement: >-
+  WHILE the feeder is operating, it SHALL emit its Green liveness metronome (per
+  ADR-0008) on the feeder's Tier-0 NATS namespace carrying per-source health for
+  each capture source (bluBRRD/BLE, Wi-Fi/Hunter, GPS). WHEN a source degrades the
+  feeder SHALL raise that source's color to Silver; WHEN a source is down beyond the
+  configured threshold the feeder SHALL escalate Red algedonic (per ADR-0009). All
+  health signaling SHALL be IN-BAND on dedicated E-VSM color subjects/headers of the
+  Tier-0 namespace (never an off-substrate channel), and SHALL NOT be mixed into the
+  RID observation subjects. Raw per-source liveness SHALL remain edge-local; only the
+  aggregated summary (Silver / algedonic Red) SHALL traverse the membrane upstream.
+rationale: >-
+  The metasystem must distinguish "sensor sick" from "sky empty" per source, without
+  bloating the RID telemetry wire or polluting the evidentiary record (REQ-BRRD-009/010
+  keep observations pure). MACAWI-T2-NAT-001 already specifies the mechanism: colour on
+  the subject + header (T1 FedEx), health as dedicated color streams, and T5 keeps Red
+  IN-BAND (off-substrate hardware "adds no intelligence and is itself a resource-
+  exhaustion target"). The §4 2×2 locality contract keeps raw liveness edge-local and
+  exports only the summary — "the body does not feel each cell's pulse; it gets a summary
+  and escalates on anomaly." This also honours the Monday-backup scar: the health signal
+  must not depend on the path it reports on — dedicated color streams + a live upstream
+  consumer detecting fleet-dark silence, not a circular dependency.
+binds:
+  - "engine heartbeat task + engine/src/nats_publisher.rs (UNBUILT extension): Green metronome carries per-source health on color subjects; Silver/Red escalation"
+  - "L5 sensor-bridge daemon (UNBUILT): per-source liveness derivation (bluBRRD heartbeat age, Hunter CaptureLiveness, GPS fix/clock state)"
+verify:
+  - >-
+    PENDING (assay): kill each source in turn (unplug bluBRRD; wedge the Hunter; pull GPS);
+    confirm the feeder raises Silver then escalates Red algedonic on the dedicated color
+    subject, that raw liveness stays edge-local while only the summary exports, and that no
+    health record appears on the RID observation subject. Prove the escalation threshold bites.
+status: open
+references:
+  - "MACAWI-T2-NAT-001 (ECOLOGEE E-VSM NATS JetStream Architecture Standard) — §2 three-tier topology, §3 subject grammar <constellation>.<color>.<assurance>.<domain>[.<subtype>].<scope-token>, §4 2×2 persistence/locality export contract, T1 FedEx, T2 Epistemic Anti-Sovereign, T5 in-band algedonic"
+  - "ADR-0008 (Green 1 Hz Metronome) — the liveness heartbeat cadence"
+  - "ADR-0009 (Red Algedonic Channel) — source-down escalation"
+  - "ADR-0010 (Edge Node Service Management)"
+  - "ECOLOGEE E-VSM Color Network Protocol — Green/Silver/Red semantics"
+  - "REQ-BRRD-004 (edge is a witness / T2 anti-sovereign), REQ-BRRD-009/010 (observation purity)"
+provenance:
+  decided: "2026-07-22 (Cy — item-5 device-offline signaling; shape confirmed this session, aligned to MACAWI-T2-NAT-001 + E-VSM Color Protocol)"
+  witness: "Cy + Synth"
+  evidence: >-
+    Supersedes Synth's first item-5 sketch (which proposed an off-substrate deadman — corrected
+    by the standard's T5). Design captured in pack memory project_brrdfeeder_monitor_plane. See ADR-0003.

@@ -1,0 +1,24 @@
+# cybrrd-rid-core — the shared, no_std/heapless ASTM F3411 Remote ID decoder.
+#
+# This crate is the SUBSTRATE both the Pi engine (via cybrrd-rid-protocol)
+# and the ESP32-S3 Sentinel firmware decode against (#168 Option B). It has
+# ZERO knowledge of NATS, serde, the cloud, or std — by construction, the
+# $15 Sentinel cannot inherit cloud/std dependencies through it. The boundary
+# is enforced at the compiler, not by convention.
+#
+# Indestructibility contract (Gemini System-5 guardrail): the decoder must
+# NEVER panic on malformed/malicious over-the-air RF. Over-capacity input is
+# truncated or rejected (Result::Err); it never reallocates or crashes.
+[package]
+name = "cybrrd-rid-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+description = "no_std/heapless ASTM F3411 Remote ID decoder — shared core for Pi + ESP32 (cyBRRD Nodes)"
+authors = ["Macawi AI Pack <pack@macawi.ai>"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/cybrrd/brrdfeeder"
+
+[dependencies]
+# const-generic fixed-capacity collections; no_std, no allocator required.
+heapless = "0.8"

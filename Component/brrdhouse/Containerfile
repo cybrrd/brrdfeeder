@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Native compiler on AMD64 or ARM64; immutable Go 1.27.0 multi-platform index.
+ARG BUILDPLATFORM=linux/amd64
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.0@sha256:4013ae0f9e7994f8535c58c811f8f863fbed38b72e0d51e6592156f758d66146 AS build
+ARG TARGETARCH=arm64
+ENV CGO_ENABLED=0 GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+WORKDIR /src
+COPY . .
+RUN umask 022 && chmod 0644 LICENSE && sha256sum -c vendor.sha256 && \
+    GOOS=linux GOARCH=${TARGETARCH} go build -mod=readonly -trimpath -buildvcs=false \
+      -ldflags="-s -w -buildid=" -o /brrdhouse .
+
+FROM scratch
+ARG GIT_SHA=unknown
+ARG SOURCE_REVISION="${GIT_SHA}"
+ARG BUILD_SEQ=0
+LABEL org.opencontainers.image.revision="${SOURCE_REVISION}" \
+      com.macawi.brrdhouse.build_seq="${BUILD_SEQ}"
+LABEL org.opencontainers.image.title="BRRDhouse" \
+      org.opencontainers.image.description="Unauthenticated read-only local engine status" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+COPY --from=build /brrdhouse /brrdhouse
+COPY --from=build /src/LICENSE /LICENSE
+USER 65532:65532
+EXPOSE 8080
+ENTRYPOINT ["/brrdhouse"]

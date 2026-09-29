@@ -1,0 +1,10 @@
+[Unit]
+Description=Separate signed BRRDfeeder host-updater release
+After=network-online.target brrdfeeder-release-recover.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/brrdfeeder-release-launch poll-updater
+TimeoutStartSec=5min
+UMask=0077

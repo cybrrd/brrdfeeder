@@ -1,0 +1,66 @@
+BRRDfeeder bootstrap kit manifest
+=================================
+
+CURRENT KIT — 2026-09-18 D11 build
+----------------------------------
+Archive:      brrdfeeder-bootstrap-kit-fcd232e2096a.tar.gz
+Main commit:  fcd232e2096a0b43b3a0bead30b3f4fdfc7cd9cf
+Archive sha256: 2abbac78fdd1e23c57af9928573c0e5d6f9fc9ba38b0eba33a316e42017e3927
+
+KIT-MANIFEST inside the archive is authoritative for verification. The hashes
+below reproduce its current payload records; this repository file also retains
+older kit provenance in the explicitly historical section.
+
+Engine binary (verified ARM64 payload; refresh does not install it):
+  source commit: bb00cf20ceaff7b56407ce14525df31c423ece48
+  build sequence: 287
+  size: 4330352 bytes
+  sha256: 8a8bc3559d8400f2236b292249022d82488a11993a7c04020e4b4fb07ec59b32
+
+Current installer, helpers, templates, and records (from KIT-MANIFEST):
+  59a32998e97ec407227522c55da3c6fcfefa8dbf01ca0438afe8dcfe59e25745  99-cybrrd-brrdfeeder.rules
+  35ec00cafbd61cc2022fbb10c47be97026a63ee7c9b996639369300c547885cd  README.md
+  5a2215b0b5bf665f66c030e06e965c9149cfb45da07fcd61e0fa046db8020dd1  brrdfeeder-blackbox-flush.sh
+  7caa37a233224141036d9715fd7de09288fc1362c6ec1ac4c52775e69122e29e  brrdfeeder-engine.container
+  2a5a17356cb44ed60af448652138b93996022d59ca42b0838dbde334ae47f528  brrdfeeder-install.sh
+  f8269911b978f990cd541313582a150a758765f34124a11d5de90f2f9af6783a  brrdfeeder-rfkill-boot-state.sh
+  0be9632f156e04d49973e5f87255f94dcee1e0c55ba9176d375abfb667c661a1  config.yaml.mobile.template
+  8d6e398b89c1536445072256e4a03fff0e34151f99d88f88bc9e9a58e415b3e4  config.yaml.template
+  8a8bc3559d8400f2236b292249022d82488a11993a7c04020e4b4fb07ec59b32  engine
+  a03811da73b0c3b19ce9041a8db6d5132a2ac700f33626b780409380d9c2760f  manifest.txt
+
+HISTORICAL — June 2026 kit (superseded; not the current payload)
+----------------------------------------------------------------
+Built:        20260607-181008
+Source host:  cardinal
+Builder:      synth
+Kernel:       7.0.0-1009-raspi
+
+June engine binary:
+  /tmp/brrdfeeder-bootstrap-20260607-181008/brrdfeeder-bootstrap/engine: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, BuildID[sha1]=2d9aeea6836065dc4f86338a5ed1ed43b92ba366, for GNU/Linux 3.7.0, not stripped
+  size: 7461920 bytes
+  sha256: a6e825aa06a49dbea661f51812e6e14e15540d6fe852333b587ff61c7653578b
+  source capabilities (NOT preserved by tar):
+    /home/synth/brrdfeeder-src/engine/target/release/engine cap_net_admin,cap_net_raw=ep
+
+Install script:
+  size: 27285 bytes
+  sha256: 58c008ab090ed2c6dd79d27e185283ed8f787264a119da32611d5e7f3de5d8b1
+
+Config template:
+  size: 1998 bytes
+  sha256: b29849cd632ea2b599af86a85436777d3d2072a6f04552a67c8d70680e8ee37a
+
+Historical D8 branch-only source supplement (2026-09-18; not a built kit):
+  brrdfeeder-install.sh
+    size: 33916 bytes
+    sha256: 5fb38ff0762045d0e9faf5102503cf14359f9de4da9c53360e4bea88f60db666
+  brrdfeeder-blackbox-flush.sh
+    size: 6099 bytes
+    sha256: 5a2215b0b5bf665f66c030e06e965c9149cfb45da07fcd61e0fa046db8020dd1
+  brrdfeeder-rfkill-boot-state.sh
+    size: 2764 bytes
+    sha256: f8269911b978f990cd541313582a150a758765f34124a11d5de90f2f9af6783a
+  config.yaml.mobile.template
+    size: 2297 bytes
+    sha256: 0be9632f156e04d49973e5f87255f94dcee1e0c55ba9176d375abfb667c661a1

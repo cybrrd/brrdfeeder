@@ -1,0 +1,39 @@
+id: REQ-BRRD-004
+title: Ingest publishes single-source observations — the edge witnesses, it does not fuse
+statement: >-
+  WHEN the ingest service emits an observed Remote ID record, it SHALL publish
+  each observation as an independent, single-source, source-tagged record, and
+  SHALL NOT correlate across sources, deduplicate across sources, fuse, or smooth
+  observations at the edge. Cross-source correlation and track-fusion SHALL occur
+  only upstream of the feeder.
+rationale: >-
+  A BRRDfeeder is one source of observed truth — exactly as multiple feeders are
+  independent sources that the metasystem correlates, not each other. Edge fusion
+  would (a) destroy the raw evidentiary record a Daubert challenge probes
+  (chain-of-custody), (b) let one feeder's local fusion bug corrupt the fleet
+  picture, and (c) break Ashby attenuation — the edge normalises and tags; the
+  upstream (S3) correlates. "Feeders do not smooth themselves." This is a security
+  control, not only doctrine: DroneScout's edge-side suppression — adjacent-channel
+  (CVE-2023-31191, critical) and 500 ms MQTT-dedup (CVE-2023-29156) — let an attacker
+  inject a spoofed same-MAC frame to make a REAL drone vanish from the feed. Publishing
+  every observation with NO edge dedup/fuse/suppress structurally immunizes cyBRRD against
+  that whole class.
+binds:
+  - "L5 sensor-bridge daemon (UNBUILT): per-source publish path; no cross-reader fusion stage"
+verify:
+  - >-
+    PENDING (assay): inject Wi-Fi and BLE observations carrying the same UAS ID;
+    confirm N distinct source-tagged records are published and none are merged or
+    deduplicated at the edge. Promote to an automated assay when the daemon lands.
+status: open
+references:
+  - "Nozomi Networks WP 'Not the Drones You're Looking For' §2.1.2/§5 — RID is unauthenticated/spoofable; edge suppression is the exploited surface (pack memory reference_nozomi_rid_spoofing)"
+  - "CVE-2023-31191 (critical; BlueMark DroneScout ds230) — adjacent-channel suppression: a spoofed same-MAC frame on an adjacent channel at higher RSSI drops the real drone's frames (made invisible). Defended by publishing every observation with no edge dedup/suppression"
+  - "CVE-2023-29156 (DroneScout 500 ms MQTT dedup timer) — same-MAC injection inside the window discards real RID. Same defense"
+provenance:
+  decided: "2026-07-21 (Cy — multi-source RID ingest design; fork 2 ratified this session)"
+  witness: "Cy + Synth"
+  evidence: >-
+    Ratified in discussion, not yet built. Companion decisions REQ-BRRD-005
+    (local-durable) and REQ-BRRD-006 (single decoder). Design captured in pack
+    memory 'project_blubrrd' + the ingest-turbine explanation, 2026-07-21.

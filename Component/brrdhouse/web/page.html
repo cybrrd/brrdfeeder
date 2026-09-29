@@ -1,0 +1,12 @@
+{{define "page"}}<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true,"historyCacheSize":0}'>
+<title>BRRDhouse · Unit status</title><link rel="stylesheet" href="/web/style.css">
+<script src="/web/htmx.min.js" defer></script><script src="/web/sse.js" defer></script><script src="/web/live.js" defer></script></head>
+<body><header><a class="brand" href="/">BRRDhouse</a><span class="tag">Local · Read only</span></header>
+<main><div class="intro"><p class="eyebrow">YOUR RECEIVER, AT A GLANCE</p><h1>Unit status</h1><p>See whether your receiver is reporting, and what needs attention.</p><p class="muted">Local address: <span id="local-address">the address in your browser</span></p></div>
+<p id="connection-warning" role="alert" hidden>Live connection lost — current engine status is unknown. Check the unit's power and network, then reload this page.</p>
+<noscript><p class="notice">This is a snapshot. JavaScript is disabled; reload to check the current state.</p></noscript>
+<div id="live-status" hx-ext="sse" sse-connect="/events"><div id="status" sse-swap="status" hx-swap="innerHTML" aria-live="polite">{{template "status" .}}</div></div>
+<p class="muted">A status snapshot is evidence of recent reporting, not a direct process check. The engine may have stopped since its last report.</p>
+</main><footer>BRRDhouse · Public LAN status <a href="/LICENSE">AGPL-3.0-or-later</a></footer></body></html>{{end}}

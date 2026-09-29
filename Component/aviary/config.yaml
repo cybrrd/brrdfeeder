@@ -1,0 +1,70 @@
+# BRRDfeeder — reference engine configuration
+#
+# CONTRACT (REQ-BRRD-003): every key in this file is consumed by the engine.
+# The engine refuses to load a config containing keys it does not wire
+# (serde deny_unknown_fields), and the shipped_reference_config_parses golden
+# test keeps THIS file matching the real schema forever.
+# Capability claims (what this System can and cannot decode) live in
+# capabilities.toml — not here.
+
+node:
+  # WHAT: atomic, public-readable local engine status (optional).
+  # WHY: ADR 0007 tier-1 console source; no listener or credentials.
+  # WHEN-to-tune: uncomment to enable; absent/null is OFF, path is the default.
+  # DEPENDS: existing trusted writable parent; console needs read/traverse access.
+  # status_file: /var/lib/brrdfeeder/status.json
+  # WHAT: mandatory status refresh cadence, in seconds (default 30).
+  # WHY: bound SD writes while keeping written_at fresh; important changes write early.
+  # WHEN-to-tune: lower for freshness, raise for SD wear; clamped to heartbeat interval.
+  # DEPENDS: status_file enabled; consumers MUST mark age > 3x effective interval stale.
+  # status_interval_secs: 30
+  id: "brrdfeeder-open-example-001"
+  # Static install location — used as the un-anchored fallback only. When the
+  # GPS has a live fix the stamper substitutes per-frame GpsLive positions.
+  location:
+    latitude: 0.0
+    longitude: 0.0
+    elevation_meters: 0
+
+capture:
+  # Opt-in only. A configured ring defaults to 4 x 8MiB, max age 24h.
+  savefile: null
+  # Monitor-mode-capable Wi-Fi interface (ALFA). Kernel iface name or a
+  # udev-stable name — see the Handbook, ch. 2.2 (Kernel & Serial Gating).
+  interface: "wlan1"
+  hunter:
+    # Kittler Substrate Defense — channel-rotation state machine (Wave 7.1).
+    enabled: true
+    lock_on_duration_ms: 2000
+    lock_on_min_ms: 500
+
+backhaul:
+  broker_urls:
+    - "tls://ingest.cybrrd.com:4222"
+  credentials_path: "/etc/brrdfeeder/secrets/brrdfeeder.creds"
+
+tuning:
+  edge_processing:
+    deduplication_window_ms: 1000
+  heartbeat:
+    interval_secs: 5
+
+sensors:
+  rid_ble:
+    enabled: false
+    # Dedicated, administratively DOWN controller, unmanaged by bluetoothd.
+    # Replace with its BD_ADDR; USB vendor:product is allowed only if unique.
+    adapter:
+      bd_addr: "00:00:00:00:00:00"
+    quiet_window_s: 30
+  gps:
+    clock:
+      consistent_fixes: 3
+      max_step_secs: 604800
+      allow_large_step: false
+    # udev-stable symlink (REQ-BRRD-001) — never a raw /dev/ttyACM* path.
+    device: "/dev/cybrrd_gps"
+    # Trust primitive (REQ-BRRD-002 / Wave 7.4): the engine refuses to publish
+    # until 3D fix + GPS-disciplined time. Setting false self-discloses on the
+    # wire (node_position_source=config_static).
+    required: true

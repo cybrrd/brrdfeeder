@@ -1,0 +1,64 @@
+id: REQ-BRRD-001
+title: GPS serial device binds the udev-stable symlink
+statement: >-
+  WHEN the engine opens the GPS serial device, the engine SHALL open it via the
+  udev-stable symlink /dev/cybrrd_gps, and SHALL NOT default to a raw
+  /dev/ttyACM* path.
+rationale: >-
+  /dev/ttyACM* enumeration order is non-deterministic across power-cycles (the
+  2026-05/06 "port jumpiness" incidents); a raw-path default silently binds the
+  wrong device. The udev rule pins identity by USB VID/serial (wiki Handbook
+  ch. 2.2 — Kernel & Serial Gating). Deterministic failure with a clear device
+  name beats lucky success.
+binds:
+  - "engine/src/node_config.rs::default_gps_device"
+  - "deploy/udev/99-cybrrd-brrdfeeder.rules (harvested verbatim from robin 2026-07-18; see deploy/udev/README.md)"
+verify:
+  - "engine/src/node_config.rs::tests::gps_default_device_is_the_udev_symlink — compiled default is /dev/cybrrd_gps and contains no ttyACM path"
+  - "engine/src/node_config.rs::tests::gps_device_omitted_falls_back_to_symlink — serde default wiring, not just the helper fn"
+  - "deploy/udev/99-cybrrd-brrdfeeder.rules exists in-repo and pins VID 1546 / PID 01a7 -> SYMLINK cybrrd_gps"
+status: open
+status_note: >-
+  2026-09-19 (Synth) — corrected from `bound` to `open`, and the original claim is
+  left on record here rather than erased. `requirements/README.md` defines `bound`
+  as "code binding + automated CI verification both in place and passing", and
+  `open` as "statement ratified; code binding or automated verification
+  incomplete". The code binding is in place; the automated half is not, and never
+  was in this repository. CYB1 runs no CI that executes these tests — the component
+  workflow files sit under `Component/*/.github/workflows/`, a path Gitea Actions
+  does not read, and the README's own `contract-trace` check is still marked
+  "(planned)". `open` is the table's own term for exactly this state, so this is a
+  correction of a mis-stated claim, not a downgrade of the work. Any manual
+  verification evidence is cited under `provenance`. Restoring `bound` honestly
+  requires all three of: the root workflow carried on
+  `chore/toolchain-pinning-2026-09-18` (register C-1), the build-home decision
+  (register C-2), and a `contract-trace` check that fails the build.
+provenance:
+  decided: "2026-07-13 (Cy — harvests the Wave 7.0 udev Tier-1 design into the canonical repo as a governed requirement)"
+  witness: "Cy"
+  evidence: >-
+    Fleet already complies via explicit node config: robin opens /dev/cybrrd_gps
+    (engine journal, 2026-07-13). The repo DEFAULT still contradicts this
+    requirement (/dev/ttyACM1 at 806eebd) and the udev rule file exists only as
+    wiki prose + the stale sibling repo — which is exactly why this record
+    exists and why status is open.
+  bound: "2026-07-18 (edge-beta Increment 0, item 4)"
+  bound_evidence: >-
+    Rule HARVESTED, not invented (the requirement demands it — inventing a
+    device-matching rule is how you bind the wrong device). Captured verbatim from
+    robin:/etc/udev/rules.d/99-cybrrd-brrdfeeder.rules and confirmed independently
+    via udevadm: ID_VENDOR_ID=1546, ID_MODEL_ID=01a7, u-blox 7 GPS/GNSS Receiver.
+    Landed at deploy/udev/99-cybrrd-brrdfeeder.rules with provenance in
+    deploy/udev/README.md. Compiled default flipped /dev/ttyACM1 -> /dev/cybrrd_gps.
+    RATIONALE CONFIRMED IN THE FIELD: at harvest robin showed /dev/cybrrd_gps ->
+    ttyACM1 — precisely what the old default hardcoded, so it worked BY LUCK. On that
+    same node /dev/cybrrd_ble -> ttyACM0, so an enumeration flip would have bound the
+    GPS reader to the BLE adapter while the symlink correctly followed the real
+    receiver. REFUTATION-CHECKED: reverting the default to /dev/ttyACM1 makes
+    gps_default_device_is_the_udev_symlink FAIL, then restored — the gate bites.
+    Suite 119 -> 121 passed / 0 failed, clippy 0 errors.
+    STILL OPEN (recorded, not silently reconciled): docs/src/substrate-device-identity.md
+    §2 documents a different rules file (99-cybrrd-substrate.rules) using /dev/brrd-*
+    naming while the deployed fleet uses cybrrd_* — doc needs truth-up. MODE="0666" is
+    world-writable where the doc's examples use 0660; tightening is a deliberate
+    fleet-wide change, not a passing edit.

@@ -1,0 +1,37 @@
+id: REQ-BRRD-009
+title: RID is unauthenticated — the feeder records observed claims, never verified truth
+statement: >-
+  WHEN the feeder emits a Remote ID observation, it SHALL represent the decoded RID
+  as an UNAUTHENTICATED observed claim (what was broadcast and received), and SHALL
+  NOT assert the decoded identity, position, or operator as verified fact. The
+  feeder SHALL NOT accept, reject, or alter an observation based on the plausibility
+  or trustworthiness of its RID content. WHERE an F3411 Authentication Message is
+  present, it SHALL be recorded as-is (itself an observed claim), not trusted.
+rationale: >-
+  ASTM F3411 RID — both OpenDroneID and DJI DroneID — has no encryption, no
+  authentication, and no integrity check (Nozomi WP §2.1.2, Fig.3); a receiver
+  cannot distinguish real RID from forged/injected RID. Treating RID as verified
+  truth at the edge would (a) launder spoofed data into the evidentiary record and
+  (b) let a plausibility filter be gamed to hide real aircraft (the DroneScout CVE
+  class). The edge attests "I observed this broadcast" — a Daubert-clean chain-of-
+  custody claim — and leaves authenticity/spoof adjudication to upstream
+  correlation (REQ-BRRD-004). Honesty about what is NOT known is the evidentiary
+  posture.
+binds:
+  - "L5 ingest shaft / decoder (UNBUILT): observation schema tags RID payload as unauthenticated; no content-plausibility gate on the capture path"
+verify:
+  - >-
+    PENDING (assay): inject a forged ODID (impossible position / spoofed MAC);
+    confirm it is recorded as an observed claim, flagged unauthenticated, and is
+    neither trusted-as-truth nor silently dropped by the edge.
+status: open
+references:
+  - "Nozomi Networks WP 'Not the Drones You're Looking For' §2.1.2 — RID lacks encryption/authentication/integrity; data cannot be trusted (pack memory reference_nozomi_rid_spoofing)"
+  - "ASTM F3411-22a §5.4.5 (Authentication Message, Auth Type field) — authentication is OPTIONAL and unkeyed in practice"
+  - "REQ-BRRD-004 (upstream correlation), feedback_evidentiary_defensibility_doctrine (Daubert)"
+provenance:
+  decided: "2026-07-21 (Cy — Nozomi threat-model harvest; full proposal concurred this session)"
+  witness: "Cy + Synth"
+  evidence: >-
+    Ratified in discussion, not yet built. Companion of REQ-BRRD-010 (preserve
+    spoof-detection metadata). Design context in pack memory reference_nozomi_rid_spoofing.

@@ -1,0 +1,5 @@
+[Unit]
+Description=BRRDfeeder signed update mailbox
+
+# RETIRED: D44 pull-only uses the bounded release timer, never PathExists.
+# Kept as a source tombstone; install skips this file.

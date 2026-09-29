@@ -1,0 +1,72 @@
+id: REQ-BRRD-007
+title: Wi-Fi Beacon ASTM F3411 Remote-ID decode preserves observations and refuses malformed framing
+statement: >-
+  WHEN the engine captures an 802.11 Beacon frame carrying an ASTM F3411
+  vendor-specific Remote-ID element, the engine SHALL decode it to the canonical
+  cyBRRD wire representation preserving Basic ID, Location, Operator ID and
+  Authentication fields as observed; unknown position SHALL be omitted without
+  suppressing an otherwise identified observation, and operational status SHALL
+  remain an observed claim rather than a precondition for publication. WHEN a
+  frame has malformed Remote-ID pack framing, the engine SHALL reject it rather
+  than guess its structure.
+rationale: >-
+  wifi_beacon is the PRIMARY RID transport and the capability the product is sold
+  on — every downstream claim (detection, evidentiary custody, the Bohr coherence
+  verdict) rests on this decode being correct and on non-conformant input being
+  refused rather than half-parsed. It was declared "implemented + tested" in
+  capabilities.toml and genuinely exercised by golden tests, but until now NO
+  requirement bound it: the ecosystem's core capability was the least contracted
+  thing in the repo. Contract debt on the primary path is the highest-leverage
+  kind. A partial decode that "mostly works" is worse than a refusal, because it
+  enters the evidence chain looking valid (Daubert posture — a decode we cannot
+  defend is a decode we must not emit).
+binds:
+  - "cybrrd-rid-protocol/src/parsers.rs"
+  - "cybrrd-rid-protocol/src/router.rs"
+  - "capabilities.toml::rid_transport.wifi_beacon"
+verify:
+  - "cybrrd-rid-protocol::tests::parses_real_dji_mini5pro_to_wire — real-hardware golden (DJI Mini 5 Pro); the anchor test on verbatim captured bytes"
+  - "cybrrd-rid-protocol::tests::parses_basic_id_and_location_to_wire — Basic ID + Location to canonical wire"
+  - "cybrrd-rid-protocol::tests::dual_basic_id_splits_serial_and_registration_on_wire — dual Basic ID disambiguation"
+  - "cybrrd-rid-protocol::tests::parses_operator_id_and_self_id — Operator ID / Self ID"
+  - "cybrrd-rid-protocol::tests::parses_auth_page_zero_metadata — Authentication page 0"
+  - "cybrrd-rid-protocol::tests::identity_only_pack_has_unknown_position — D27: identity survives absent LOCATION without fabricating a position"
+  - "cybrrd-rid-protocol::tests::zero_pair_is_absent_independent_of_status_claim — D27: unknown position is omitted for every observed status nibble"
+  - "cybrrd-rid-protocol::tests::rejects_non_pack_header — REFUSAL: non-conformant header must not decode"
+status: open
+status_note: >-
+  2026-09-19 (Synth) — corrected from `bound` to `open`, and the original claim is
+  left on record here rather than erased. `requirements/README.md` defines `bound`
+  as "code binding + automated CI verification both in place and passing", and
+  `open` as "statement ratified; code binding or automated verification
+  incomplete". The code binding is in place; the automated half is not, and never
+  was in this repository. CYB1 runs no CI that executes these tests — the component
+  workflow files sit under `Component/*/.github/workflows/`, a path Gitea Actions
+  does not read, and the README's own `contract-trace` check is still marked
+  "(planned)". `open` is the table's own term for exactly this state, so this is a
+  correction of a mis-stated claim, not a downgrade of the work. Any manual
+  verification evidence is cited under `provenance`. Restoring `bound` honestly
+  requires all three of: the root workflow carried on
+  `chore/toolchain-pinning-2026-09-18` (register C-1), the build-home decision
+  (register C-2), and a `contract-trace` check that fails the build.
+provenance:
+  decided: "2026-07-18 (Synth — edge-beta Increment 0 item 5; the contract-trace gate surfaced that the primary transport had no REQ)"
+  witness: "Cy (pending review — authored as a faithful description of already-verified behaviour, not a new design decision)"
+  evidence: >-
+    Authored during the contract-trace implementation, which asserts that every
+    capability marked "implemented" maps to a requirement. wifi_beacon failed that
+    rule while being the product's core capability. The behaviour was ALREADY
+    verified — ten tests exist in cybrrd-rid-protocol including the real-hardware
+    DJI Mini 5 Pro golden — so this record documents an existing, tested contract
+    rather than proposing new behaviour. Note the refusal tests are cited
+    deliberately: a decoder is defined as much by what it refuses as by what it
+    accepts (parser-class discipline — anchor at least one test on verbatim
+    real-hardware bytes).
+    NOT YET COVERED (recorded honestly): the 376-frame Mavic 3T pcap replay and
+    the router::ingest_frame live-entry regression (FABLE5 "B1") are edge-beta
+    Increment 4 work; when they land they belong on this requirement's verify list.
+    D27 Wave E (Cy/Synth, 2026-09-19) supersedes the original refusal of a
+    structurally decodable identity-only observation. Missing/unknown position
+    is not malformed framing, and transmitter conformance must not be assumed.
+    This binding covers decoder/envelope publication only; the separate Bohr
+    Spool gate change and tracker/live-view survival remain owed.

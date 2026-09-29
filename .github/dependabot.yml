@@ -1,0 +1,28 @@
+version: 2
+# Enable Dependency graph, Dependabot alerts and security updates in Settings.
+# Security updates are event-driven; these schedules govern version updates.
+updates:
+  - package-ecosystem: cargo
+    directory: /Component/aviary
+    schedule: {interval: weekly}
+    groups:
+      cargo-version: {patterns: ['*'], applies-to: version-updates}
+      cargo-security: {patterns: ['*'], applies-to: security-updates}
+  - package-ecosystem: gomod
+    directories: [/Component/brrdhouse, /Component/aviary/release-system]
+    schedule: {interval: weekly}
+    groups:
+      go-version: {patterns: ['*'], applies-to: version-updates}
+      go-security: {patterns: ['*'], applies-to: security-updates}
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: {interval: weekly}
+    groups:
+      actions-version: {patterns: ['*'], applies-to: version-updates}
+      actions-security: {patterns: ['*'], applies-to: security-updates}
+  - package-ecosystem: docker
+    directories: [/Component/aviary/engine, /Component/aviary/release-system, /Component/brrdhouse, /Component/brrdfeeder/install/tests]
+    schedule: {interval: weekly}
+    groups:
+      containers-version: {patterns: ['*'], applies-to: version-updates}
+      containers-security: {patterns: ['*'], applies-to: security-updates}

@@ -3,12 +3,40 @@
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 """Behavioral approval/artifact boundary checks with inert publication tools."""
 import json
+import os
 from pathlib import Path
 import subprocess
 import unittest
+from unittest.mock import patch
 from release_fixture import ReleaseFixture
 
 class Release(unittest.TestCase):
+    def test_fixture_is_independent_of_host_ci_environment(self):
+        explicit = {
+            'GITHUB_ACTOR', 'GITHUB_EVENT_NAME', 'GITHUB_OUTPUT',
+            'GITHUB_REF', 'GITHUB_REF_NAME', 'GITHUB_REPOSITORY',
+            'GITHUB_SHA', 'GITHUB_STEP_SUMMARY', 'RUNNER_TEMP',
+        }
+        for host_event in ('workflow_dispatch', 'push'):
+            host = {
+                'GITHUB_EVENT_NAME': host_event,
+                'GITHUB_ENV': '/host/github-env',
+                'GITHUB_WORKSPACE': '/host/workspace',
+                'RUNNER_OS': 'host-runner',
+                'ACTIONS_ID_TOKEN_REQUEST_URL': 'https://host.invalid/token',
+            }
+            with self.subTest(host_event=host_event), patch.dict(os.environ, host):
+                with ReleaseFixture() as f:
+                    self.assertEqual(f.env['GITHUB_EVENT_NAME'], 'push')
+                    leaked = {name for name in f.env
+                              if name.startswith(('GITHUB_', 'RUNNER_', 'ACTIONS_'))
+                              and name not in explicit}
+                    self.assertEqual(leaked, set())
+                    result = f.build('engine', GITHUB_REF='refs/heads/main',
+                                     GITHUB_REF_NAME='main')
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse(f.calls())
+
     def test_main_dispatch_validates_version_and_builds_without_a_tag(self):
         with ReleaseFixture() as f:
             result = f.build('engine', GITHUB_EVENT_NAME='workflow_dispatch',

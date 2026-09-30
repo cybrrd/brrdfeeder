@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[5]
+HOST_ENV_PREFIXES = ('GITHUB_', 'RUNNER_', 'ACTIONS_', 'FIXTURE_')
 MOCK = r'''#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path
@@ -55,9 +56,13 @@ printf engine-fixture > "$2/brrdfeeder-engine-$1.tar"
         host=b'synthetic-host-helper'
         install=self.work/'Component/brrdfeeder/install';install.mkdir(parents=True)
         (install/'brrdfeeder-install.sh').write_text('readonly RELEASE_HELPER_SHA256="'+hashlib.sha256(host).hexdigest()+'"\n')
-        self.env=dict(os.environ,PATH=str(binary)+':'+os.environ['PATH'],TRACE=str(self.trace),
+        # The fixture models a tag push unless a test overrides it. Never let
+        # the event that launched the outer test runner select fixture behavior.
+        host_env = {name: value for name, value in os.environ.items()
+                    if not name.startswith(HOST_ENV_PREFIXES)}
+        self.env=dict(host_env,PATH=str(binary)+':'+os.environ['PATH'],TRACE=str(self.trace),
             GITHUB_REPOSITORY='cybrrd/brrdfeeder',GITHUB_REF='refs/tags/v1.2.3',GITHUB_REF_NAME='v1.2.3',
-            GITHUB_ACTOR='fixture',REGISTRY_TOKEN='not-a-secret',RELEASE_APPROVAL_CONFIGURED='true',
+            GITHUB_EVENT_NAME='push',GITHUB_ACTOR='fixture',REGISTRY_TOKEN='not-a-secret',RELEASE_APPROVAL_CONFIGURED='true',
             RUNNER_TEMP=str(self.work/'out'),GITHUB_STEP_SUMMARY=str(self.work/'summary'),GITHUB_OUTPUT=str(self.work/'outputs'),
             GIT_AUTHOR_NAME='Development Team',GIT_COMMITTER_NAME='Development Team',GIT_AUTHOR_EMAIL='operator@cybrrd.com',GIT_COMMITTER_EMAIL='operator@cybrrd.com',
             ENGINE_ATTESTATION_URL='https://github.com/cybrrd/brrdfeeder/attestations/123',

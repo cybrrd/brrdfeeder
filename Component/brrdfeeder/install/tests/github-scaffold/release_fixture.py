@@ -40,6 +40,8 @@ class ReleaseFixture:
         for name in ('podman','skopeo','syft','cosign','gh','uname'):
             path=binary/name;path.write_text(MOCK);path.chmod(0o700)
         shutil.copytree(ROOT/'.github/scripts', self.work/'.github/scripts')
+        manifest=self.work/'Component/aviary/engine/Cargo.toml';manifest.parent.mkdir(parents=True)
+        manifest.write_text('[package]\nname = "engine"\nversion = "1.2.3"\n')
         engine=self.work/'Component/aviary/tools';engine.mkdir(parents=True)
         (engine/'build-arm64.sh').write_text('''#!/bin/bash
 set -eu

@@ -19,7 +19,8 @@ records = metadata.verified(root/'release')
 metadata.verify_host(root/'host-updater')
 out = root/'release-notes'
 out.mkdir(exist_ok=True)
-notes = ['Source: `'+ctx['revision']+'`', 'Build sequence: '+str(ctx['build_seq']), '']
+notes = ['Product version: '+ctx['product_version'], 'Source: `'+ctx['revision']+'`',
+         'Build sequence: '+str(ctx['build_seq']), '']
 assets = []
 urls = {}
 for receipt in records:

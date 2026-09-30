@@ -4,10 +4,29 @@
 """Behavioral approval/artifact boundary checks with inert publication tools."""
 import json
 from pathlib import Path
+import subprocess
 import unittest
 from release_fixture import ReleaseFixture
 
 class Release(unittest.TestCase):
+    def test_release_tag_must_match_engine_product_version(self):
+        cases = [
+            ('v0.8.20', '0.2.0', False),
+            ('v0.8.21', '0.8.20', False),
+            ('v0.8.20', '0.8.20', True),
+        ]
+        for tag, engine_version, accepted in cases:
+            with self.subTest(tag=tag, engine_version=engine_version), ReleaseFixture() as f:
+                subprocess.run(['git', 'tag', tag], cwd=f.work, env=f.env,
+                               check=True, capture_output=True)
+                manifest = f.work/'Component/aviary/engine/Cargo.toml'
+                manifest.write_text('[package]\nname = "engine"\nversion = "'+engine_version+'"\n')
+                result = f.build('engine', GITHUB_REF='refs/tags/'+tag,
+                                 GITHUB_REF_NAME=tag)
+                self.assertEqual(result.returncode == 0, accepted, result.stderr)
+                if not accepted:
+                    self.assertFalse(f.calls(), 'mismatch reached a build effector')
+
     def test_native_console_build_and_no_build_phase_writes(self):
         with ReleaseFixture() as f:
             f.build_both()
@@ -18,6 +37,7 @@ class Release(unittest.TestCase):
             for component in ('engine','console'):
                 meta=json.loads((f.work/'out/release'/component/'metadata.json').read_text())
                 self.assertEqual(meta['build_seq'],1001)
+                self.assertEqual(meta['product_version'],'1.2.3')
     def test_missing_approval_acknowledgement_refuses_all_effectors(self):
         with ReleaseFixture() as f:
             f.build_both()
@@ -93,7 +113,9 @@ class Release(unittest.TestCase):
             for name in ('engine-sbom.cdx.json','console-sbom.cdx.json','digests.txt','attestations.json','SHA256SUMS'):
                 self.assertTrue(any(arg.endswith('/'+name) for arg in args),name)
             self.assertNotIn('edit',args)
-            self.assertIn('Build sequence: 1001',(f.work/'out/release-notes/notes.md').read_text())
+            notes=(f.work/'out/release-notes/notes.md').read_text()
+            self.assertIn('Product version: 1.2.3',notes)
+            self.assertIn('Build sequence: 1001',notes)
     def test_invalid_attestation_url_or_host_pin_prevents_draft(self):
         for wrong_host in (True,False):
             with self.subTest(wrong_host=wrong_host), ReleaseFixture() as f:

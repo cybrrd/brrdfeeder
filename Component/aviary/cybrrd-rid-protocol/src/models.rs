@@ -121,7 +121,7 @@ pub struct Node {
     pub id: String,
     /// Node's static physical location (set at install time in config.yaml).
     pub location: NodeLocation,
-    /// BRRDfeeder release version (e.g., "v1.0.4-ce").
+    /// BRRDfeeder release version (e.g., "0.8.20-ce").
     pub version: String,
 }
 

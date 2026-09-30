@@ -4,10 +4,29 @@
 """Behavioral approval/artifact boundary checks with inert publication tools."""
 import json
 from pathlib import Path
+import subprocess
 import unittest
 from release_fixture import ReleaseFixture
 
 class Release(unittest.TestCase):
+    def test_release_tag_must_match_engine_product_version(self):
+        cases = [
+            ('v0.8.20', '0.2.0', False),
+            ('v0.8.21', '0.8.20', False),
+            ('v0.8.20', '0.8.20', True),
+        ]
+        for tag, engine_version, accepted in cases:
+            with self.subTest(tag=tag, engine_version=engine_version), ReleaseFixture() as f:
+                subprocess.run(['git', 'tag', tag], cwd=f.work, env=f.env,
+                               check=True, capture_output=True)
+                manifest = f.work/'Component/aviary/engine/Cargo.toml'
+                manifest.write_text('[package]\nname = "engine"\nversion = "'+engine_version+'"\n')
+                result = f.build('engine', GITHUB_REF='refs/tags/'+tag,
+                                 GITHUB_REF_NAME=tag)
+                self.assertEqual(result.returncode == 0, accepted, result.stderr)
+                if not accepted:
+                    self.assertFalse(f.calls(), 'mismatch reached a build effector')
+
     def test_native_console_build_and_no_build_phase_writes(self):
         with ReleaseFixture() as f:
             f.build_both()

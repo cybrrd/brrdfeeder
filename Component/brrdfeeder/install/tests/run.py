@@ -63,7 +63,12 @@ temporary = tempfile.TemporaryDirectory(prefix='brrd-contracts-')
 out = (args.out or Path(temporary.name)).resolve()
 out.mkdir(parents=True, exist_ok=True)
 records = []
-env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', GOPROXY='off', GOSUMDB='off', GOTOOLCHAIN='local')
+# Nested fixtures frequently copy their ambient environment. Keep every suite
+# independent of the GitHub event and runner that launched this gate.
+CI_ENV_PREFIXES = ('GITHUB_', 'RUNNER_', 'ACTIONS_')
+env = {name: value for name, value in os.environ.items()
+       if not name.startswith(CI_ENV_PREFIXES)}
+env.update(PYTHONDONTWRITEBYTECODE='1', GOPROXY='off', GOSUMDB='off', GOTOOLCHAIN='local')
 env.pop('D44_PODMAN', None)
 env['P0_EVIDENCE'] = str(out/'pi')
 env['INSTALLER_PROOF_OUT'] = str(out/'screens')

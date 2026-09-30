@@ -101,6 +101,7 @@ def run(name, command, cwd=ROOT, timeout=1800):
 groups = GROUPS if args.group == 'all' else (args.group,)
 for group in groups:
     if group == 'installer':
+        run('single-lockfile', [sys.executable, HERE/'public-ci/check-single-lockfile.py'], timeout=30)
         run('reuse-lint',[sys.executable,HERE/'ownership/check-reuse.py'],timeout=240)
         run('actionlint', ['actionlint', '-shellcheck=', '-pyflakes=', *sorted((ROOT/'.github/workflows').glob('*.yml'))])
         for path in sorted((ROOT/'.github/scripts').glob('*.sh')):

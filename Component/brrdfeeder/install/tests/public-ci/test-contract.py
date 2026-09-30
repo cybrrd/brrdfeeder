@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 import tomllib
 import unittest
 import yaml
@@ -17,6 +18,20 @@ sys.path.insert(0,str(TESTS/'github-scaffold'))
 from release_fixture import ReleaseFixture
 
 class Gate(unittest.TestCase):
+    def test_single_lockfile_gate_is_required_before_provisioning(self):
+        path = 'Component/brrdfeeder/install/tests/public-ci/check-single-lockfile.py'
+        steps = yaml.safe_load((ROOT/'.github/workflows/test.yml').read_text())['jobs']['contracts']['steps']
+        positions = [i for i, step in enumerate(steps) if step.get('run') == 'python3 ' + path]
+        self.assertEqual(len(positions), 1)
+        step = steps[positions[0]]
+        self.assertNotIn('if', step)
+        self.assertNotIn('continue-on-error', step)
+        provision = next(i for i, step in enumerate(steps) if 'setup-tests.sh' in step.get('run', ''))
+        self.assertLess(positions[0], provision)
+        runner = (TESTS/'run.py').read_text()
+        self.assertIn("run('single-lockfile', [sys.executable, HERE/'public-ci/check-single-lockfile.py'], timeout=30)", runner)
+        self.assertIn(path, (ROOT/'.github/dependabot.yml').read_text())
+
     def test_ble_contracts_without_interpreter_bluetooth_constants(self):
         # setup-python may omit Bluetooth support. Exercise the entire suite,
         # including its mocked controller syscalls, without either constant.
@@ -61,6 +76,9 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.assertEqual(len(cargo),1)
         self.assertEqual(cargo[0]['directory'],'/Component/aviary')
         workspace=ROOT/'Component/aviary'
+        result = subprocess.run([sys.executable, str(TESTS/'public-ci/check-single-lockfile.py')],
+                                capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         manifest=tomllib.loads((workspace/'Cargo.toml').read_text())
         self.assertTrue((workspace/'Cargo.lock').is_file())
         for member in manifest['workspace']['members']:
@@ -152,4 +170,74 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.assertNotIn('BRRDhouse Open',text)
         self.assertNotIn('source.tar.gz',text)
         self.assertNotIn('github.com/',text)
+class SingleLockfile(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix='single-lockfile-')
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.lock('Component/aviary/Cargo.lock')
+
+    def lock(self, path):
+        target = self.root/path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('# isolated lockfile fixture\n')
+        return target
+
+    def run_gate(self):
+        return subprocess.run([sys.executable, str(TESTS/'public-ci/check-single-lockfile.py'),
+                               '--root', str(self.root)], capture_output=True, text=True, timeout=30)
+
+    def reject(self, paths):
+        result = self.run_gate()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('Use the workspace root lock: Component/aviary/Cargo.lock', result.stderr)
+        self.assertEqual([line.strip() for line in result.stderr.splitlines() if line.startswith('  ')], sorted(paths))
+
+    def test_root_lock_only_passes(self):
+        result = self.run_gate()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('PASS:', result.stdout)
+
+    def test_member_lock_rejected(self):
+        path = 'Component/aviary/engine/Cargo.lock'
+        self.lock(path)
+        self.reject([path])
+
+    def test_untracked_deep_lock_rejected_without_git(self):
+        path = 'Component/aviary/tools/x/Cargo.lock'
+        self.lock(path)
+        self.assertFalse((self.root/'.git').exists())
+        self.reject([path])
+
+    def test_all_hidden_and_ignored_paths_reported_in_order(self):
+        paths = ['Component/aviary/target/deep/Cargo.lock', 'Component/aviary/.hidden/Cargo.lock']
+        (self.root/'.gitignore').write_text('target/\n.hidden/\n')
+        for path in paths:
+            self.lock(path)
+        self.reject(paths)
+
+    def test_dangling_lock_symlink_rejected(self):
+        path = 'Component/aviary/engine/Cargo.lock'
+        target = self.root/path
+        target.parent.mkdir(parents=True)
+        target.symlink_to('absent.lock')
+        self.reject([path])
+
+    def test_directory_symlink_cycle_is_not_followed(self):
+        (self.root/'Component/aviary/loop').symlink_to('.', target_is_directory=True)
+        result = self.run_gate()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_other_component_locks_are_out_of_scope(self):
+        self.lock('Component/another/Cargo.lock')
+        result = self.run_gate()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_missing_workspace_root_lock_fails(self):
+        (self.root/'Component/aviary/Cargo.lock').unlink()
+        result = self.run_gate()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('missing workspace root lock Component/aviary/Cargo.lock', result.stderr)
+
+
 if __name__=='__main__': unittest.main(verbosity=2)

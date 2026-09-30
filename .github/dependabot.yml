@@ -6,6 +6,7 @@ version: 2
 updates:
   - package-ecosystem: cargo
     # Workspace members share this root Cargo.lock; do not add member locks.
+    # Gate: Component/brrdfeeder/install/tests/public-ci/check-single-lockfile.py
     # Stale nested locks create invalid member-scoped security-update jobs.
     directory: /Component/aviary
     schedule: {interval: weekly}

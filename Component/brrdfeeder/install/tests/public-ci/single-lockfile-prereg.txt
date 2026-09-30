@@ -1,0 +1,31 @@
+SPDX-License-Identifier: AGPL-3.0-or-later
+SPDX-FileCopyrightText: 2026 Macawi LLC
+
+Single workspace lockfile gate preregistration
+
+Base: public main 3ea038e. Commit this plan before implementing the gate.
+
+Policy: inspect the physical working tree, not git ls-files. New, untracked,
+ignored and hidden paths must not evade the check. Recursively enumerate
+Component/aviary/ with no build-directory exclusions. Do not follow directory
+symlinks outside that tree or through cycles; a Cargo.lock symlink itself is
+still a lockfile path. Report scan errors instead of silently passing.
+
+Only Component/aviary/Cargo.lock is allowed. Diagnostics must name every
+offending repository-relative path and say to use the workspace root lock.
+Run this gate in the contracts workflow and the shared offline test runner.
+Keep the Dependabot comment and point it at the executable gate.
+
+Predeclared checks:
+1. Current main's working tree passes the gate.
+2. Restore engine/Cargo.lock from snapshot 4206715 in an isolated fixture:
+   the gate must fail and name Component/aviary/engine/Cargo.lock.
+3. Add a new, untracked Component/aviary/tools/x/Cargo.lock in an isolated
+   fixture: the gate must fail and name that path.
+4. Test hidden and multiple nested paths, deterministic diagnostics, a
+   Cargo.lock symlink, and no inspection of other Components' lockfiles.
+5. Verify CI wiring, run the public CI contract suite, ownership and role
+   gates, and the full offline gate on the clean candidate.
+
+Keep raw negative-control output and positive results in private evidence,
+not the public tree. No dependency version, release workflow, or tag changes.

@@ -278,7 +278,7 @@ async fn broker_permission_offline_restart_and_independent_red() {
     let mut engine = handle(&spool, &broker, "second-boot");
     wait_for(|| engine.operational.status.snapshot().acknowledged == 1, 12).await;
     let stream = admin.get_stream(Lane::Operational.stream()).await.unwrap();
-    let raw: async_nats::Message = stream.get_raw_message(1).await.unwrap().try_into().unwrap();
+    let raw = stream.get_raw_message(1).await.unwrap();
     let recovered: Record = serde_json::from_slice(&raw.payload).unwrap();
     assert_eq!(recovered.message_id, original_id); assert!(recovered.test_only);
     // A receiver that was absent at emit time can later bind a durable pull.

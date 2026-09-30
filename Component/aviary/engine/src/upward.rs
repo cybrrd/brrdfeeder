@@ -309,7 +309,7 @@ fn retry_delay(failures: u32) -> Duration {
 
 async fn publish(js: &jetstream::Context, lane: Lane, record: &Record) -> Result<(), ()> {
     let payload = serde_json::to_vec(record).map_err(|_| ())?;
-    let future = js.send_publish(lane.subject(&record.node_id), jetstream::context::Publish::build()
+    let future = js.send_publish(lane.subject(&record.node_id), jetstream::message::PublishMessage::build()
         .payload(payload.into()).message_id(&record.message_id).expected_stream(lane.stream())).await.map_err(|_| ())?;
     let ack = future.await.map_err(|_| ())?;
     if ack.stream != lane.stream() { return Err(()); }

@@ -9,8 +9,10 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tomllib
 
 IMAGES = {'engine': 'ghcr.io/cybrrd/brrdfeeder', 'console': 'ghcr.io/cybrrd/brrdhouse'}
+ENGINE_MANIFEST = Path('Component/aviary/engine/Cargo.toml')
 
 def require(ok, message):
     if not ok:
@@ -19,10 +21,21 @@ def require(ok, message):
 def command(*args):
     return subprocess.check_output(args, text=True).strip()
 
+def product_version(tag, manifest=ENGINE_MANIFEST):
+    with manifest.open('rb') as stream:
+        package = tomllib.load(stream).get('package', {})
+    require(package.get('name') == 'engine', 'invalid engine manifest')
+    version = package.get('version')
+    require(isinstance(version, str), 'missing engine product version')
+    require(tag == 'v'+version,
+            'release tag '+tag+' does not match engine product version '+version)
+    return version
+
 def context():
     require(os.environ.get('GITHUB_REPOSITORY') == 'cybrrd/brrdfeeder', 'foreign repository')
     tag = os.environ.get('GITHUB_REF_NAME', '')
     require(re.fullmatch(r'v[0-9][A-Za-z0-9_.-]*', tag), 'select a version tag')
+    version = product_version(tag)
     require(os.environ.get('GITHUB_REF') == 'refs/tags/'+tag, 'branch dispatch is not a release')
     revision = os.environ.get('GITHUB_SHA', '')
     require(re.fullmatch(r'[a-f0-9]{40}', revision), 'invalid source revision')
@@ -31,7 +44,8 @@ def context():
     require(command('git', 'rev-parse', '--is-shallow-repository') == 'false', 'shallow release')
     count = int(command('git', 'rev-list', '--count', 'HEAD'))
     require(count >= 1, 'empty release history')
-    return {'tag': tag, 'revision': revision, 'build_seq': 1000+count}
+    return {'tag': tag, 'product_version': version, 'revision': revision,
+            'build_seq': 1000+count}
 
 def regular(path):
     require(not path.is_symlink() and path.is_file(), 'missing or symlink artifact: '+str(path))

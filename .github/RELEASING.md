@@ -43,7 +43,9 @@ manual action. Never run this workflow from the private-history repository.
 
 Push a version tag such as `v1.2.3`, or manually dispatch that existing tag with
 `gh workflow run release.yml --ref v1.2.3`. Dispatch on main does not publish.
-Never move a release tag. Tests and the
+The `engine` package version in `Component/aviary/engine/Cargo.toml` is the
+authoritative product version; the release metadata gate refuses a tag unless
+`vX.Y.Z` exactly matches engine version `X.Y.Z`. Never move a release tag. Tests and the
 two native ARM64 image/SBOM builds run without write/OIDC permissions; the pinned
 ARM64 host helper is reproduced separately. Build artifacts expire in seven
 days; an expired approval needs a fresh build and fresh approval.

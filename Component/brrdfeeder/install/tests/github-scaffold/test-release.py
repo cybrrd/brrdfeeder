@@ -37,6 +37,7 @@ class Release(unittest.TestCase):
             for component in ('engine','console'):
                 meta=json.loads((f.work/'out/release'/component/'metadata.json').read_text())
                 self.assertEqual(meta['build_seq'],1001)
+                self.assertEqual(meta['product_version'],'1.2.3')
     def test_missing_approval_acknowledgement_refuses_all_effectors(self):
         with ReleaseFixture() as f:
             f.build_both()
@@ -112,7 +113,9 @@ class Release(unittest.TestCase):
             for name in ('engine-sbom.cdx.json','console-sbom.cdx.json','digests.txt','attestations.json','SHA256SUMS'):
                 self.assertTrue(any(arg.endswith('/'+name) for arg in args),name)
             self.assertNotIn('edit',args)
-            self.assertIn('Build sequence: 1001',(f.work/'out/release-notes/notes.md').read_text())
+            notes=(f.work/'out/release-notes/notes.md').read_text()
+            self.assertIn('Product version: 1.2.3',notes)
+            self.assertIn('Build sequence: 1001',notes)
     def test_invalid_attestation_url_or_host_pin_prevents_draft(self):
         for wrong_host in (True,False):
             with self.subTest(wrong_host=wrong_host), ReleaseFixture() as f:

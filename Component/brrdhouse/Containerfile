@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 # Native compiler on AMD64 or ARM64; immutable Go 1.27.0 multi-platform index.
 ARG BUILDPLATFORM=linux/amd64
-FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.0@sha256:4013ae0f9e7994f8535c58c811f8f863fbed38b72e0d51e6592156f758d66146 AS build
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.1@sha256:3680233e3204827fbdc66088528ae6d4b3d034f51d03a99d454f6de034888244 AS build
 ARG TARGETARCH=arm64
 ENV CGO_ENABLED=0 GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
 WORKDIR /src

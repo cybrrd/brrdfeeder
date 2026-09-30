@@ -9,6 +9,24 @@ import unittest
 from release_fixture import ReleaseFixture
 
 class Release(unittest.TestCase):
+    def test_main_dispatch_validates_version_and_builds_without_a_tag(self):
+        with ReleaseFixture() as f:
+            result = f.build('engine', GITHUB_EVENT_NAME='workflow_dispatch',
+                             GITHUB_REF='refs/heads/main', GITHUB_REF_NAME='main')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            metadata = json.loads((f.work/'out/release/engine/metadata.json').read_text())
+            self.assertIsNone(metadata['tag'])
+            self.assertEqual(metadata['product_version'], '1.2.3')
+
+    def test_main_dispatch_refuses_an_invalid_untagged_version(self):
+        with ReleaseFixture() as f:
+            (f.work/'Component/aviary/engine/Cargo.toml').write_text(
+                '[package]\nname = "engine"\nversion = "not-a-version"\n')
+            result = f.build('engine', GITHUB_EVENT_NAME='workflow_dispatch',
+                             GITHUB_REF='refs/heads/main', GITHUB_REF_NAME='main')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(f.calls(), 'invalid version reached a build effector')
+
     def test_release_tag_must_match_engine_product_version(self):
         cases = [
             ('v0.8.20', '0.2.0', False),
@@ -44,8 +62,10 @@ class Release(unittest.TestCase):
             p=f.run('publish-images.sh',RELEASE_APPROVAL_CONFIGURED='')
             self.assertNotEqual(p.returncode,0)
             self.assertFalse(f.writes())
-    def test_branch_dispatch_and_moved_tag_refuse(self):
+    def test_other_branch_or_non_dispatch_main_and_moved_tag_refuse(self):
         for overrides in [{'GITHUB_REF':'refs/heads/main','GITHUB_REF_NAME':'main'},
+                          {'GITHUB_EVENT_NAME':'workflow_dispatch',
+                           'GITHUB_REF':'refs/heads/topic','GITHUB_REF_NAME':'topic'},
                           {'GITHUB_SHA':'a'*40},{'GITHUB_REF_NAME':'v9','GITHUB_REF':'refs/tags/v9'}]:
             with self.subTest(overrides=overrides), ReleaseFixture() as f:
                 p=f.build('engine',**overrides)

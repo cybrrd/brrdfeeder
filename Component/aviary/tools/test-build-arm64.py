@@ -92,7 +92,11 @@ class BuildContract(unittest.TestCase):
                            TEST_MODE=mode, TEST_LOG=str(temp / "commands.jsonl"), TEST_CONTEXT=str(context.parent))
                 env["SOURCE_DATE_EPOCH"] = "1893456000" if mode == "ambient-future" else "946684800"
                 if mode == "source-date-changes": env["TEST_COMMIT_EPOCH"] = "1790022660"
-                args = ["--check"] if mode == "check" else ["same-tag", str(temp / "out")]
+                # Match the failing hosted-runner shape: release-image.sh uses a
+                # full commit SHA in the tag below a nested RUNNER_TEMP.
+                tag = "release-" + SHA
+                output = temp / "home/runner/work/_temp/build-engine"
+                args = ["--check"] if mode == "check" else [tag, str(output)]
                 result = subprocess.run(["bash", str(SCRIPT), *args], env=env, text=True, capture_output=True)
                 complete = mode in ["complete", "ambient-past", "ambient-future", "source-date-changes"]
                 self.assertEqual(result.returncode == 0, mode == "check" or complete, result.stderr)
@@ -107,9 +111,15 @@ class BuildContract(unittest.TestCase):
                     pulls = [args for command, args in calls if command == "podman" and "pull" in args]
                     self.assertEqual(len(pulls), 2)
                     self.assertTrue(all("@sha256:" in args[-1] for args in pulls))
-                    self.assertTrue((temp / "out/brrdfeeder-engine-same-tag.tar.sha256").exists())
+                    self.assertTrue((output / ("brrdfeeder-engine-" + tag + ".tar.sha256")).exists())
+                    runroot = Path(build[build.index("--runroot") + 1])
+                    podman_tmp = Path(build[build.index("--tmpdir") + 1])
+                    self.assertLessEqual(len(str(runroot)), 50, str(runroot))
+                    self.assertLessEqual(len(str(podman_tmp)), 50, str(podman_tmp))
+                    self.assertFalse(runroot.exists(), "ephemeral Podman runroot was not cleaned")
+                    self.assertFalse(podman_tmp.exists(), "ephemeral Podman tmpdir was not cleaned")
                 else:
-                    self.assertFalse((temp / "out/brrdfeeder-engine-same-tag.tar").exists())
+                    self.assertFalse((output / ("brrdfeeder-engine-" + tag + ".tar")).exists())
 
 
 if __name__ == "__main__":

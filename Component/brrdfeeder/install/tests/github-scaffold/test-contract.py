@@ -26,6 +26,8 @@ class Scaffold(unittest.TestCase):
         self.assertNotIn('workflow_dispatch', publisher['if'])
         self.assertNotIn('refs/heads/main', publisher['if'])
         self.assertEqual(publisher['environment'], 'release')
+        self.assertEqual([name for name, job in jobs.items() if 'environment' in job],
+                         ['publish-sign'])
 
     def test_python_runtime_is_pinned_in_both_release_phases(self):
         for name in ('images', 'publish-sign'):

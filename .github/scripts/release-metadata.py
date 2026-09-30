@@ -13,6 +13,10 @@ import tomllib
 
 IMAGES = {'engine': 'ghcr.io/cybrrd/brrdfeeder', 'console': 'ghcr.io/cybrrd/brrdhouse'}
 ENGINE_MANIFEST = Path('Component/aviary/engine/Cargo.toml')
+SEMVER = re.compile(
+    r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)'
+    r'(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?'
+    r'(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?')
 
 def require(ok, message):
     if not ok:
@@ -21,26 +25,39 @@ def require(ok, message):
 def command(*args):
     return subprocess.check_output(args, text=True).strip()
 
-def product_version(tag, manifest=ENGINE_MANIFEST):
+def product_version(tag=None, manifest=ENGINE_MANIFEST):
     with manifest.open('rb') as stream:
         package = tomllib.load(stream).get('package', {})
     require(package.get('name') == 'engine', 'invalid engine manifest')
     version = package.get('version')
     require(isinstance(version, str), 'missing engine product version')
-    require(tag == 'v'+version,
-            'release tag '+tag+' does not match engine product version '+version)
+    require(SEMVER.fullmatch(version) is not None,
+            'engine product version is not canonical SemVer: '+version)
+    if tag is not None:
+        require(tag == 'v'+version,
+                'release tag '+tag+' does not match engine product version '+version)
     return version
 
-def context():
+def context(dry_run=False):
     require(os.environ.get('GITHUB_REPOSITORY') == 'cybrrd/brrdfeeder', 'foreign repository')
-    tag = os.environ.get('GITHUB_REF_NAME', '')
-    require(re.fullmatch(r'v[0-9][A-Za-z0-9_.-]*', tag), 'select a version tag')
-    version = product_version(tag)
-    require(os.environ.get('GITHUB_REF') == 'refs/tags/'+tag, 'branch dispatch is not a release')
+    if dry_run:
+        require(os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch',
+                'dry run requires workflow_dispatch')
+        require(os.environ.get('GITHUB_REF') == 'refs/heads/main' and
+                os.environ.get('GITHUB_REF_NAME') == 'main',
+                'dry run requires the main branch')
+        tag = None
+        version = product_version()
+    else:
+        tag = os.environ.get('GITHUB_REF_NAME', '')
+        require(re.fullmatch(r'v[0-9][A-Za-z0-9_.-]*', tag), 'select a version tag')
+        version = product_version(tag)
+        require(os.environ.get('GITHUB_REF') == 'refs/tags/'+tag, 'branch dispatch is not a release')
     revision = os.environ.get('GITHUB_SHA', '')
     require(re.fullmatch(r'[a-f0-9]{40}', revision), 'invalid source revision')
     require(command('git', 'rev-parse', 'HEAD') == revision, 'checkout revision mismatch')
-    require(command('git', 'rev-parse', 'refs/tags/'+tag+'^{commit}') == revision, 'tag moved')
+    if not dry_run:
+        require(command('git', 'rev-parse', 'refs/tags/'+tag+'^{commit}') == revision, 'tag moved')
     require(command('git', 'rev-parse', '--is-shallow-repository') == 'false', 'shallow release')
     count = int(command('git', 'rev-list', '--count', 'HEAD'))
     require(count >= 1, 'empty release history')
@@ -58,10 +75,10 @@ def sha(path):
             digest.update(chunk)
     return digest.hexdigest()
 
-def measure(component, directory):
+def measure(component, directory, dry_run=False):
     require(component in IMAGES, 'unknown component')
     require(not directory.is_symlink() and not directory.parent.is_symlink(), 'symlink directory')
-    receipt = dict(context(), component=component, image=IMAGES[component], schema=1)
+    receipt = dict(context(dry_run), component=component, image=IMAGES[component], schema=1)
     archive = directory/'image.oci.tar'
     sbom = directory/'sbom.cdx.json'
     receipt.update(archive_sha256=sha(archive), sbom_sha256=sha(sbom))
@@ -99,14 +116,21 @@ def verify_host(directory):
 
 def main():
     mode = sys.argv[1]
+    args = sys.argv[2:]
+    dry_run = args[:1] == ['--dry-run']
+    if dry_run:
+        args = args[1:]
     if mode == 'context':
-        print(json.dumps(context()))
+        require(not args, 'unexpected context arguments')
+        print(json.dumps(context(dry_run)))
     elif mode == 'create':
-        component, directory = sys.argv[2], Path(sys.argv[3])
-        receipt = measure(component, directory)
+        require(len(args) == 2, 'create requires component and directory')
+        component, directory = args[0], Path(args[1])
+        receipt = measure(component, directory, dry_run)
         (directory/'metadata.json').write_text(json.dumps(receipt, indent=2)+'\n')
     elif mode == 'verify':
-        root = Path(sys.argv[2])
+        require(not dry_run and len(args) == 1, 'verify requires a release directory')
+        root = Path(args[0])
         # Verify BOTH components completely before returning any publish input.
         records = verified(root)
         verify_host(root.parent/'host-updater')

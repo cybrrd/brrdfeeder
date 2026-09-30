@@ -64,15 +64,26 @@ output_dir=$(cd -- "$output_dir" && pwd)
 archive="$output_dir/brrdfeeder-engine-$tag.tar"
 [[ ! -e $archive && ! -e $archive.sha256 ]] || die "refusing to overwrite archive or checksum: $archive"
 # D36: never borrow a cached tag's base-name metadata or a previous RUN cache.
-# Keep the entire isolated store on disk for audit/failure diagnosis. No prune.
+# Keep the isolated graph store and diagnostics on disk for audit/failure
+# diagnosis. Podman's runroot has a 50-character hard limit, so transient paths
+# must not inherit the SHA-named output directory or RUNNER_TEMP depth.
 build_tmp=$(mktemp -d "$output_dir/build-$tag.XXXXXXXX")
 printf 'Build state (retained on success/failure): %s\n' "$build_tmp"
-mkdir "$build_tmp/context" "$build_tmp/storage" "$build_tmp/runroot" \
-  "$build_tmp/podman-tmp" "$build_tmp/tmp" "$build_tmp/cache"
-export TMPDIR="$build_tmp/tmp" XDG_CACHE_HOME="$build_tmp/cache"
+podman_runtime=$(mktemp -d /tmp/brrd-podman.XXXXXXXX)
+cleanup_runtime() { rm -rf -- "$podman_runtime"; }
+trap cleanup_runtime EXIT
+runroot="$podman_runtime/runroot"
+podman_tmp="$podman_runtime/tmp"
+work_tmp="$podman_runtime/work"
+[[ ${#runroot} -le 50 ]] || die "Podman runroot exceeds 50 characters: $runroot"
+mkdir "$build_tmp/context" "$build_tmp/storage" "$build_tmp/cache" \
+  "$runroot" "$podman_tmp" "$work_tmp"
+printf 'runroot=%s\ntmpdir=%s\nTMPDIR=%s\n' "$runroot" "$podman_tmp" "$work_tmp" \
+  > "$build_tmp/podman-runtime-paths.txt"
+export TMPDIR="$work_tmp" XDG_CACHE_HOME="$build_tmp/cache"
 podman() {
-  command podman --root "$build_tmp/storage" --runroot "$build_tmp/runroot" \
-    --tmpdir "$build_tmp/podman-tmp" "$@"
+  command podman --root "$build_tmp/storage" --runroot "$runroot" \
+    --tmpdir "$podman_tmp" "$@"
 }
 [[ $(podman info --format '{{.Host.Security.Rootless}}') == true ]] || die 'isolated builds require rootless Podman'
 [[ $(podman info --format '{{.Store.GraphRoot}}') == "$build_tmp/storage" ]] || die 'unexpected image store'

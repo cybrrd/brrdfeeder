@@ -17,6 +17,7 @@ class Release(unittest.TestCase):
             metadata = json.loads((f.work/'out/release/engine/metadata.json').read_text())
             self.assertIsNone(metadata['tag'])
             self.assertEqual(metadata['product_version'], '1.2.3')
+            self.assertFalse(f.writes())
 
     def test_main_dispatch_refuses_an_invalid_untagged_version(self):
         with ReleaseFixture() as f:

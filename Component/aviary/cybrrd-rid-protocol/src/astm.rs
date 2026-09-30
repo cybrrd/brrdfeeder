@@ -247,7 +247,7 @@ mod tests {
         assert_eq!(json, "\"ASTM_F3411_22a\"");
     }
 
-    /// Verbatim real DJI Mini 5 Pro broadcast (cardinal, 2026-05-07). The
+    /// Verbatim real DJI Mini 5 Pro broadcast (test-node-2, 2026-05-07). The
     /// BASIC_ID byte 1 = 0x12 → IDType 1 (Serial), so it lands in
     /// `hardware_serial` and resolves `drone_id`.
     #[test]

@@ -10,7 +10,7 @@ After=brrdfeeder-blackbox.timer
 Wants=brrdfeeder-blackbox.timer
 
 [Container]
-# Operator replaces with the complete pinned image after cathartes proof.
+# Operator replaces with the complete pinned image after test-node-3 proof.
 Image=localhost/brrdfeeder-engine:verified
 ContainerName=brrdfeeder-engine
 User=1001:20

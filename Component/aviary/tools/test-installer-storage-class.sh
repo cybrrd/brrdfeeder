@@ -13,11 +13,13 @@ bootstrap="${script_dir}/../deploy/bootstrap"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-useradd -m synth
-usermod -a -G dialout synth
-install -D -m 0755 /bin/true /home/synth/brrdfeeder-src/engine/target/release/engine
+getent group operator >/dev/null || groupadd operator
+useradd -m -g operator operator
+export BRRDFEEDER_LEGACY_USER=operator
+usermod -a -G dialout operator
+install -D -m 0755 /bin/true /home/operator/brrdfeeder-src/engine/target/release/engine
 sed 's/storage_class: "ephemeral"/storage_class: "ephemreal"/' \
-  "$bootstrap/config.yaml.mobile.template" > /home/synth/config.yaml
+  "$bootstrap/config.yaml.mobile.template" > /home/operator/config.yaml
 
 set +e
 output=$(cd "$bootstrap" && bash brrdfeeder-install.sh --dry-run 2>&1)
@@ -30,7 +32,7 @@ if grep -q 'Step 1 — udev rules' <<<"$output"; then
   exit 1
 fi
 
-cp "$bootstrap/config.yaml.mobile.template" /home/synth/config.yaml
+cp "$bootstrap/config.yaml.mobile.template" /home/operator/config.yaml
 valid_output=$(cd "$bootstrap" && bash brrdfeeder-install.sh --dry-run 2>&1)
 grep -Fq 'install -o root -g root -m 0600 /dev/null /var/lib/brrdfeeder/blackbox/.flush.lock' <<<"$valid_output"
 

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
-# Builds are unprivileged. Synth must configure the release environment first.
+# Builds are unprivileged. The development team must configure the release environment first.
 name: Public release
 on:
   push:
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
-      contents: write # draft release only; Cy publishes the draft
+      contents: write # draft release only; the release approver publishes the draft
       packages: write
       id-token: write # no other job may obtain an OIDC token
       attestations: write

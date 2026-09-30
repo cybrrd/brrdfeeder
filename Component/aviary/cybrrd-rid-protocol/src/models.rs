@@ -20,7 +20,7 @@ pub const WIRE_FORMAT_VERSION: u32 = 4;
 ///
 /// Wire-format names use the canonical ASTM/standards form (`ASTM_F3411_22a`
 /// rather than the Rust-idiomatic camelCase) so JSON consumers (deck.gl
-/// front-end, Databricks pipelines, Sister Gemini's analytics) match the
+/// front-end, Databricks pipelines, downstream analytics) match the
 /// official spec naming.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ProtocolType {
@@ -87,7 +87,7 @@ pub struct NodeLocation {
     pub position_source: Option<PositionSource>,
 }
 
-/// Wave 7.4 — provenance enum for `NodeLocation`. Per Cy's
+/// Wave 7.4 — provenance enum for `NodeLocation`. Per the release approver's
 /// "Reputation-Portability Attack" analysis 2026-05-26, the lat/lon
 /// values in NodeLocation are meaningless to downstream trust
 /// accumulation unless tagged with their source. A sensor that gains

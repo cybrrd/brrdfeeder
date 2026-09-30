@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Macawi LLC
 //! The single multiplexed, supervised NATS connection (#178).
 //!
-//! Pack-ratified 2026-06-17 (Cy + Gemini + Synth). Consolidates the engine's
+//! Reviewed 2026-06-17 (the development team and reviewers). Consolidates the engine's
 //! five previously-independent NATS clients (telemetry / heartbeat / audit /
 //! substrate-audit / green-tick) into ONE supervised connection. Five TCP
 //! connections to the same broker on an embedded edge node was an anti-pattern,
@@ -244,7 +244,7 @@ async fn supervisor_loop(
 /// Bind the durable control consumer and open its message stream as ONE
 /// fallible unit, so the caller can retry the whole sequence on a backoff.
 /// (A slow/transient first attempt on a non-ideal link must not leave the
-/// membrane permanently idle — the #185 hummingbird/cathartes bind-fragility.)
+/// membrane permanently idle — the #185 hummingbird/test-node-3 bind-fragility.)
 async fn bind_control_membrane(
     js: &async_nats::jetstream::Context,
     ctrl: &ControlConfig,
@@ -281,7 +281,7 @@ async fn control_consumer(client: Client, ctrl: ControlConfig) {
     // The default JetStream request timeout (5s) is too tight for non-ideal
     // edge links: the get_stream/get_or_create_consumer request-replies time out
     // on a slow first attempt and the membrane never binds (reproduced live on
-    // hummingbird at 60ms RTT, and on cathartes over LTE). Extend it.
+    // hummingbird at 60ms RTT, and on test-node-3 over LTE). Extend it.
     let mut js = jetstream::new(client);
     js.set_timeout(std::time::Duration::from_secs(30));
 

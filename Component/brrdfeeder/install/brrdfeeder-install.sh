@@ -54,7 +54,7 @@ fi
 #   containers cannot grant CAP_NET_ADMIN on the host network namespace,
 #   which is required for Wi-Fi monitor mode + libpcap raw sockets.
 #
-# Clock-hardening canon (2026-06-09 cardinal incident):
+# Clock-hardening canon (2026-06-09 test-node-2 incident):
 #   Pi/CM4 boards have no battery RTC. A wall-clock that boots in the past
 #   makes certificates appear not yet valid and the engine's connection
 #   fails. chrony with `makestep 1.0 -1` steps the clock aggressively at
@@ -1008,7 +1008,7 @@ readonly SERVICE_HOME="/var/lib/brrdfeeder"  # useradd input; existing homes com
 readonly GPS_SYMLINK="cybrrd_gps"
 readonly BLE_SYMLINK="cybrrd_ble"
 
-# Default USB vendor:product IDs (cardinal/robin baseline)
+# Default USB vendor:product IDs (test-node-2/test-node-1 baseline)
 readonly UBLOX_VENDOR="1546"
 readonly -a UBLOX_PRODUCTS=(01a5 01a6 01a7 01a8 01a9)
 readonly NORDIC_VENDOR="1915"
@@ -1051,7 +1051,7 @@ readonly BLUETOOTH_HELPER="/usr/local/libexec/brrdfeeder-bluetooth"
 readonly STATE_DIR="/var/lib/brrdfeeder"
 # Standalone ARM64 host executable: independently reproduced on worldport with
 # the pinned Go toolchain. Publication is a separate operator step, never tags.
-readonly RELEASE_HELPER_SHA256="814d1e0fd7635c72d13c0611ccd2bed2c7e1e9e308ede02237903f1d16fadb3e"
+readonly RELEASE_HELPER_SHA256="1e42c9cfd79eab613257c7c8495cbfa0dfd84222fb42b9632d2755989aad4433"
 readonly RELEASE_HELPER_URL="https://get.cybrrd.com/releases/v1/updater/${RELEASE_HELPER_SHA256}/linux-arm64/brrdfeeder-release"
 
 # Zitadel OAuth Device Flow (BRRDfeeder-tier enrollment — binds feeder to user account)
@@ -2279,7 +2279,7 @@ fi
 if [[ ! -f "$CONFIG_PATH" ]]; then
   say "no config.yaml found — generating baseline template"
   if [[ $DRY_RUN -eq 0 ]]; then
-    # Schema mirrors the known-good running config (robin/cardinal). The
+    # Schema mirrors the known-good running config (test-node-1/test-node-2). The
     # The pinned engine still requires node.location. Its ExecStartPre helper
     # supplies a measured GPS fix before the container runs; never a placeholder.
     cat > "$CONFIG_PATH" <<'CFGEOF'
@@ -2371,7 +2371,7 @@ zitadel_device_flow() {
   # CRITICAL: suppress xtrace for the ENTIRE enrollment. Two reasons:
   #   1. SECURITY — set -x would write the device_code, access_token,
   #      refresh_token, and id_token into the audit log in plaintext.
-  #      Tokens must NEVER hit disk. (Leak found 2026-06-13, cathartes-aura.)
+  #      Tokens must NEVER hit disk. (Leak found 2026-06-13, field-node.)
   #   2. UX — the prompt + poll loop must be clean and readable, not buried
   #      in curl/jq/sleep trace. The user has to CATCH the code.
   # Restored at every return path below (and the single success path).

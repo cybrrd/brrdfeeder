@@ -57,7 +57,7 @@ printf engine-fixture > "$2/brrdfeeder-engine-$1.tar"
             GITHUB_REPOSITORY='cybrrd/brrdfeeder',GITHUB_REF='refs/tags/v1.2.3',GITHUB_REF_NAME='v1.2.3',
             GITHUB_ACTOR='fixture',REGISTRY_TOKEN='not-a-secret',RELEASE_APPROVAL_CONFIGURED='true',
             RUNNER_TEMP=str(self.work/'out'),GITHUB_STEP_SUMMARY=str(self.work/'summary'),GITHUB_OUTPUT=str(self.work/'outputs'),
-            GIT_AUTHOR_NAME='Synth',GIT_COMMITTER_NAME='Synth',GIT_AUTHOR_EMAIL='synth@cybrrd.com',GIT_COMMITTER_EMAIL='synth@cybrrd.com',
+            GIT_AUTHOR_NAME='Development Team',GIT_COMMITTER_NAME='Development Team',GIT_AUTHOR_EMAIL='operator@cybrrd.com',GIT_COMMITTER_EMAIL='operator@cybrrd.com',
             ENGINE_ATTESTATION_URL='https://github.com/cybrrd/brrdfeeder/attestations/123',
             CONSOLE_ATTESTATION_URL='https://github.com/cybrrd/brrdfeeder/attestations/456',PYTHONDONTWRITEBYTECODE='1')
         for args in [['init','-b','main'],['add','.'],['-c','commit.gpgsign=false','commit','-m','Synthetic release fixture'],['tag','v1.2.3']]:

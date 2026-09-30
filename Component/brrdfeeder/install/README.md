@@ -17,7 +17,7 @@ contract, publication steps and limits. Enabling Self-Update on an older unit re
 one-time local uninstall and reinstall; there is no silent migration.
 For now the PUBLIC command below stays on the previous release. Self-Update's
 isolated `https://get.cybrrd.com/dev` path is for the approved brrdg1s1 dev proof.
-After that passes, Cy switches the public bootstrap and general release in one
+After that passes, the release approver switches the public bootstrap and general release in one
 publish, without rebuilding images. Existing team installs then need
 that one-time reinstall. See the [Friday runbook](../../../governance/reviews/d44-rework/FRIDAY.md).
 
@@ -205,7 +205,7 @@ the console to an existing engine install, supply `--console-image` and
 Quadlet is refused: **installer reruns are not an update or downgrade channel**.
 Engine AND console updates belong to the signed release poller, not Blue.
 Login-owned legacy installs and existing
-tag-based deployments require an explicit migration; no `synth`/invoker paths
+tag-based deployments require an explicit migration; no `operator`/invoker paths
 are guessed or cleaned up.
 
 `--dry-run` plans without account/config creation. With no config it exits 2
@@ -406,4 +406,4 @@ The engine's targeted unblock may be retained by systemd-rfkill in
 `/var/lib/systemd/rfkill/`. Reinstating an old block could override later user
 radio choices; installer/uninstaller never write that shared OS state. The
 uninstall summary discloses this persistent effect. Native cold boot, rfkill and
-real-air BLE reception still require Cy's test; agent Pi runs = 0.
+real-air BLE reception still require the release approver's test; agent Pi runs = 0.

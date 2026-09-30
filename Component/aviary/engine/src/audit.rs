@@ -401,7 +401,7 @@ mod tests {
     #[test]
     fn tier_a_recovery_success_serializes_with_lineage() {
         let event = SubstrateAuditEvent::tier_a_recovery(
-            "brrdfeeder-saker-cardinal-001".to_string(),
+            "bf-00000002".to_string(),
             149,
             true,
             Some("EAGAIN: temporary nl80211 socket busy".to_string()),
@@ -409,7 +409,7 @@ mod tests {
         );
         let json = serde_json::to_string(&event).unwrap();
         for field in &[
-            "\"node_id\":\"brrdfeeder-saker-cardinal-001\"",
+            "\"node_id\":\"bf-00000002\"",
             "\"lineage\":\"kittler-substrate-defense-v1\"",
             "\"event_type\":\"tier_a_recovery\"",
             "\"channel\":149",
@@ -456,7 +456,7 @@ mod tests {
     #[test]
     fn capture_stall_folds_forensics_into_error_message() {
         let event = SubstrateAuditEvent::capture_stall(
-            "brrdfeeder-saker-cardinal-001".to_string(),
+            "bf-00000002".to_string(),
             18_000,
             true,
             true,

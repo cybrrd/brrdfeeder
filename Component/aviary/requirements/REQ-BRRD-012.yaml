@@ -34,12 +34,12 @@ references:
   - "MACAWI-T2-NAT-001 — T1 FedEx (rim consumers deserialize), §4 locality (raw liveness edge-local)"
   - "REQ-BRRD-011 (the health signals it consumes), REQ-BRRD-001 (udev-stable bound port shown in the pane)"
   - "bluBRRD L1-L5 levels (pack memory project_blubrrd); ECOLOGEE E-VSM Color Protocol"
-  - "Layout inspiration (interface deferred): Wiki.js console (left narrow nav), Claude Code site, Zeek.org"
-notes: "Interface design deliberately deferred (Cy) — this REQ governs the plane's existence, locality, and the status-pane data contract, not the visual design."
+  - "Layout inspiration (interface deferred): Wiki.js console (left narrow nav), the reviewer Code site, Zeek.org"
+notes: "Interface design deliberately deferred (the release approver) — this REQ governs the plane's existence, locality, and the status-pane data contract, not the visual design."
 provenance:
-  decided: "2026-07-22 (Cy — the local monitor plane; shape confirmed this session)"
-  witness: "Cy + Synth"
+  decided: "2026-07-22 (the release approver — the local monitor plane; shape confirmed this session)"
+  witness: "the release approver and development team"
   evidence: >-
-    New component. A local rim consumer of the one-publisher Tier-0 stream (Cy: 'keeps our
+    New component. A local rim consumer of the one-publisher Tier-0 stream (the release approver: 'keeps our
     publisher writing to just one destination'). Design captured in pack memory
     project_brrdfeeder_monitor_plane. See ADR-0003.

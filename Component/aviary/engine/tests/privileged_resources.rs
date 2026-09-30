@@ -277,7 +277,7 @@ fn customer_identity_and_image_are_fail_closed() {
         assert!(CUSTOMER_INSTALLER.contains(required), "missing safety boundary: {required}");
     }
     assert!(!CUSTOMER_INSTALLER.contains("brrdfeeder-open:latest"));
-    assert!(!CUSTOMER_INSTALLER.contains("/home/synth"));
+    assert!(!CUSTOMER_INSTALLER.contains("/home/operator"));
     assert!(CUSTOMER_INSTALLER.find("Pinned image RepoDigests mismatch").unwrap()
         < CUSTOMER_INSTALLER.find("NEW_QUADLET=").unwrap());
 }

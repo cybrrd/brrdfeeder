@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────
 //   The 2026-05-13 Alfa cable-bump lesson.
 //
-//   Cy bumped the Alfa's USB cable while clearing the table for CM5
+//   An operator bumped the Alfa's USB cable while clearing the table for CM5
 //   programming. The driver hit a `-71 EPROTO` error storm, the
 //   device de-registered, the kernel re-enumerated it — and it came
 //   back in `managed` mode (the default), not `monitor` mode, with a
@@ -48,7 +48,7 @@ pub const WATCHDOG_INTERVAL: Duration = Duration::from_secs(10);
 /// Silence threshold. In monitor mode in any populated RF environment
 /// there is a continuous background of Wi-Fi beacons from nearby APs.
 /// 15 seconds of *zero* packets is a genuine substrate stall, not a
-/// quiet patch — confirmed against the 2-day cardinal soak where the
+/// quiet patch — confirmed against the 2-day test-node-2 soak where the
 /// pcap had constant non-DJI background traffic.
 pub const STALL_THRESHOLD: Duration = Duration::from_secs(15);
 

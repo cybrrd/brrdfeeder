@@ -297,7 +297,7 @@ pub fn interface_is_monitor(ifindex: u32) -> Result<bool, String> {
 ///   (a) `set_type_vec(.., active=true)` builds an NL80211_ATTR_
 ///       MNTR_FLAGS nested attribute (active-monitor mode). Some
 ///       driver/kernel combos — including the rtw88_8812au on
-///       cardinal — reject the whole SET_INTERFACE command when that
+///       test-node-2 — reject the whole SET_INTERFACE command when that
 ///       attribute is present. We don't NEED active monitor: the
 ///       sensor only listens, it never ACKs frames. So we pass
 ///       `active=false`, which makes the wire-format identical to a

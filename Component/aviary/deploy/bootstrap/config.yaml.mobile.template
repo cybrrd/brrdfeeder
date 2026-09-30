@@ -27,7 +27,7 @@ node:
   # SKU tier — drives install-script hardening behavior.
   #   "ephemeral"  = BRRDfeeder. Install script applies tmpfs/RAM
   #                  hardening for MicroSD cards: journald Storage=volatile,
-  #                  /home/synth/capture/ mounted as 50M tmpfs, engine
+  #                  /home/operator/capture/ mounted as 50M tmpfs, engine
   #                  stdout via journald. Use this for any RPi-on-SD-card
   #                  hobbyist deployment.
   #   "persistent" = BRRDfeeder Standard/Commercial. Disk-backed logs,
@@ -51,7 +51,7 @@ capture:
 backhaul:
   broker_urls:
     - "tls://ingest.cybrrd.com:4222"
-  credentials_path: "/home/synth/secrets/brrdfeeder.creds"
+  credentials_path: "/home/operator/secrets/brrdfeeder.creds"
   target_subject: "cybrrd.telemetry.frame.rid"
   # Deprecated for the engine: subject is derived; retained for old installer configs.
 

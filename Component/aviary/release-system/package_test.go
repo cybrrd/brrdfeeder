@@ -144,7 +144,7 @@ func TestConsoleHealthIsRenderedCurrentEngine(t *testing.T) {
 	}
 }
 func TestConfiguredFleetRings(t *testing.T) {
-	for node, ring := range map[string]string{"brrdfeeder-saker-brrdg1s1": "dev", "brrdfeeder-saker-brrdg2s1": "staging", "brrdfeeder-open-brrdg3s2-001": "general"} {
+	for node, ring := range map[string]string{"bf-00000004": "dev", "bf-00000005": "staging", "brrdfeeder-open-brrdg3s2-001": "general"} {
 		u, h, key := setup(t)
 		u.cfg.Node = node
 		u.cfg.Ring = ring

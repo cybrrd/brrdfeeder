@@ -4,7 +4,7 @@
 
 Run as the **dedicated unprivileged build identity on an approved sandbox**
 (currently worldport's `brrdbuild`), from a full CYB1 checkout. **Resonance is
-out of bounds for build work, including cleanup.** Synth/Cy deploy separately.
+out of bounds for build work, including cleanup.** The development team and release approver handle deployment separately.
 The script does not SSH, push an image, install packages, register binfmt,
 change a Quadlet or start capture. Its networkless `verify-blue` smoke executes
 the engine's argument-validation path only. `--check` only reads prerequisites.
@@ -17,7 +17,7 @@ container mount namespaces). The builder is native amd64 and cross-compiles;
 the final Debian ARM64 stage's `RUN apt-get`, `useradd` and `setcap` still need
 emulation. A builder-only success is **not** a complete engine image.
 
-One-liner for Cy to review/run on lamplab (not run by this packet):
+One-liner for the release approver to review/run on lamplab (not run by this packet):
 
 ```sh
 sudo apt-get update && sudo apt-get install -y qemu-user-static binfmt-support && sudo update-binfmts --enable qemu-aarch64
@@ -142,7 +142,7 @@ privileged container, and has **no PR or push trigger**.
 
 Checkout is full-history, without persisted credentials; archive upload uses
 the Gitea-compatible v3 artifact protocol. Runner/action compatibility, actual
-archive upload and runtime execution must be proven by Synth on that provisioned
+archive upload and runtime execution must be proven by the development team on that provisioned
 seat before calling this CI route ready. Current readiness: **not available**.
 No attempt was made to change the current runner or its labels.
 
@@ -150,7 +150,7 @@ No attempt was made to change the current runner or its labels.
 
 Use only if native cross-compilation works but runtime binfmt remains absent,
 and an explicitly authorized ARM64 node can assemble the runtime. This is the
-2026-09-17 cathartes method, **not** the preferred repeatable final-stage build.
+2026-09-17 test-node-3 method, **not** the preferred repeatable final-stage build.
 
 1. On lamplab, export the committed aviary tree into a fresh temporary context
    (as the normal script does). Record SHA, ref, commit date and rev-list count.

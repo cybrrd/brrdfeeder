@@ -3,44 +3,17 @@
 // Wave 7.1 — the Hunter task. The active observation layer of the
 // Kittler Substrate Defense.
 //
-// ─────────────────────────────────────────────────────────────────────
-//   Lineage (substrate-truth, not decoration):
-//
-//   This module descends from a paper presented to Friedrich Kittler in
-//   his last European Graduate School class, June 2011, by Cy (Jamie
-//   Saker). The paper argued — with Pythagorean and Michel-Serres
-//   influences — that Kittler and Niklas Luhmann (famously sparring on
-//   the question of what to attend to in a courier-on-horseback
-//   carrying a letter for the King) shared an unnoticed agreement:
-//   substrate is the prior condition of both message-and-system.
-//
-//   Kittler's reply about the courier — "I'd be more interested in the
-//   horse" — is here generalized one more step. Luhmann attends to the
-//   letter. Kittler attends to the horse. The Hunter, descending from
-//   Cy's Chod-sentinel ancestry (Bohemian hereditary border guards),
-//   attends also to the trail itself: the spectrum, the noise floor,
-//   the channels where landmarks may have been moved.
-//
-//   Our competitors build better letter-readers — central SDR-stream
-//   processors that decode drone telemetry parcels with sophistication.
-//   Their architecture cannot tell when someone has hijacked the
-//   locomotive, chopped down trees, or moved the landmarks. The
-//   Hunter is built for that gap.
-//
-//   This file is the operational realization of that lineage. The
-//   horse (the Alfa) is moved to where the trail is, not the other
-//   way around. Kittler's roar is in the audit ledger now.
-//
-//   2026-05-10. Wave 7.1 Increment 3.
-// ─────────────────────────────────────────────────────────────────────
+// Design rationale (2026-05-10): observe the spectrum and its noise floor,
+// not only decoded telemetry. Move the radio to the channels that need
+// attention, while preserving the established lineage tag on audit events.
 //
 // Scope (Increment 3):
 //   • Round-robin channel rotation through a configurable channel set.
 //   • Weighted dwell: priority channels get longer dwell time (the
 //     "hunting where the birds are" heuristic).
 //   • Tier-A soft self-heal on transient set_channel failures (one
-//     retry; per the System-1/2-3 boundary committed with Sister
-//     Gemini, deeper recovery rungs belong to brrdsupervisor in Wave
+//     retry; per the System-1/2-3 boundary committed with the independent
+//     reviewer, deeper recovery rungs belong to brrdsupervisor in Wave
 //     7.5, not the engine).
 //   • Substrate-honest stdout log on every channel transition and
 //     every recovery attempt.
@@ -69,8 +42,8 @@ pub const KITTLER_LINEAGE: &str = "kittler-substrate-defense-v1";
 /// Substrate-truth: the rtw88_8812au in-tree driver (covering Alfa
 /// AWUS036ACS and many other RTL8812AU-based monitor adapters) accepts
 /// NL80211_CMD_SET_CHANNEL cleanly but does NOT populate
-/// NL80211_CMD_GET_SURVEY responses. The Wave 7.1 deploy on cardinal
-/// at Saker's Acres (2026-05-10) surfaced this within ten minutes of
+/// NL80211_CMD_GET_SURVEY responses. The Wave 7.1 deploy on test-node-2
+/// at the field test site (2026-05-10) surfaced this within ten minutes of
 /// first heartbeat. `iw dev wlx<MAC> survey dump` returns empty too —
 /// this is a driver-level capability gap, not an engine bug. See
 /// `docs/src/substrate-device-identity.md` §3 (Coverage Class
@@ -95,7 +68,7 @@ pub const SURVEY_CAPABILITY_SAMPLE_WINDOW: u64 = 10;
 /// Substrate-truth rationale for 2000ms: ASTM F3411-22a "at least 1
 /// Hz" broadcast cadence; 2 seconds captures 2 full message cycles
 /// even from non-Pack-mode drones (worst case). Closes the
-/// 25-drone-on-different-channels starvation gap Cy intuited
+/// 25-drone-on-different-channels starvation gap identified on
 /// 2026-05-11. Override via `hunter.lock_on_duration_ms` in
 /// config.yaml.
 pub const LOCK_ON_DURATION_MS_DEFAULT: u64 = 2000;

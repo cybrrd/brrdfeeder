@@ -48,7 +48,7 @@ the label; use the helper for release provenance. There is no page source link,
 repository link, revision link or missing-source message. Selection of a public
 repository URL is no longer an image-build/release blocker for this change.
 
-Only Cy publishes, using the existing publication process and credential:
+Only the release approver publishes, using the existing publication process and credential:
 
 ```sh
 skopeo copy --preserve-digests --authfile /path/to/publish-auth.json oci-archive:brrdhouse-arm64.oci.tar docker://ghcr.io/cybrrd/brrdhouse:d43-arm64
@@ -149,7 +149,7 @@ and SSE retain their upstream licenses in `licenses/`. Pinned asset checksums
 are in `vendor.sha256` (a final newline is normalized when vendoring). Runtime
 images neither bundle nor serve `/source.tar.gz`; that path returns 404. The
 console retains its existing license notice and `/LICENSE` link, but does not
-feature source/repository/revision disclosures on the website page, per Cy's
+feature source/repository/revision disclosures on the website page, per the release approver's
 amended item 4. Corresponding source is offered under the included license;
 release licensing agreements and accompanying documentation must state how to
 obtain the exact corresponding source, including build and dependency/license

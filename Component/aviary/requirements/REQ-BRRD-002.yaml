@@ -20,20 +20,20 @@ binds:
   - "engine/src/node_config.rs::GpsYaml"
 verify:
   - >-
-    FIELD-WITNESSED 2026-07-13 (unplanned live drill — robin relocation):
+    FIELD-WITNESSED 2026-07-13 (unplanned live drill — test-node-1 relocation):
     0 satellites -> engine exited 1 at exactly startup_grace_secs (120s),
     systemd restart-looped (NRestarts 1..3), zero publishes reached command;
     window placement -> 6-sat fix (HDOP 1.92) -> gate passed first try
     (NRestarts=0) -> first heartbeat 2026-07-14T00:45:28Z observed by command.
-    Witnesses: Cy (hands-on) + Synth (instrumented).
+    Witnesses: the release approver (hands-on) + the development team (instrumented).
   - "PENDING: automated regression — gate-timeout exit path + no-publish-before-gate (promote to cargo test)"
 status: open
 provenance:
   decided: "2026-05-26 (Wave 7.4 trust tier); ratified into the ledger 2026-07-13"
-  witness: "Cy + Synth"
+  witness: "the release approver and development team"
 notes: >-
   Companion finding from the same drill: a GPS-gated node is indistinguishable
   from a dark node to command — liveness (Silver) and evidence (Green) are
   currently gated together. Candidate follow-on requirement: a pre-gate
   liveness heartbeat explicitly marked os_clock_trusted=false (the schema
-  already carries the field). Routed to Cy — it touches the trust doctrine.
+  already carries the field). Routed to the release approver — it touches the trust doctrine.

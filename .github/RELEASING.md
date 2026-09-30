@@ -2,18 +2,18 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Maintainer release setup
 
-These files do not configure GitHub account/repository settings. Synth must
+These files do not configure GitHub account/repository settings. The development team must
 complete the checklist below before setting the acknowledgement variable.
-Cy approves every release; publishing the GitHub Release draft is a separate
+The release approver approves every release; publishing the GitHub Release draft is a separate
 manual action. Never run this workflow from the private-history repository.
 
-## Required settings (Synth, with Cy)
+## Required settings (the development team, with the release approver)
 
-1. In `cybrrd/brrdfeeder`, create environment **release**, with **@cybrrd (Cy)**
+1. The repository owner creates the **release** environment with the release approver
    as the required reviewer. Disable administrator bypass. Restrict deployment
    refs to version tags `v*`, and protect those tags against unauthorized
    creation, update and deletion. Decide the self-review setting explicitly:
-   if self-review is prevented, Synth must trigger the release so Cy can approve;
+   if self-review is prevented, the development team must trigger the release so the release approver can approve;
    do not remove the required reviewer to get a run through.
 2. Protect main with PR review and the stable **Public offline contracts /
    contracts** check (select the observed check in GitHub after its first run).
@@ -48,7 +48,7 @@ two native ARM64 image/SBOM builds run without write/OIDC permissions; the pinne
 ARM64 host helper is reproduced separately. Build artifacts expire in seven
 days; an expired approval needs a fresh build and fresh approval.
 
-Cy reviews the source SHA, full test gate, image metadata/SBOMs and build logs
+The release approver reviews the source SHA, full test gate, image metadata/SBOMs and build logs
 before approving environment release. The publisher downloads artifacts from
 THIS workflow run only, verifies both archives and their source/sequence labels,
 then publishes with digest preservation and signs only those exact digests.
@@ -58,7 +58,7 @@ run; it is not a claim of an independently isolated SLSA build level.
 
 The publisher creates a **draft** GitHub Release with generated changelog,
 source SHA, build sequence, image digests, per-image SBOMs, attestation URLs,
-checksums and the installer-pinned host helper/license. Cy reviews and publishes
+checksums and the installer-pinned host helper/license. The release approver reviews and publishes
 that draft. CI never publishes the draft or signs S5 update manifests.
 
 Every history-derived component build sequence remains `1000 + commit count`.

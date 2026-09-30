@@ -75,7 +75,7 @@ class JournaldFixture(unittest.TestCase):
             for entry in JDIR.iterdir(): entry.unlink()
         else: JDIR.mkdir(parents=True)
         # Class isolation: the installer cases leave accounts/trees behind.
-        for user in ('brrdhouse','brrdfeeder','synth'):
+        for user in ('brrdhouse','brrdfeeder','operator'):
             subprocess.run(['userdel','--force',user],capture_output=True)
             subprocess.run(['groupdel',user],capture_output=True)
         subprocess.run(['rm','-rf','/etc/brrdfeeder','/var/lib/brrdfeeder','/var/lib/brrdhouse',
@@ -85,6 +85,8 @@ class JournaldFixture(unittest.TestCase):
         path.write_text(content); path.chmod(0o644)
     def record(self,name,result):
         (OUT/name).write_text(f'argv: {result.args}\nrc: {result.returncode}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}\n')
+        for marker in ('BRRDfeeder ' + 'Open tier', 'P' + 'ack-canonical', '#185 ' + 'Drop 2'):
+            self.assertNotIn(marker, result.stdout + result.stderr)
 
 class UninstallPlan(JournaldFixture):
     def plan(self):
@@ -273,19 +275,19 @@ class KitRerun(JournaldFixture):
     """Aviary bootstrap-kit installer, apply mode (D12-style PATH stubs)."""
     def setUp(self):
         super().setUp()
-        subprocess.run(['userdel','--force','synth'],capture_output=True)
-        subprocess.run(['useradd','-m','synth'],check=True)
-        subprocess.run(['usermod','-a','-G','dialout','synth'],check=True)
+        subprocess.run(['userdel','--force','operator'],capture_output=True)
+        subprocess.run(['useradd','-m','operator'],check=True)
+        subprocess.run(['usermod','-a','-G','dialout','operator'],check=True)
         self.kit=tempfile.mkdtemp(prefix='kit-')
         subprocess.run(['cp',*[str(p) for p in KITDIR.glob('*.sh')],self.kit],check=True)
-        Path('/home/synth/brrdfeeder-src/engine/target/release').mkdir(parents=True,exist_ok=True)
-        subprocess.run(['install','-D','-m','0755','/bin/true','/home/synth/brrdfeeder-src/engine/target/release/engine'],check=True)
+        Path('/home/operator/brrdfeeder-src/engine/target/release').mkdir(parents=True,exist_ok=True)
+        subprocess.run(['install','-D','-m','0755','/bin/true','/home/operator/brrdfeeder-src/engine/target/release/engine'],check=True)
         template=(KITDIR/'config.yaml.mobile.template').read_text()
-        Path('/home/synth/config.yaml').write_text(template)
+        Path('/home/operator/config.yaml').write_text(template)
         self.tmp=tempfile.mkdtemp(prefix='kit-stub-')
         for command in ['systemctl','udevadm','ip','mount','loginctl','sudo']:
             path=Path(self.tmp,command); path.write_text(SYSTEMCTL_STUB if command=='systemctl' else '#!/bin/sh\nexit 0\n'); path.chmod(0o755)
-        self.env=dict(os.environ,PATH=self.tmp+':'+os.environ['PATH'])
+        self.env=dict(os.environ,PATH=self.tmp+':'+os.environ['PATH'],BRRDFEEDER_LEGACY_USER='operator')
     def kit_run(self):
         return run(['bash',str(Path(self.kit,'brrdfeeder-install.sh'))],env=self.env)
     def test_kit_rerun_migrates_legacy_dropin(self):

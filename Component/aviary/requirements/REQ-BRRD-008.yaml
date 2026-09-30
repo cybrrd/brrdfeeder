@@ -49,8 +49,8 @@ references:
   - "ASTM F3411-22a §5.4.9.3 (BWFB0030/40/50/60) — Wi-Fi Beacon: (a) ANY 2.4 GHz ch 2400-2483 (<=200 TU); (b) ANY 5 GHz ch 5150-5895 (<=200 TU); (c) OR social ch6/ch149 at the dynamic update rate. Vendor IE 221, OUI FA-0B-BC (ASD-STAN), Vendor Type 0x0D"
   - "opendroneid/receiver-android, cyber-defence-campus/RemoteIDReceiver — continuous configurable-dwell scan (leading practice)"
 provenance:
-  decided: "2026-07-21 (Cy — item-1 scan discipline; ratified after full F3411-22a channel-table research this session)"
-  witness: "Cy + Synth"
+  decided: "2026-07-21 (the release approver — item-1 scan discipline; ratified after full F3411-22a channel-table research this session)"
+  witness: "the release approver and development team"
   evidence: >-
     Design agreed (cf-dominant via revisit-interleave, lock-on disabled by default,
     timer-driven rotation). Full ASTM F3411-22a acquired 2026-07-21 and the RF

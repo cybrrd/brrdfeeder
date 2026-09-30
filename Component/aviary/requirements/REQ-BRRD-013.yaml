@@ -26,7 +26,7 @@ verify:
   - "cybrrd-rid-protocol::ble::tests::verify_bb50030_lr_vector_decodes"
 status: open
 status_note: >-
-  2026-09-19 (Synth) — corrected from `bound` to `open`, and the original claim is
+  2026-09-19 (the development team) — corrected from `bound` to `open`, and the original claim is
   left on record here rather than erased. `requirements/README.md` defines `bound`
   as "code binding + automated CI verification both in place and passing", and
   `open` as "statement ratified; code binding or automated verification
@@ -41,7 +41,7 @@ status_note: >-
   `chore/toolchain-pinning-2026-09-18` (register C-1), the build-home decision
   (register C-2), and a `contract-trace` check that fails the build.
 provenance:
-  decided: "2026-09-15 — Synth dispatch, authorized by Cy"
+  decided: "2026-09-15 — the development team dispatch, authorized by the release approver"
   witness: "Local protocol pulses in governance/reviews/2026-09-15-rid-ble-REPORT.md"
 references:
   - "F3411 corpus: BB40030, BB50030, BB50110, BB50120, BUR0050"

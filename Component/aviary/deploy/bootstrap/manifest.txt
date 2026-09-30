@@ -1,6 +1,9 @@
 BRRDfeeder bootstrap kit manifest
 =================================
 
+Historical provenance only: account and host labels are anonymized. Artifact
+hashes refer to the original archived bytes, not the current edited source tree.
+
 CURRENT KIT — 2026-09-18 D11 build
 ----------------------------------
 Archive:      brrdfeeder-bootstrap-kit-fcd232e2096a.tar.gz
@@ -32,8 +35,8 @@ Current installer, helpers, templates, and records (from KIT-MANIFEST):
 HISTORICAL — June 2026 kit (superseded; not the current payload)
 ----------------------------------------------------------------
 Built:        20260607-181008
-Source host:  cardinal
-Builder:      synth
+Source host:  test-node-2
+Builder:      operator
 Kernel:       7.0.0-1009-raspi
 
 June engine binary:
@@ -41,7 +44,7 @@ June engine binary:
   size: 7461920 bytes
   sha256: a6e825aa06a49dbea661f51812e6e14e15540d6fe852333b587ff61c7653578b
   source capabilities (NOT preserved by tar):
-    /home/synth/brrdfeeder-src/engine/target/release/engine cap_net_admin,cap_net_raw=ep
+    /home/operator/brrdfeeder-src/engine/target/release/engine cap_net_admin,cap_net_raw=ep
 
 Install script:
   size: 27285 bytes

@@ -2,8 +2,8 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Install log and support bundle — specification
 
-**Status:** APPROVED by Cy, 2026-09-23 ("i've read and approve"). Codex implements, Kimi gates against §I.
-**Ruling it implements (Cy):** *"make sure we have our default log generator too that generates a
+**Status:** APPROVED by the release approver, 2026-09-23 ("i've read and approve"). The development team implements, the reviewer gates against §I.
+**Ruling it implements (the release approver):** *"make sure we have our default log generator too that generates a
 comprehensive log as it installs… users will need to email the comprehensive, easily attainable
 log if they're running into problems… you and I will be using that to debug user experiences in
 the field who are having failed installs and we cannot remote onto their PC."*
@@ -59,7 +59,7 @@ started=2026-09-23T02:14:05Z
 installer_sha256=fedee81df2f417cdcf0c15b89ffff66fcbe9c00c506b6922dbafbcabf0b63ee3
 bootstrap_sha256=d377148230aed0bb7fd9c10c8a82cba15039390f8f36da7aee237b873b4f55aa
 argv=--image ghcr.io/macawi-ai/brrdfeeder-open@sha256:b327… --console-image ghcr.io/… --console-listen 192.0.2.52:8080 --interface wlan1
-invoked_by_uid=0 sudo_user=sagan
+invoked_by_uid=0 sudo_user=alice
 
 ==== ENVIRONMENT ====
 os=Debian GNU/Linux 13 (trixie)
@@ -242,7 +242,7 @@ mismatch, no monitor-capable adapter, wrong arch). Those must be in the record:
 - Redaction markers say *what kind* of thing was removed, so the reader knows a token was there
   without knowing its value — which is often itself the diagnostic ("it never got a token").
 
-## I. Acceptance — what Kimi gates against
+## I. Acceptance — what the reviewer gates against
 
 1. A run with no flags produces a log at the default path; the run_id on screen matches the file.
 2. A forced failure at a mid-install step produces a RESULT block naming that step, with its last

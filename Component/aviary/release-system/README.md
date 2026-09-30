@@ -12,7 +12,7 @@ Build using this directory's digest-pinned Go 1.27.1 Containerfile.
 governance/reviews/d44-revival/build-host.sh reproduces the standalone ARM64
 host binary from two source paths with networking disabled. Ship its Go license.
 
-Cy runs the publisher from an allowlisted host over HTTPS to S5; no private key
+The release approver runs the publisher from an allowlisted host over HTTPS to S5; no private key
 is accepted by this command (placeholders are deliberately invalid):
 
 ```sh
@@ -28,7 +28,7 @@ is accepted by this command (placeholders are deliberately invalid):
 Publish atomically at
 https://get.cybrrd.com/releases/v1/{dev,staging,general}/release.json.
 This uses the EXISTING world Caddy site, read-only /etc/world/get mount and
-repo-owned deployment runbook: no new service, domain or credential. Cy publishes;
+repo-owned deployment runbook: no new service, domain or credential. The release approver publishes;
 this branch does not deploy. **Signature, not transport, is authority.** HTTPS
 distributes signed bytes; another static mirror cannot authorize a new release.
 Redirects, URL credentials and oversized documents are refused.

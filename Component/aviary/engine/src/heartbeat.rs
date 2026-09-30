@@ -13,7 +13,7 @@
 //!
 //! Cadence is configurable via `tuning.heartbeat.interval_secs` in
 //! `config.yaml` (default 5 s). Payload includes load_avg + radio_status
-//! per Gemini's Wave 6.0e strategic-friction notes — load_avg correlates
+//! per the reviewer's Wave 6.0e strategic-friction notes — load_avg correlates
 //! buffer_full drop events with CPU saturation; radio_status verifies
 //! the Wi-Fi/BLE interface is up even when no drones are visible.
 
@@ -145,7 +145,7 @@ pub struct HeartbeatPayload {
     /// Wave 7.3b GPS Vitals: present when the UbloxGps sensor is
     /// spawned. Pre-Wave-7.2 deployments (no sensor) emit heartbeats
     /// without this field. Globe-backend's node-registry UI surfaces
-    /// these fields (per Gemini's 2026-05-26 directive). Self-
+    /// these fields (per the reviewer's 2026-05-26 directive). Self-
     /// Diagnostic path companion to the External-Truth stamping
     /// landed in Wave 7.3a.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -831,7 +831,7 @@ mod tests {
         // noise_dbm + busy_pct + sample_age_ms.
         let payload = HeartbeatPayload {
             release_currency: Default::default(),
-            node_id: "cardinal-saker-01".into(),
+            node_id: "bf-00000003".into(),
             timestamp_utc: 1714342400000,
             uptime_seconds: 60,
             load_avg_1m: 0.0,
@@ -1020,7 +1020,7 @@ mod tests {
     fn heartbeat_payload_with_gps_serializes_to_wire_contract() {
         let payload = HeartbeatPayload {
             release_currency: Default::default(),
-            node_id: "cardinal-saker-01".into(),
+            node_id: "bf-00000003".into(),
             timestamp_utc: 1714342400000,
             uptime_seconds: 60,
             load_avg_1m: 0.0,
@@ -1118,7 +1118,7 @@ mod wave_7_4_tests {
     fn heartbeat_payload_node_position_source_serializes_snake_case() {
         let payload = HeartbeatPayload {
             release_currency: Default::default(),
-            node_id: "cardinal-saker-01".into(),
+            node_id: "bf-00000003".into(),
             timestamp_utc: 1714342400000,
             uptime_seconds: 60,
             load_avg_1m: 0.0, load_avg_5m: 0.0, load_avg_15m: 0.0,

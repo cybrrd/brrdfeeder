@@ -14,14 +14,14 @@ rationale: >-
   name beats lucky success.
 binds:
   - "engine/src/node_config.rs::default_gps_device"
-  - "deploy/udev/99-cybrrd-brrdfeeder.rules (harvested verbatim from robin 2026-07-18; see deploy/udev/README.md)"
+  - "deploy/udev/99-cybrrd-brrdfeeder.rules (harvested verbatim from test-node-1 2026-07-18; see deploy/udev/README.md)"
 verify:
   - "engine/src/node_config.rs::tests::gps_default_device_is_the_udev_symlink — compiled default is /dev/cybrrd_gps and contains no ttyACM path"
   - "engine/src/node_config.rs::tests::gps_device_omitted_falls_back_to_symlink — serde default wiring, not just the helper fn"
   - "deploy/udev/99-cybrrd-brrdfeeder.rules exists in-repo and pins VID 1546 / PID 01a7 -> SYMLINK cybrrd_gps"
 status: open
 status_note: >-
-  2026-09-19 (Synth) — corrected from `bound` to `open`, and the original claim is
+  2026-09-19 (the development team) — corrected from `bound` to `open`, and the original claim is
   left on record here rather than erased. `requirements/README.md` defines `bound`
   as "code binding + automated CI verification both in place and passing", and
   `open` as "statement ratified; code binding or automated verification
@@ -36,10 +36,10 @@ status_note: >-
   `chore/toolchain-pinning-2026-09-18` (register C-1), the build-home decision
   (register C-2), and a `contract-trace` check that fails the build.
 provenance:
-  decided: "2026-07-13 (Cy — harvests the Wave 7.0 udev Tier-1 design into the canonical repo as a governed requirement)"
-  witness: "Cy"
+  decided: "2026-07-13 (the release approver — harvests the Wave 7.0 udev Tier-1 design into the canonical repo as a governed requirement)"
+  witness: "the release approver"
   evidence: >-
-    Fleet already complies via explicit node config: robin opens /dev/cybrrd_gps
+    Fleet already complies via explicit node config: test-node-1 opens /dev/cybrrd_gps
     (engine journal, 2026-07-13). The repo DEFAULT still contradicts this
     requirement (/dev/ttyACM1 at 806eebd) and the udev rule file exists only as
     wiki prose + the stale sibling repo — which is exactly why this record
@@ -48,11 +48,11 @@ provenance:
   bound_evidence: >-
     Rule HARVESTED, not invented (the requirement demands it — inventing a
     device-matching rule is how you bind the wrong device). Captured verbatim from
-    robin:/etc/udev/rules.d/99-cybrrd-brrdfeeder.rules and confirmed independently
+    test-node-1:/etc/udev/rules.d/99-cybrrd-brrdfeeder.rules and confirmed independently
     via udevadm: ID_VENDOR_ID=1546, ID_MODEL_ID=01a7, u-blox 7 GPS/GNSS Receiver.
     Landed at deploy/udev/99-cybrrd-brrdfeeder.rules with provenance in
     deploy/udev/README.md. Compiled default flipped /dev/ttyACM1 -> /dev/cybrrd_gps.
-    RATIONALE CONFIRMED IN THE FIELD: at harvest robin showed /dev/cybrrd_gps ->
+    RATIONALE CONFIRMED IN THE FIELD: at harvest test-node-1 showed /dev/cybrrd_gps ->
     ttyACM1 — precisely what the old default hardcoded, so it worked BY LUCK. On that
     same node /dev/cybrrd_ble -> ttyACM0, so an enumeration flip would have bound the
     GPS reader to the BLE adapter while the symlink correctly followed the real

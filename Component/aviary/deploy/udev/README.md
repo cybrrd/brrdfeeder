@@ -6,7 +6,7 @@
 
 ## Provenance
 
-Captured from **robin** at `/etc/udev/rules.d/99-cybrrd-brrdfeeder.rules` (386 bytes, dated
+Captured from **test-node-1** at `/etc/udev/rules.d/99-cybrrd-brrdfeeder.rules` (386 bytes, dated
 2026-06-08) on 2026-07-18, during edge-beta Increment 0 (REQ-BRRD-001). Device identity confirmed
 independently with `udevadm info -q property -n /dev/cybrrd_gps`:
 
@@ -23,10 +23,10 @@ requirement exists to prevent (substrate-discovered, not invented).
 
 ## Why this matters — the "lucky success" it replaces
 
-On robin at harvest time: `/dev/cybrrd_gps -> ttyACM1`. The engine's **compiled default was also
+On test-node-1 at harvest time: `/dev/cybrrd_gps -> ttyACM1`. The engine's **compiled default was also
 `/dev/ttyACM1`** — so the default worked *by luck*. Had enumeration shifted to `ttyACM0` (the
 2026-05/06 "port jumpiness" incidents), the symlink would have followed the real GPS while the
-hardcoded default silently bound whatever landed on ACM1 — on robin, that is the **BLE adapter**
+hardcoded default silently bound whatever landed on ACM1 — on test-node-1, that is the **BLE adapter**
 (`/dev/cybrrd_ble -> ttyACM0`). Deterministic failure with a clear device name beats lucky success.
 
 ## Install
@@ -43,7 +43,7 @@ Installed by `brrdfeeder-install.sh` as part of the handbook path (one Condo-Ten
 
 1. **Two naming conventions exist in the substrate.** `docs/src/substrate-device-identity.md` §2
    documents Tier-1 rules in a file named `99-cybrrd-substrate.rules` using `/dev/brrd-ble`,
-   `/dev/brrd-sdr` (hyphen, `brrd-`). The **deployed** rule on robin is
+   `/dev/brrd-sdr` (hyphen, `brrd-`). The **deployed** rule on test-node-1 is
    `99-cybrrd-brrdfeeder.rules` using `cybrrd_gps`, `cybrrd_ble` (underscore, `cybrrd_`). The
    deployed form is authoritative (it is what the engine and `config.yaml` bind to); the doc needs
    truth-up. Filed rather than quietly "fixed", since the doc may describe a different fleet era.

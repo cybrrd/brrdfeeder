@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
-# GENERATED Self-Update general candidate; Cy publishes after review.
+# GENERATED Self-Update general candidate; the release approver publishes after review.
 #!/usr/bin/env bash
 # bootstrap.sh — the single command.
 #
@@ -34,15 +34,15 @@ set -euo pipefail
 # digest without credentials, arch arm64/linux, label revision=02c1d811.
 ENGINE_IMAGE="ghcr.io/cybrrd/brrdfeeder@sha256:3360f8d6ae29a4daddbe3a40697a410f9c7fed62fff186199eaa513f1dc52e0f"
 
-# Console (BRRDhouse) — the management/status container. Cy's ruling 2026-09-22: it is
+# Console (BRRDhouse) — the management/status container. The release approver's ruling 2026-09-22: it is
 # INTRINSIC to the BRRDfeeder package, not a separate install. GPS waiting-state
-# image built offline 2026-09-23, arm64/linux. Cy MUST publish and verify anonymous
+# image built offline 2026-09-23, arm64/linux. The release approver MUST publish and verify anonymous
 # digest access before deploying this bootstrap; a local build is not publication.
 CONSOLE_IMAGE="ghcr.io/cybrrd/brrdhouse@sha256:fffd150942cde14c3474536562c844badb3cfcc8e7f275b160399d1f8820708b"
 
 # The installer this bootstrap fetches, and the hash it must have.
 INSTALLER_URL="${BRRDFEEDER_INSTALLER_URL:-https://get.cybrrd.com/dev/brrdfeeder-install.sh}"
-INSTALLER_SHA256="d644b07ba4e080c7a636d2322de8937704e332dac1a3dcb43c122ffe7774ce6a"
+INSTALLER_SHA256="a427feaac7c2e98b2615355e352e7519e3d8ffe920609ae454a35ffb3771f373"
 
 # ── RELEASE CHECKLIST — do these IN THIS ORDER when cutting a release ───────
 #  1. Publish both images to ghcr and verify each resolves BY DIGEST anonymously,

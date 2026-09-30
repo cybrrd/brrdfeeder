@@ -3,13 +3,13 @@
 //! `NmeaGps` — Sensor impl reading NMEA 0183 from a u-blox 7 GPS
 //! over CDC-ACM. First impl of the `Sensor` trait.
 //!
-//! Hardware verified 2026-05-26 on cardinal (CM4):
+//! Hardware verified 2026-05-26 on test-node-2 (CM4):
 //!   - u-blox 7 GPS/GNSS Receiver enumerated as Bus 001 Device 009
 //!   - Driver: `cdc_acm` @ `/dev/ttyACM1`
 //!   - Stable symlink:
 //!     `/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_7_-_GPS_GNSS_Receiver-if00`
 //!
-//! Protocol choice (pack-ratified 2026-05-26): **NMEA 0183**.
+//! Protocol choice (reviewed 2026-05-26): **NMEA 0183**.
 //! UBX is a future Phase-B optimization; NMEA keeps the
 //! future-receiver-swap option open. The `nmea` crate accumulates
 //! state across GGA/RMC/GSA sentences; we emit a `GpsFix` when GGA
@@ -111,7 +111,7 @@ impl Sensor for NmeaGps {
 ///
 /// On serial errors, the task does NOT exit — it retries opening the
 /// device every 2s. Substrate-truth: USB devices can disappear and
-/// re-enumerate (we just saw this happen on cardinal boot at dmesg
+/// re-enumerate (we just saw this happen on test-node-2 boot at dmesg
 /// t=85s); the engine must witness that without giving up.
 async fn run_ublox_gps(
     cfg: NmeaGps,
@@ -396,8 +396,8 @@ mod tests {
 
     #[test]
     fn parse_gga_with_fix_emits_gpsfix_with_expected_position() {
-        // Substrate-truth GGA matching Cardinal's actual position at
-        // Saker's Acres (config.yaml node.location). Quality = 1 (GPS
+        // Substrate-truth GGA matching test-node-2's actual position at
+        // the field test site (config.yaml node.location). Quality = 1 (GPS
         // fix), 8 satellites, HDOP 0.9, altitude 320 m MSL.
         // Format: GPGGA,UTC,lat,N,lon,W,quality,sats,hdop,alt,M,geoid,M,age,refid
         let line = nmea_with_checksum(

@@ -3,7 +3,11 @@
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 # Unprivileged build/SBOM only. No credentials, pushes or signatures here.
 set -euo pipefail
-python3 .github/scripts/release-metadata.py context
+metadata_mode=()
+if [[ ${GITHUB_EVENT_NAME:-} == workflow_dispatch && ${GITHUB_REF:-} == refs/heads/main ]]; then
+  metadata_mode=(--dry-run)
+fi
+python3 .github/scripts/release-metadata.py context "${metadata_mode[@]}"
 : "${RUNNER_TEMP:?}" "${COMPONENT:?}"
 case "$COMPONENT" in engine|console) ;; *) exit 2;; esac
 out="$RUNNER_TEMP/release/$COMPONENT"
@@ -24,4 +28,4 @@ case "$COMPONENT" in
     mv Component/brrdhouse/brrdhouse-arm64.oci.tar "$out/image.oci.tar" ;;
 esac
 syft "oci-archive:$out/image.oci.tar" -o cyclonedx-json > "$out/sbom.cdx.json"
-python3 .github/scripts/release-metadata.py create "$COMPONENT" "$out"
+python3 .github/scripts/release-metadata.py create "${metadata_mode[@]}" "$COMPONENT" "$out"

@@ -42,7 +42,12 @@ manual action. Never run this workflow from the private-history repository.
 ## Workflow
 
 Push a version tag such as `v1.2.3`, or manually dispatch that existing tag with
-`gh workflow run release.yml --ref v1.2.3`. Dispatch on main does not publish.
+`gh workflow run release.yml --ref v1.2.3`. A manual dispatch on `main` runs the
+same gate, both image/SBOM builds and host-updater build as a release, but the
+tag-only `publish-sign` job cannot run and no release environment is entered.
+For that build-only path, `release-image.sh` invokes release metadata with
+`--dry-run`: it requires `workflow_dispatch` on `refs/heads/main`, validates the
+engine manifest's version as canonical SemVer, and records a null tag.
 The `engine` package version in `Component/aviary/engine/Cargo.toml` is the
 authoritative product version; the release metadata gate refuses a tag unless
 `vX.Y.Z` exactly matches engine version `X.Y.Z`. Never move a release tag. Tests and the

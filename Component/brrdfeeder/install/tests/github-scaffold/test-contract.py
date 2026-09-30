@@ -13,6 +13,22 @@ def workflow(name):
     return yaml.safe_load((ROOT/'.github/workflows'/name).read_text())
 
 class Scaffold(unittest.TestCase):
+    def test_main_dispatch_builds_every_release_artifact_but_cannot_publish(self):
+        jobs = workflow('release.yml')['jobs']
+        for name in ('images', 'host-updater'):
+            condition = jobs[name]['if']
+            self.assertIn("startsWith(github.ref, 'refs/tags/v')", condition, name)
+            self.assertIn("github.event_name == 'workflow_dispatch'", condition, name)
+            self.assertIn("github.ref == 'refs/heads/main'", condition, name)
+            self.assertNotIn('environment', jobs[name], name)
+        publisher = jobs['publish-sign']
+        self.assertIn("startsWith(github.ref, 'refs/tags/v')", publisher['if'])
+        self.assertNotIn('workflow_dispatch', publisher['if'])
+        self.assertNotIn('refs/heads/main', publisher['if'])
+        self.assertEqual(publisher['environment'], 'release')
+        self.assertEqual([name for name, job in jobs.items() if 'environment' in job],
+                         ['publish-sign'])
+
     def test_python_runtime_is_pinned_in_both_release_phases(self):
         for name in ('images', 'publish-sign'):
             steps = workflow('release.yml')['jobs'][name]['steps']

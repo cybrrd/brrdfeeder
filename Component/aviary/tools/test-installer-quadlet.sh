@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Destructive fixture setup is confined to a fresh disposable container.
 set -euo pipefail
 [[ ${D12_INSTALLER_TEST_CONTAINER:-0} == 1 && $EUID -eq 0 && -f /run/.containerenv ]] || {

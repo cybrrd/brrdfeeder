@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Identical public/private offline gate; only isolated fixtures execute effectors.
 
 Provision dependencies before running. No test contacts production, signs, or
@@ -20,6 +22,7 @@ ROOT = HERE.parents[3]
 INSTALL = ROOT/'Component/brrdfeeder/install'
 RELEASE = ROOT/'Component/aviary/release-system'
 BASELINES = [
+    'ownership/test-contract.py',
     'github-scaffold/test-contract.py',
     'github-scaffold/test-release.py',
     'build-sequence/test-contract.py',
@@ -97,6 +100,7 @@ def run(name, command, cwd=ROOT, timeout=1800):
 groups = GROUPS if args.group == 'all' else (args.group,)
 for group in groups:
     if group == 'installer':
+        run('reuse-lint',[sys.executable,HERE/'ownership/check-reuse.py'],timeout=240)
         run('actionlint', ['actionlint', '-shellcheck=', '-pyflakes=', *sorted((ROOT/'.github/workflows').glob('*.yml'))])
         for path in sorted((ROOT/'.github/scripts').glob('*.sh')):
             run('syntax-github-'+path.stem, ['bash', '-n', path], timeout=30)
@@ -124,6 +128,7 @@ for group in groups:
         for name in ('run-go-proofs','run-rework-proofs','run-rust-proofs'):
             run(name,[sys.executable,RELEASE/'tests'/(name+'.py')],timeout=3600)
     elif group == 'containers':
+        run('ownership-image-packaging',[sys.executable,HERE/'ownership/check-images.py'])
         image = os.environ.get('TEST_OS_IMAGE')
         if not image:
             p.error('containers requires TEST_OS_IMAGE: an immutable, prebuilt disposable OS fixture')

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 // Substrate-truth capability verification (Wave 7.1, 2026-05-10).
 //
 // The engine performs two privileged operations directly, without

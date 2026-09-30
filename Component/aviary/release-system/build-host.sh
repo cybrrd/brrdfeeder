@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Reproducible ARM64 artifact only: no installer execution, signing or publishing.
 set -euo pipefail
 [[ $# == 1 ]] || { echo 'usage: build-host.sh OUTPUT_DIR' >&2; exit 2; }

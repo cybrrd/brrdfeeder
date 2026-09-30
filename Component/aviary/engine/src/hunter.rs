@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 // Wave 7.1 — the Hunter task. The active observation layer of the
 // Kittler Substrate Defense.
 //

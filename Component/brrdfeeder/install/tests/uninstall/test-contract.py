@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Offline structural guards; real teardown runs only in disposable OS fixtures."""
 from pathlib import Path
 import re

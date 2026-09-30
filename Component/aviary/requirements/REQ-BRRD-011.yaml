@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 id: REQ-BRRD-011
 title: Source-health signaling — E-VSM colors, in-band, raw edge-local / summary upstream
 statement: >-

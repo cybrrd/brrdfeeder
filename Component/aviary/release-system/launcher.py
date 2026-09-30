@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Stable host supervisor, intentionally NOT replaced by updater.json.
 
 No containers, network, keys, imports outside the standard library or shell.

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 id: REQ-BRRD-002
 title: GPS trust gate — no publishing without fix and disciplined time
 statement: >-

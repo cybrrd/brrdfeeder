@@ -1,4 +1,6 @@
 # syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Containerfile — brrdfeeder-engine
 #
 # Built by .github/workflows/build-container.yml via docker buildx with
@@ -139,7 +141,8 @@ LABEL org.opencontainers.image.title="brrdfeeder-engine"
 # metadata above, not runtime ENV. Image digest is supplied at container start.
 LABEL com.macawi.brrdfeeder.build_seq="${BUILD_SEQ}"
 LABEL org.opencontainers.image.description="cyBRRD BRRDfeeder edge engine — Anastomotic Reticulum + Bohr Spool + Green Protocol metronome"
-LABEL org.opencontainers.image.vendor="Macawi AI"
+LABEL org.opencontainers.image.vendor="cyBRRD Corporation"
+COPY NOTICE LICENSE /usr/share/doc/brrdfeeder/
 LABEL org.opencontainers.image.documentation="https://github.com/cybrrd/brrdfeeder#readme"
 
 ENTRYPOINT ["/usr/local/bin/brrdfeeder-engine"]

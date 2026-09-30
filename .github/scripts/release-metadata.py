@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Bind same-run archives/SBOMs to the immutable source before publication."""
 import hashlib
 import json

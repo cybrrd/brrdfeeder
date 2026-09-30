@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Generate reproducible fuzz seeds, never edit source vectors.
 
 The session JSONL is wholly invented normalized telemetry, NOT captured RF.

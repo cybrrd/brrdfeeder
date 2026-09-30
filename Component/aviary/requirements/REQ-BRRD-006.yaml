@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 id: REQ-BRRD-006
 title: One host-side OpenDroneID decoder — every source emits raw ODID
 statement: >-

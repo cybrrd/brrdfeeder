@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Edge-tier deduplication of Remote-ID frames.
 //!
 //! Per Wave 6.0b consensus (1000ms window): when 3+ feeders overlap on the

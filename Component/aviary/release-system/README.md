@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Signed releases and independent host convergence (D44 revival)
 
 AGPL-3.0-or-later. Nodes autonomously PULL. Command and Blue no longer initiate

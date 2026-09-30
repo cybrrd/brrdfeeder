@@ -1,5 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Run on the host after the engine installer creates its service account,
 # before enabling the status writer. Never run this inside the console image.
 set -euo pipefail

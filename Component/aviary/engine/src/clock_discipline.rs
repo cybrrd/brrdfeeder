@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! #183 — GPS clock discipline (no-RTC edge-node time correctness).
 //!
 //! ## Why this exists

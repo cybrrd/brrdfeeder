@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Offline edge cases: no kernel fault injection and no host installation."""
 import contextlib
 import datetime as dt

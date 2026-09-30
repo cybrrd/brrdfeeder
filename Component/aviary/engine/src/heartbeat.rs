@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Heartbeat subject `cybrrd.system.node.heartbeat.<node_id>`.
 //!
 //! Per Triangulated Architecture consensus 2026-04-29, the heartbeat

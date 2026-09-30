@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Embedded verbatim in brrdfeeder-install.sh. No network and no configurable roots.
 set -euo pipefail
 export LC_ALL=C
@@ -63,6 +65,8 @@ progress_phase() {
 audit_legacy_account() {
   python3 - "$1" "$2" <<'ACCOUNT_AUDIT_EOF'
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Read-only legacy-account audit. No new packages, writes or network calls."""
 import gzip
 import os

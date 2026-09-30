@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 // Synthetic status writer for worldport-only container lifecycle proofs.
 // No radio, broker, credential, or production engine behavior is represented.
 package main

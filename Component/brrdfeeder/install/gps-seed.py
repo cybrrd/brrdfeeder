@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """BRRDfeeder GPS location seed; only the engine's systemd ExecStartPre may run it.
 
 No network, receiver commands, fabricated position, or engine-status writes.

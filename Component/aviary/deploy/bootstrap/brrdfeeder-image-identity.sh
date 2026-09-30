@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Host-side Quadlet lifecycle helper. No tag inspection, runtime socket mount,
 # credentials, last-known fallback, or authority granted to the engine.
 set -euo pipefail

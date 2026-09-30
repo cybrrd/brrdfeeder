@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Telemetry pump — drains captured frames onto the single multiplexed,
 //! supervised NATS connection (#178).
 //!

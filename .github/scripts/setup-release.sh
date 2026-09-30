@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 set -euo pipefail
 mode=${1:-}
 case "$mode" in build|publish) ;; *) echo 'usage: setup-release.sh build|publish' >&2; exit 2;; esac

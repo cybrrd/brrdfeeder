@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # D26 intermediate fail-closed identity
 
 **Step 4 is partially complete. This stops the lie; it does not make the

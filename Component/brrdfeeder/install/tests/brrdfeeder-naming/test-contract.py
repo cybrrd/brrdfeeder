@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Offline contracts for the BRRDfeeder naming packet (2026-09-25).
 
 Guards the rename where it is a SOURCE property: the new self-recognition

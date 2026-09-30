@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Execute build scripts in a real one-commit repo with inert build effectors."""
 import os
 from pathlib import Path

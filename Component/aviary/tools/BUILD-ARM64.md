@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # ARM64 engine archive build
 
 Run as the **dedicated unprivileged build identity on an approved sandbox**

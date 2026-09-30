@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Embedded stdlib-only supervisor. Raw command output never has a disk spool.
 
 The child retains stdin. Its new session has no controlling terminal, so an

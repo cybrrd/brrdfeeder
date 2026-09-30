@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! 802.11 frame walker → consolidated ASTM parser.
 //!
 //! Single runtime entry point. Identifies whether a captured frame carries

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Official actionlint 1.7.12 checksums; provisioning, never part of offline tests.
 set -euo pipefail
 : "${RUNNER_TEMP:?}" "${GITHUB_PATH:?}"

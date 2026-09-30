@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! All brokers/auth/identities below are local TEST ONLY; no JWT minting/signing.
 use super::*;
 use std::process::{Child, Command, Stdio};

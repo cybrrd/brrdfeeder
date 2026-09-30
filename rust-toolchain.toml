@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # D20: pin the verified shared floor; version bumps require floor CI + review.
 [toolchain]
 channel = "1.88.0"

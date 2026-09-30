@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Customer installer (not the aviary refresh script)
 
 This is the customer installer. `Component/aviary/deploy/bootstrap/brrdfeeder-install.sh`

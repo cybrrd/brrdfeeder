@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 use arc_swap::ArcSwap;
 use cybrrd_rid_protocol::models::{Node, NodeLocation, NormalizedTelemetry, PositionSource};
 use pcap::Capture;

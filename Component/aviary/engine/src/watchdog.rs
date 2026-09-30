@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 // Wave 7.1 Inc 8 — Capture Liveness Watchdog + Auto-Heal.
 //
 // ─────────────────────────────────────────────────────────────────────

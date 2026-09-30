@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Assert the generated BRRDfeeder unit passes --cidfile to `podman run`.
 
 WHY THIS EXISTS

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """One LOCAL operator publish into an existing webroot; no SSH/network/service calls.
 
 Dev preserves public install.sh. Mainstream must be explicitly selected after

@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Synthetic BLE session
 
 `synthetic-ble-session.jsonl` is authored test data, not a capture or a modified

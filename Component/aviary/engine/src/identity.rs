@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! D33: host-observed container manifest identity, bound to one unit invocation.
 //! Build metadata is a compile-time assertion, never a runtime ENV fallback.
 //! None of these observations alone is a cryptographic provenance attestation.

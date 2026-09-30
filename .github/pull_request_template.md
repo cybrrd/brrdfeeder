@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 Outside contributions are not accepted at this time. Unsolicited pull requests
 will be closed without review. Please read [CONTRIBUTING.md](../CONTRIBUTING.md).
 

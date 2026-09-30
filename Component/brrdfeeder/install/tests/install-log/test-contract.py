@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """No privileges/network: redaction and supervisor contract with bounded stubs."""
 import contextlib
 import importlib.util

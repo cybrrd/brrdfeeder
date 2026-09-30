@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Only the environment: release job calls this. Never rebuild downloaded input.
 set -euo pipefail
 [[ ${RELEASE_APPROVAL_CONFIGURED:-} == true ]] || { echo 'Release approval setup not acknowledged' >&2; exit 2; }

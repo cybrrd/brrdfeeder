@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Offline layout/promotion proof; synthetic signature shape, NOT crypto proof."""
 import hashlib
 import importlib.util

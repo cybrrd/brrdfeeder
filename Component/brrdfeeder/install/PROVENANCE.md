@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Provenance — the customer install script, rescued 2026-09-21
 
 **This file existed ONLY on `resonance:/srv/pack-stack/scripts/brrdfeeder-install.sh`.** It was not

@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Install log and support bundle — specification
 
 **Status:** APPROVED by Cy, 2026-09-23 ("i've read and approve"). Codex implements, Kimi gates against §I.

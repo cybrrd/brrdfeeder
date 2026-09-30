@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Self-heal: if invoked via `sh script` (dash on Debian-derived) the bash
 # shebang is ignored. Re-exec under bash so bash-specific features
 # (set -u + EUID + [[ ]] + process substitution) work.
@@ -124,6 +126,8 @@ if [[ -z ${BRRDFEEDER_LOG_CHILD:-} ]]; then
   fi
   exec python3 -B -c "$(cat <<'INSTALL_LOG_PY'
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Embedded stdlib-only supervisor. Raw command output never has a disk spool.
 
 The child retains stdin. Its new session has no controlling terminal, so an
@@ -965,6 +969,8 @@ INSTALL_LOG_PY
 )" "$0" "$@"
 fi
 
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # shellcheck shell=bash
 # Embedded before flag parsing; private records are consumed by install-log.py.
 # These are action-level commands. Read-only predicates/captured queries remain
@@ -1045,7 +1051,7 @@ readonly BLUETOOTH_HELPER="/usr/local/libexec/brrdfeeder-bluetooth"
 readonly STATE_DIR="/var/lib/brrdfeeder"
 # Standalone ARM64 host executable: independently reproduced on worldport with
 # the pinned Go toolchain. Publication is a separate operator step, never tags.
-readonly RELEASE_HELPER_SHA256="0127bed6b10f7accb13a278eaea556b05cf5a3099defe7898bc1cf1aac8d2039"
+readonly RELEASE_HELPER_SHA256="814d1e0fd7635c72d13c0611ccd2bed2c7e1e9e308ede02237903f1d16fadb3e"
 readonly RELEASE_HELPER_URL="https://get.cybrrd.com/releases/v1/updater/${RELEASE_HELPER_SHA256}/linux-arm64/brrdfeeder-release"
 
 # Zitadel OAuth Device Flow (BRRDfeeder-tier enrollment — binds feeder to user account)
@@ -1071,6 +1077,8 @@ done
 if [[ $BOOT_PREPARE == 1 ]]; then
   eval "$(cat <<'BOOTSTRAP_PREPARE_EOF'
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Embedded in the verified installer; executed only for bootstrap install mode.
 # Root-only preparation belongs after checksum verification and inside logging.
 bootstrap_say() { log_event NOTICE "$*"; }
@@ -1338,6 +1346,8 @@ if [[ $UNINSTALL -eq 1 ]]; then
   uninstall_main() {
   bash -s -- "$@" <<'UNINSTALL_EOF'
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Embedded verbatim in brrdfeeder-install.sh. No network and no configurable roots.
 set -euo pipefail
 export LC_ALL=C
@@ -1402,6 +1412,8 @@ progress_phase() {
 audit_legacy_account() {
   python3 - "$1" "$2" <<'ACCOUNT_AUDIT_EOF'
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Read-only legacy-account audit. No new packages, writes or network calls."""
 import gzip
 import os
@@ -2750,6 +2762,7 @@ LISTEN_PY
   cat > "$STATUS_PROVISIONER" <<'STATUS_PROVISIONER_EOF'
 #!/bin/bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Run on the host after the engine installer creates its service account,
 # before enabling the status writer. Never run this inside the console image.
 set -euo pipefail
@@ -3011,6 +3024,8 @@ else
   run install -d -m 0755 -o root -g root /usr/local/libexec
   cat > "$IDENTITY_INSTALL" <<'IDENTITY_SH_EOF'
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Host-side Quadlet lifecycle helper. No tag inspection, runtime socket mount,
 # credentials, last-known fallback, or authority granted to the engine.
 set -euo pipefail
@@ -3074,6 +3089,8 @@ if [[ $DRY_RUN -eq 1 ]]; then
 else
   cat > "$GPS_SEED" <<'GPS_SEED_EOF'
 #!/usr/bin/python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """BRRDfeeder GPS location seed; only the engine's systemd ExecStartPre may run it.
 
 No network, receiver commands, fabricated position, or engine-status writes.
@@ -3777,6 +3794,8 @@ else
   fi
   cat > "$BLUETOOTH_HELPER" <<'BLUETOOTH_EOF'
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """BRRDfeeder Bluetooth ownership: offline, fixed paths, reversible service state."""
 import json
 import errno

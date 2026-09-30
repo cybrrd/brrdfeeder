@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Engine-side reader for the `node:` and `capture:` sections of `config.yaml`.
 //!
 //! Kept small and engine-local so the protocol crate stays pure types and the

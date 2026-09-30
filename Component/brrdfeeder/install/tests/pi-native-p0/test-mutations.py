@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Negative controls in disposable copies/in-memory modules; no hardware calls."""
 import importlib.util
 import io

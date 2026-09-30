@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 # Unprivileged build/SBOM only. No credentials, pushes or signatures here.
 set -euo pipefail
 python3 .github/scripts/release-metadata.py context

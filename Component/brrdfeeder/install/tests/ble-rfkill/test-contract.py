@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Offline BLE migration, truthful summary, engine rfkill and reboot fixtures."""
 import contextlib
 import datetime as dt

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Real logger/PTY and read-only account-auditor tests. No host removal."""
 from pathlib import Path
 import importlib.util

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Real one-commit source, real release scripts, inert external effectors."""
 import hashlib
 import json

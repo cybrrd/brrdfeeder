@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Offline host helper contract. Synthetic Podman only, not the sandbox proof."""
 import json
 import os

@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Bootstrap kit — harvested into version control 2026-07-18
 
 **This kit provisions customer hardware and, until now, existed in exactly one place: on the

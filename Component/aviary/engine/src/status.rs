@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! ADR 0007 tier 1: local, read-only status. Read-only kernel rfkill observations;
 //! no radio control, network probes or credentials here.
 //! The destination directory is operator-owned; failures never stop capture.

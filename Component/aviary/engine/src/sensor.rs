@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Sensor trait — common abstraction over the engine's edge producers.
 //!
 //! Wave 7.2 scaffold (2026-05-26). First non-Wi-Fi producer is

@@ -16,6 +16,6 @@ The Scorecard badge reports workflow status, not a numerical security rating.
 Detailed results go to GitHub code scanning. Outside contributions are not
 accepted, and public Issues and Discussions are disabled.
 
-Licensing is described in the component LICENSE files. Release approval and
+Licensing is described in the root [LICENSE](LICENSE). Release approval and
 publishing a draft release remain maintainer actions; successful CI alone does
 not authorize a release.

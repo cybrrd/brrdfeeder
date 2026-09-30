@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Offline CI parity and public closure; no credentials, network or builds."""
 import ast
+import json
 from pathlib import Path
 import re
+import subprocess
 import sys
+import tomllib
 import unittest
 import yaml
 ROOT=Path(__file__).resolve().parents[5]
@@ -12,6 +15,83 @@ sys.path.insert(0,str(TESTS/'github-scaffold'))
 from release_fixture import ReleaseFixture
 
 class Gate(unittest.TestCase):
+    def test_ble_contracts_without_interpreter_bluetooth_constants(self):
+        # setup-python may omit Bluetooth support. Exercise the entire suite,
+        # including its mocked controller syscalls, without either constant.
+        program='''import runpy, socket, sys
+for name in ('AF_BLUETOOTH', 'BTPROTO_HCI'):
+    if hasattr(socket, name): delattr(socket, name)
+sys.argv = [sys.argv[1]]
+runpy.run_path(sys.argv[0], run_name='__main__')
+'''
+        result=subprocess.run([sys.executable,'-c',program,
+                               str(TESTS/'pi-native-p0/test-ble.py')],
+                              cwd=ROOT,capture_output=True,text=True,timeout=120)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertIn('Ran 15 tests',result.stderr)
+        self.assertNotIn('skipped',result.stderr)
+
+    def test_public_contract_step_does_not_claim_same_runner(self):
+        workflow=yaml.safe_load((ROOT/'.github/workflows/test.yml').read_text())
+        steps=workflow['jobs']['contracts']['steps']
+        contract=[step for step in steps if 'tests/run.py --group all' in step.get('run','')]
+        self.assertEqual(len(contract),1)
+        self.assertEqual(contract[0]['name'],'All offline contracts')
+
+    def test_rustup_executes_named_verified_installer(self):
+        text=(ROOT/'.github/scripts/setup-tests.sh').read_text()
+        self.assertIn('rust_installer_dir=$(mktemp -d)',text)
+        self.assertIn('rust_installer="$rust_installer_dir/rustup-init"',text)
+        self.assertIn('trap \'rm -f "$rust_installer"; rmdir "$rust_installer_dir"\' EXIT',text)
+        verify="printf '%s  %s\\n' \"$rust_sha\" \"$rust_installer\" | sha256sum -c -"
+        execute='"$rust_installer" -y --profile minimal --default-toolchain 1.88.0 --no-modify-path'
+        self.assertIn(verify,text)
+        self.assertIn(execute,text)
+        self.assertLess(text.index(verify),text.index(execute))
+        self.assertIn('set -euo pipefail',text)
+        for digest in ('e3853c5a252fca15252d07cb23a1bdd9377a8c6f3efa01531109281ae47f841c',
+                       '20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c'):
+            self.assertIn(digest,text)
+
+    def test_dependabot_workspace_uses_only_root_lockfile(self):
+        updates=yaml.safe_load((ROOT/'.github/dependabot.yml').read_text())['updates']
+        cargo=[u for u in updates if u['package-ecosystem']=='cargo']
+        self.assertEqual(len(cargo),1)
+        self.assertEqual(cargo[0]['directory'],'/Component/aviary')
+        workspace=ROOT/'Component/aviary'
+        manifest=tomllib.loads((workspace/'Cargo.toml').read_text())
+        self.assertTrue((workspace/'Cargo.lock').is_file())
+        for member in manifest['workspace']['members']:
+            self.assertTrue((workspace/member/'Cargo.toml').is_file(),member)
+            self.assertFalse((workspace/member/'Cargo.lock').exists(),
+                             'stale member lockfile creates a separate Dependabot security-update root: '+member)
+
+    def test_cargo_metadata_resolves_root_and_every_member_offline(self):
+        workspace=ROOT/'Component/aviary'
+        members=tomllib.loads((workspace/'Cargo.toml').read_text())['workspace']['members']
+        lock=(workspace/'Cargo.lock').read_bytes()
+        roots=[]
+        for directory in [workspace,*(workspace/member for member in members)]:
+            result=subprocess.run(['cargo','metadata','--locked','--offline','--format-version','1',
+                                   '--manifest-path',str(directory/'Cargo.toml')],
+                                  cwd=ROOT,capture_output=True,text=True,timeout=120)
+            self.assertEqual(result.returncode,0,result.stderr)
+            value=json.loads(result.stdout)
+            self.assertEqual(Path(value['workspace_root']),workspace)
+            roots.append(set(value['workspace_members']))
+            for package in value['packages']:
+                if package['source'] is None:
+                    self.assertTrue(Path(package['manifest_path']).is_relative_to(workspace))
+        self.assertTrue(all(root==roots[0] for root in roots))
+        self.assertEqual(len(roots[0]),len(members))
+        self.assertEqual((workspace/'Cargo.lock').read_bytes(),lock)
+
+    def test_readme_links_root_license(self):
+        text=(ROOT/'README.md').read_text()
+        self.assertIn('[LICENSE](LICENSE)',text)
+        self.assertNotIn('the component LICENSE files',text)
+        self.assertIn('GNU AFFERO GENERAL PUBLIC LICENSE',(ROOT/'LICENSE').read_text())
+
     def test_release_cli_uses_one_digest_and_correct_archives(self):
         with ReleaseFixture() as fixture:
             fixture.build_both()

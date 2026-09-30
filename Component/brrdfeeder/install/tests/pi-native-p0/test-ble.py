@@ -11,7 +11,7 @@ import subprocess
 import struct
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, sentinel
 import yaml
 
 ROOT=Path(__file__).resolve().parents[5]
@@ -191,6 +191,11 @@ class Controller(unittest.TestCase):
         for p in [patch.object(ble,'HCI',self.hci),patch.object(ble,'DEVICES',self.devices),patch.object(ble,'ctl',self.systemd)]:
             p.__enter__(); self.addCleanup(p.__exit__,None,None,None)
         self.sock=patch.object(ble.socket,'socket').start(); self.addCleanup(patch.stopall)
+        # The socket itself is mocked; some interpreter builds also omit these
+        # constants. Sentinels prove the helper passes them through unchanged.
+        for name in ('AF_BLUETOOTH','BTPROTO_HCI'):
+            p=patch.object(ble.socket,name,getattr(sentinel,name),create=True)
+            p.start(); self.addCleanup(p.stop)
         self.ioctl=patch.object(ble.fcntl,'ioctl',side_effect=self.operation).start()
         self.sock.return_value.__enter__.return_value.fileno.return_value=99
         self.add('hci7')
@@ -210,6 +215,9 @@ class Controller(unittest.TestCase):
     def test_only_targeted_down_then_flags_read(self):
         self.add('hci0','1234:5678')
         ble.controller_down({'usb_id':'0bda:876e'})
+        self.sock.assert_called_once_with(sentinel.AF_BLUETOOTH,
+                                         ble.socket.SOCK_RAW | ble.socket.SOCK_CLOEXEC,
+                                         sentinel.BTPROTO_HCI)
         self.assertEqual(self.calls,[(99,0x400448ca),(99,0x800448d3)])
     def test_bad_matches_never_open_socket(self):
         for adapter in [{'usb_id':'1234:5678'},{'bd_addr':'00:11:22:33:44:55'}]:

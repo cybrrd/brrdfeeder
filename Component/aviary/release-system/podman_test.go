@@ -97,6 +97,60 @@ func (p *podmanHost) Run(bin string, args ...string) ([]byte, error) {
 	return p.podman(console, argv...)
 }
 
+func podmanFixtureRoot(t *testing.T) string {
+	t.Helper()
+	// Podman limits runroot to 50 bytes. t.TempDir embeds the test name and
+	// inherits the runner's potentially long TMPDIR. MkdirTemp still provides
+	// a unique, private (0700) root, but its explicit parent keeps paths short.
+	root, err := os.MkdirTemp("/tmp", "p-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		// Test defers stop containers and reset their stores before this runs.
+		if err := os.RemoveAll(root); err != nil {
+			t.Errorf("remove isolated Podman fixture: %v", err)
+		}
+	})
+	return root
+}
+
+func TestPodmanFixtureRootShortPrivateAndCleaned(t *testing.T) {
+	longTmp := filepath.Join(t.TempDir(), strings.Repeat("long-runner-temp-", 8))
+	if err := os.Mkdir(longTmp, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TMPDIR", longTmp)
+	var roots []string
+	t.Run("isolated-stores", func(t *testing.T) {
+		for attempt := 0; attempt < 2; attempt++ {
+			root := podmanFixtureRoot(t)
+			roots = append(roots, root)
+			info, err := os.Stat(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if info.Mode().Perm() != 0700 {
+				t.Errorf("fixture root permissions: %o", info.Mode().Perm())
+			}
+			for component := 0; component < 2; component++ {
+				runroot := filepath.Join(root, fmt.Sprint(component), "run")
+				if len(runroot) > 50 {
+					t.Errorf("Podman runroot is %d bytes (limit 50): %s", len(runroot), runroot)
+				}
+			}
+		}
+		if roots[0] == roots[1] {
+			t.Error("fixture roots are not isolated")
+		}
+	})
+	for _, root := range roots {
+		if _, err := os.Stat(root); !os.IsNotExist(err) {
+			t.Errorf("fixture root not removed: %s: %v", root, err)
+		}
+	}
+}
+
 func TestRealPodmanLifecycleAndPrune(t *testing.T) {
 	if os.Getenv("D44_PODMAN") != "1" {
 		t.Skip("worldport-only opt-in real container fixture")
@@ -106,7 +160,7 @@ func TestRealPodmanLifecycleAndPrune(t *testing.T) {
 	u.sleep = time.Sleep
 	u.healthTimeout = 12 * time.Second
 	u.cfg.Container = "d44-fixture-engine"
-	root := t.TempDir()
+	root := podmanFixtureRoot(t)
 	conf := filepath.Join(root, "containers.conf")
 	// This isolated rootless fixture has no systemd user session. Select the
 	// cgroup manager explicitly rather than depending on the developer's bus.
@@ -134,7 +188,7 @@ func TestRealPodmanLifecycleAndPrune(t *testing.T) {
 	defer func() {
 		for _, console := range []bool{false, true} {
 			// Stop synchronously before resetting the disposable store; otherwise
-			// conmon can still write its temporary files while t.TempDir cleans up.
+			// conmon can still write its temporary files while the fixture cleans up.
 			if _, e := p.podman(console, "stop", "--all", "--time", "2"); e != nil {
 				t.Error("isolated containers shutdown", e)
 			}

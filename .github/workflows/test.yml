@@ -25,7 +25,7 @@ jobs:
           python-version: '3.13.5'
       - name: Provision pinned offline-test dependencies
         run: bash .github/scripts/setup-tests.sh
-      - name: ALL offline contracts (same runner as Gitea)
+      - name: All offline contracts
         run: python3 Component/brrdfeeder/install/tests/run.py --group all --out "$RUNNER_TEMP/contracts"
         env:
           TEST_OS_IMAGE: localhost/brrd-contract-os:20260929

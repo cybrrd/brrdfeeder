@@ -32,6 +32,8 @@ func versionFixture(t *testing.T, productVersion *string) string {
 	heartbeat["build_seq"] = 1042
 	if productVersion != nil {
 		heartbeat["product_version"] = *productVersion
+	} else {
+		delete(heartbeat, "product_version")
 	}
 	b, err = json.Marshal(document)
 	if err != nil {

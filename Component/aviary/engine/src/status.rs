@@ -515,7 +515,8 @@ mod tests {
             },
             "gps": { "state": "healthy", "last_reading_ms": 1789776000000i64,
                 "fix_quality": 1, "sat_count": 8, "hdop": 1.2, "error_count": 0, "detail":"fixture health note" },
-            "node_position_source": "gps_live", "engine_version": "fixture-sha",
+            "node_position_source": "gps_live", "product_version": env!("CARGO_PKG_VERSION"),
+            "engine_version": "fixture-sha",
             "image_digest": "sha256:fixture", "build_seq": 287, "channel": "stable",
             "os_clock_trusted": true, "policy_ack": "fixture-sha",
             "update_blocked_reason": "running_identity_unverified",
@@ -616,6 +617,7 @@ mod tests {
             "heartbeat.gps.error_count",
             "heartbeat.gps.detail",
             "heartbeat.node_position_source",
+            "heartbeat.product_version",
             "heartbeat.engine_version",
             "heartbeat.image_digest",
             "heartbeat.build_seq",
@@ -1332,6 +1334,7 @@ mod tests {
             assert_eq!(published["position_status"]["state"], "no_fix");
             assert!(published.get("current_position").is_none());
             assert_eq!(published["configured_position"]["source"], "config_static");
+            assert_eq!(published["product_version"], env!("CARGO_PKG_VERSION"));
             for key in ["image_digest", "engine_version", "build_seq", "policy_ack"] {
                 assert!(
                     published.get(key).is_none(),

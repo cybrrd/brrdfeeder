@@ -19,10 +19,12 @@ type status struct {
 	WrittenAt time.Time `json:"written_at"`
 	Interval  uint64    `json:"status_interval_secs"`
 	Heartbeat struct {
-		Version      string `json:"engine_version"`
-		Digest       string `json:"image_digest"`
-		Radio        string `json:"radio_status"`
-		ClockTrusted *bool  `json:"os_clock_trusted"`
+		ProductVersion string `json:"product_version"`
+		Revision       string `json:"engine_version"`
+		Build          uint64 `json:"build_seq"`
+		Digest         string `json:"image_digest"`
+		Radio          string `json:"radio_status"`
+		ClockTrusted   *bool  `json:"os_clock_trusted"`
 	} `json:"heartbeat"`
 	Inventory struct {
 		Capture []struct {
@@ -156,8 +158,8 @@ func readStatus(path string, now time.Time) view {
 			g.Satellites = nil
 		}
 	}
-	s.Heartbeat.Version, s.Heartbeat.Digest, s.Heartbeat.Radio =
-		sanitize(s.Heartbeat.Version), sanitize(s.Heartbeat.Digest), sanitize(s.Heartbeat.Radio)
+	s.Heartbeat.ProductVersion, s.Heartbeat.Revision, s.Heartbeat.Digest, s.Heartbeat.Radio =
+		sanitize(s.Heartbeat.ProductVersion), sanitize(s.Heartbeat.Revision), sanitize(s.Heartbeat.Digest), sanitize(s.Heartbeat.Radio)
 	s.Links.NATS, s.Links.Published, s.Links.LastFrame =
 		sanitize(s.Links.NATS), sanitize(s.Links.Published), sanitize(s.Links.LastFrame)
 	v.Live, v.Status = true, s

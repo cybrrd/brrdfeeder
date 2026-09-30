@@ -171,7 +171,10 @@ pub struct HeartbeatPayload {
     // ── #185 Silver fleet-proprioception ──────────────────────────────
     // The node's build/bodily state, reported each heartbeat so System 3
     // (command.cybrrd.com) tracks version convergence without polling.
-    /// Binary-baked version only; omitted while no trustworthy source exists.
+    /// Cargo's engine package version: the authoritative product version.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub product_version: Option<String>,
+    /// Binary-baked source revision only; omitted while no trustworthy source exists.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub engine_version: Option<String>,
     /// Verified running manifest digest only; omitted pending the runtime handoff.
@@ -513,6 +516,7 @@ pub fn build_payload(
         position_status: context.map(|_| position_status),
         config_hash: context.and_then(|c| c.config_hash.clone()),
         management_status,
+        product_version: Some(env!("CARGO_PKG_VERSION").to_owned()),
         engine_version,
         image_digest,
         build_seq,
@@ -732,6 +736,7 @@ mod tests {
             position_status: None,
             config_hash: None,
             management_status: None,
+            product_version: None,
             engine_version: None,
             image_digest: None,
             build_seq: None,
@@ -776,6 +781,7 @@ mod tests {
             position_status: None,
             config_hash: None,
             management_status: None,
+            product_version: None,
             engine_version: None,
             image_digest: None,
             build_seq: None,
@@ -812,6 +818,7 @@ mod tests {
             position_status: None,
             config_hash: None,
             management_status: None,
+            product_version: None,
             engine_version: None,
             image_digest: None,
             build_seq: None,
@@ -879,6 +886,7 @@ mod tests {
             position_status: None,
             config_hash: None,
             management_status: None,
+            product_version: None,
             engine_version: None,
             image_digest: None,
             build_seq: None,
@@ -1045,6 +1053,7 @@ mod tests {
             position_status: None,
             config_hash: None,
             management_status: None,
+            product_version: None,
             engine_version: None,
             image_digest: None,
             build_seq: None,
@@ -1095,6 +1104,7 @@ mod tests {
             position_status: None,
             config_hash: None,
             management_status: None,
+            product_version: None,
             engine_version: None,
             image_digest: None,
             build_seq: None,
@@ -1131,6 +1141,7 @@ mod wave_7_4_tests {
             position_status: None,
             config_hash: None,
             management_status: None,
+            product_version: None,
             engine_version: None,
             image_digest: None,
             build_seq: None,
@@ -1176,6 +1187,13 @@ mod wave_7_4_tests {
             Some(&fleet),
         );
         let json = serde_json::to_string(&payload).expect("serialize");
+        assert!(
+            json.contains(&format!(
+                "\"product_version\":\"{}\"",
+                env!("CARGO_PKG_VERSION")
+            )),
+            "product version did not come from the engine package: {json}"
+        );
         for key in ["engine_version", "image_digest", "build_seq", "policy_ack"] {
             assert!(!json.contains(key), "unverified field published: {json}");
         }

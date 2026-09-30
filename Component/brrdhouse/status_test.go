@@ -22,7 +22,9 @@ var proofNow = time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
 func fixture(t *testing.T, path string, age time.Duration, interval uint64, hostile bool) {
 	t.Helper()
 	s := status{Schema: 1, WrittenAt: proofNow.Add(-age), Interval: interval}
-	s.Heartbeat.Version = "fixture-v1"
+	s.Heartbeat.ProductVersion = "fixture-v1"
+	s.Heartbeat.Revision = "0123456789abcdef0123456789abcdef01234567"
+	s.Heartbeat.Build = 1042
 	s.Heartbeat.Digest = "sha256:fixture"
 	s.Heartbeat.Radio = "up"
 	s.Links.NATS = "connected"
@@ -52,6 +54,7 @@ func fixture(t *testing.T, path string, age time.Duration, interval uint64, host
 	hb["nats_credentials"] = "PRIVATE_CREDENTIAL_SENTINEL"
 	hb["current_position"] = map[string]any{"latitude": "PRIVATE_POSITION_SENTINEL"}
 	if hostile {
+		hb["product_version"] = attack
 		hb["engine_version"] = attack
 		hb["image_digest"] = attack
 		links := doc["links"].(map[string]any)
@@ -154,8 +157,8 @@ func TestRenderedProofs(t *testing.T) {
 				if strings.Contains(body, "<script>alert") || strings.Contains(body, "<img src=x") || strings.Contains(body, attack) {
 					t.Fatal("active LAN markup leaked")
 				}
-				if n := strings.Count(body, html.EscapeString(attack)); n != 11 {
-					t.Fatalf("expected all 11 displayed hostile strings escaped, got %d", n)
+				if n := strings.Count(body, html.EscapeString(attack)); n != 12 {
+					t.Fatalf("expected all 12 displayed hostile strings escaped, got %d", n)
 				}
 				if _, err := os.Stat("/tmp/D43-SHOULD-NOT-EXIST"); !os.IsNotExist(err) {
 					t.Fatal("shell marker exists")

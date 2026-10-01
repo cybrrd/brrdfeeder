@@ -80,6 +80,21 @@ class Scaffold(unittest.TestCase):
             self.assertIn('steps.publish.outputs.', step['with']['subject-digest'])
             self.assertEqual(str(step['with']['push-to-registry']).lower(), 'true')
 
+    def test_attestation_destination_has_the_credentials_or_storage_it_needs(self):
+        text = (ROOT/'.github/workflows/release.yml').read_text()
+        steps = workflow('release.yml')['jobs']['publish-sign']['steps']
+        attestations = [step for step in steps
+                        if step.get('uses', '').startswith('actions/attest-build-provenance@')]
+        home_registry_auth = '.docker/config.json' in text
+        for step in attestations:
+            registry = str(step['with'].get('push-to-registry', False)).lower() == 'true'
+            api_storage = str(step['with'].get('create-storage-record', True)).lower() == 'true'
+            self.assertTrue(
+                (registry and home_registry_auth) or (not registry and api_storage),
+                'registry attestation needs ~/.docker/config.json; API-only attestation '
+                'needs create-storage-record',
+            )
+
     def test_native_builds_and_stable_full_gate(self):
         release = workflow('release.yml')
         self.assertEqual(release['jobs']['images']['runs-on'], 'ubuntu-24.04-arm')

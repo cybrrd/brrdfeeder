@@ -10,8 +10,9 @@ out="$RUNNER_TEMP/release"
 records=$(python3 .github/scripts/release-metadata.py verify "$out")
 export DOCKER_CONFIG="$RUNNER_TEMP/registry-auth"
 mkdir -m 0700 -p "$DOCKER_CONFIG"
-# The job supplies this same DOCKER_CONFIG to provenance actions and removes
-# config.json in its final always() step, including on signing/attestation failure.
+# This credential is private to the image/cosign publisher. Provenance uses the
+# GitHub attestation API, not a registry attachment. The job's final always()
+# step removes config.json, including on signing/attestation/draft failure.
 printf '%s' "$REGISTRY_TOKEN" | skopeo login --authfile "$DOCKER_CONFIG/config.json" \
   --username "$GITHUB_ACTOR" --password-stdin ghcr.io
 unset REGISTRY_TOKEN

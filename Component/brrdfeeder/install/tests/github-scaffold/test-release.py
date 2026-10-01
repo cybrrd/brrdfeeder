@@ -152,6 +152,27 @@ class Release(unittest.TestCase):
             p=f.run('publish-images.sh',FIXTURE_REMOTE_DIGEST='sha256:'+'a'*64)
             self.assertNotEqual(p.returncode,0)
             self.assertFalse(any(name=='cosign' for name,_ in f.calls()))
+    def test_repeated_publisher_uses_existing_packages_by_tag_and_exact_digest(self):
+        with ReleaseFixture() as f:
+            f.build_both()
+            for _ in range(2):
+                p=f.run('publish-images.sh')
+                self.assertEqual(p.returncode,0,p.stderr)
+            copies=[args for name,args in f.calls() if name=='skopeo' and args[0]=='copy']
+            self.assertEqual(len(copies),4)
+            destinations=[args[-1] for args in copies]
+            expected={
+                'docker://ghcr.io/cybrrd/brrdfeeder:v1.2.3',
+                'docker://ghcr.io/cybrrd/brrdhouse:v1.2.3',
+            }
+            self.assertEqual(set(destinations),expected)
+            self.assertTrue(all(':latest' not in destination for destination in destinations))
+            signatures=[args[-1] for name,args in f.calls() if name=='cosign']
+            self.assertEqual(len(signatures),4)
+            self.assertEqual(set(signatures),{
+                'ghcr.io/cybrrd/brrdfeeder@sha256:'+'b'*64,
+                'ghcr.io/cybrrd/brrdhouse@sha256:'+'c'*64,
+            })
     def test_draft_has_changelog_sboms_digests_and_attestations_never_publish(self):
         with ReleaseFixture() as f:
             f.build_both()
@@ -174,6 +195,16 @@ class Release(unittest.TestCase):
                 else: env['ENGINE_ATTESTATION_URL']='https://evil.example/123'
                 self.assertNotEqual(f.run('draft-release.py',**env).returncode,0)
                 self.assertFalse(any(name=='gh' for name,_ in f.calls()))
+    def test_missing_token_or_post_publish_file_prevents_draft(self):
+        with ReleaseFixture() as f:
+            f.build_both();self.assertEqual(f.run('publish-images.sh').returncode,0)
+            self.assertNotEqual(f.run('draft-release.py',GH_TOKEN='').returncode,0)
+            self.assertFalse(any(name=='gh' for name,_ in f.calls()))
+        with ReleaseFixture() as f:
+            f.build_both();self.assertEqual(f.run('publish-images.sh').returncode,0)
+            (f.work/'out/release/engine/image.txt').unlink()
+            self.assertNotEqual(f.run('draft-release.py').returncode,0)
+            self.assertFalse(any(name=='gh' for name,_ in f.calls()))
     def test_existing_release_is_not_clobbered(self):
         with ReleaseFixture() as f:
             f.build_both();self.assertEqual(f.run('publish-images.sh').returncode,0)

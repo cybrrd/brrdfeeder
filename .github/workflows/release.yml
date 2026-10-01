@@ -77,8 +77,6 @@ jobs:
       id-token: write # no other job may obtain an OIDC token
       attestations: write
     steps:
-      - name: Share ephemeral registry auth with provenance actions
-        run: printf 'DOCKER_CONFIG=%s/registry-auth\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with: {fetch-depth: 0, persist-credentials: false, ref: '${{ github.sha }}'}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -107,27 +105,34 @@ jobs:
         with:
           subject-name: ghcr.io/cybrrd/brrdfeeder
           subject-digest: ${{ steps.publish.outputs.engine-digest }}
-          push-to-registry: true
+          push-to-registry: false
           create-storage-record: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Attest console provenance
         id: console-provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ghcr.io/cybrrd/brrdhouse
           subject-digest: ${{ steps.publish.outputs.console-digest }}
-          push-to-registry: true
+          push-to-registry: false
           create-storage-record: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Create draft release with changelog, digests, SBOMs and attestation URLs
         run: python3 .github/scripts/draft-release.py
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ENGINE_ATTESTATION_URL: ${{ steps.engine-provenance.outputs.attestation-url }}
           CONSOLE_ATTESTATION_URL: ${{ steps.console-provenance.outputs.attestation-url }}
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Retain approved release receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: approved-release-receipts
           path: ${{ runner.temp }}/release-notes/
           if-no-files-found: error
-      - name: Remove ephemeral registry credentials
+          retention-days: 7
+      - name: Remove ephemeral publisher registry credentials
         if: always()
-        run: rm -f "$RUNNER_TEMP/registry-auth/config.json"
+        run: |
+          test -n "$RUNNER_TEMP"
+          rm -f -- "$RUNNER_TEMP/registry-auth/config.json"
+          rmdir -- "$RUNNER_TEMP/registry-auth" 2>/dev/null || true

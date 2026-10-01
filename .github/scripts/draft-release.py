@@ -13,6 +13,7 @@ import subprocess
 spec = importlib.util.spec_from_file_location('metadata', Path(__file__).with_name('release-metadata.py'))
 metadata = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(metadata)
+metadata.require(bool(os.environ.get('GH_TOKEN')), 'missing GH_TOKEN for draft release')
 ctx = metadata.context()
 root = Path(os.environ['RUNNER_TEMP'])
 records = metadata.verified(root/'release')

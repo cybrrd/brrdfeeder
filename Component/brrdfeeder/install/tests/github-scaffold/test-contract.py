@@ -78,7 +78,9 @@ class Scaffold(unittest.TestCase):
                          {'ghcr.io/cybrrd/brrdfeeder', 'ghcr.io/cybrrd/brrdhouse'})
         for _, step in calls:
             self.assertIn('steps.publish.outputs.', step['with']['subject-digest'])
-            self.assertEqual(str(step['with']['push-to-registry']).lower(), 'true')
+            self.assertEqual(str(step['with']['push-to-registry']).lower(), 'false')
+            self.assertEqual(str(step['with']['create-storage-record']).lower(), 'false')
+            self.assertEqual(step['with']['github-token'], '${{ secrets.GITHUB_TOKEN }}')
 
     def test_attestation_destination_has_the_credentials_or_storage_it_needs(self):
         text = (ROOT/'.github/workflows/release.yml').read_text()
@@ -88,12 +90,59 @@ class Scaffold(unittest.TestCase):
         home_registry_auth = '.docker/config.json' in text
         for step in attestations:
             registry = str(step['with'].get('push-to-registry', False)).lower() == 'true'
-            api_storage = str(step['with'].get('create-storage-record', True)).lower() == 'true'
+            storage_record = str(step['with'].get('create-storage-record', True)).lower() == 'true'
             self.assertTrue(
-                (registry and home_registry_auth) or (not registry and api_storage),
-                'registry attestation needs ~/.docker/config.json; API-only attestation '
-                'needs create-storage-record',
+                (registry and home_registry_auth) or (not registry and not storage_record),
+                'registry attachment needs ~/.docker/config.json; API-only attestation '
+                'must not request the registry-only storage record',
             )
+
+    def test_every_post_publish_step_has_inputs_permissions_and_failure_order(self):
+        job = workflow('release.yml')['jobs']['publish-sign']
+        self.assertEqual(job['permissions'], {
+            'contents': 'write', 'packages': 'write', 'id-token': 'write',
+            'attestations': 'write',
+        })
+        steps = job['steps']
+        by_name = {step.get('name'): (index, step) for index, step in enumerate(steps)}
+        publish_index = next(index for index, step in enumerate(steps)
+                             if step.get('id') == 'publish')
+        engine_index, engine = by_name['Attest engine provenance']
+        console_index, console = by_name['Attest console provenance']
+        draft_index, draft = by_name[
+            'Create draft release with changelog, digests, SBOMs and attestation URLs']
+        receipt_index, receipt = by_name['Retain approved release receipts']
+        cleanup_index, cleanup = by_name['Remove ephemeral publisher registry credentials']
+        self.assertLess(publish_index, engine_index)
+        self.assertLess(engine_index, console_index)
+        self.assertLess(console_index, draft_index)
+        self.assertLess(draft_index, receipt_index)
+        self.assertEqual(cleanup_index, len(steps)-1)
+
+        self.assertEqual(engine['id'], 'engine-provenance')
+        self.assertEqual(console['id'], 'console-provenance')
+        self.assertEqual(engine['with']['subject-digest'],
+                         '${{ steps.publish.outputs.engine-digest }}')
+        self.assertEqual(console['with']['subject-digest'],
+                         '${{ steps.publish.outputs.console-digest }}')
+        self.assertEqual(draft['run'], 'python3 .github/scripts/draft-release.py')
+        self.assertEqual(draft['env'], {
+            'GH_TOKEN': '${{ secrets.GITHUB_TOKEN }}',
+            'ENGINE_ATTESTATION_URL':
+                '${{ steps.engine-provenance.outputs.attestation-url }}',
+            'CONSOLE_ATTESTATION_URL':
+                '${{ steps.console-provenance.outputs.attestation-url }}',
+        })
+        self.assertEqual(receipt['with'], {
+            'name': 'approved-release-receipts',
+            'path': '${{ runner.temp }}/release-notes/',
+            'if-no-files-found': 'error',
+            'retention-days': 7,
+        })
+        self.assertEqual(cleanup['if'], 'always()')
+        self.assertIn('"$RUNNER_TEMP/registry-auth/config.json"', cleanup['run'])
+        self.assertNotIn('~/.docker', text := (ROOT/'.github/workflows/release.yml').read_text())
+        self.assertNotIn('$GITHUB_ENV', text)
 
     def test_native_builds_and_stable_full_gate(self):
         release = workflow('release.yml')

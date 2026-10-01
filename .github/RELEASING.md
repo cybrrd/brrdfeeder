@@ -60,8 +60,16 @@ before approving environment release. The publisher downloads artifacts from
 THIS workflow run only, verifies both archives and their source/sequence labels,
 then publishes with digest preservation and signs only those exact digests.
 It does not rebuild. Both image digests receive GitHub provenance attestations
-inside the approved job, also pushed to GHCR. Provenance describes this workflow
-run; it is not a claim of an independently isolated SLSA build level.
+inside the approved job. The attestations are stored in GitHub's attestation API,
+and the draft records their GitHub attestation URLs. They are deliberately not
+attached to GHCR: the pinned attestation action only discovers registry credentials
+at `~/.docker/config.json`, while the publisher keeps its short-lived image/cosign
+credential isolated under `$RUNNER_TEMP`. Avoiding a second credential copy and
+cleanup path is safer. The images and their cosign signatures remain in GHCR;
+verify provenance with
+`gh attestation verify oci://IMAGE@DIGEST --repo cybrrd/brrdfeeder`.
+Provenance describes this workflow run; it is not a claim of an independently
+isolated SLSA build level.
 
 The publisher creates a **draft** GitHub Release with generated changelog,
 source SHA, build sequence, image digests, per-image SBOMs, attestation URLs,
@@ -81,7 +89,11 @@ image/signature present. Never treat that as an approved complete release. Inspe
 the run, exact digests and attestation records; do not change a tag to different
 bytes. Rerunning the gated job requires environment approval again. If a draft
 already exists, the script refuses rather than clobbering or publishing it.
-Registry credentials are removed in an `always()` cleanup step.
+Registry credentials exist only under `$RUNNER_TEMP/registry-auth` during the
+publisher and are removed in the final `always()` cleanup step. The attestation
+steps use the job's OIDC token plus `attestations: write`; draft creation uses the
+job token's `contents: write`. The receipt upload is retained for seven days and
+fails if draft preparation produced no files.
 
 Action commits and tool checksums are pinned. The upstream Scorecard action
 itself references its versioned v2.4.4 container; review upstream transitive

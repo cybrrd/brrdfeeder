@@ -29,6 +29,7 @@ if name=='skopeo' and args[0]=='inspect':
         value='sha256:'+('c' if component=='console' else 'b')*64
         print(os.environ.get('FIXTURE_REMOTE_DIGEST',value) if target.startswith('docker://') else os.environ.get('FIXTURE_DIGEST',value))
 if name=='syft': print(json.dumps({'bomFormat':'CycloneDX','specVersion':'1.6','version':1}))
+if name=='gh' and not os.environ.get('GH_TOKEN'): sys.exit('GH_TOKEN missing')
 if name=='gh' and os.environ.get('FIXTURE_EXISTING_RELEASE'): sys.exit('release already exists')
 '''
 
@@ -63,6 +64,7 @@ printf engine-fixture > "$2/brrdfeeder-engine-$1.tar"
         self.env=dict(host_env,PATH=str(binary)+':'+os.environ['PATH'],TRACE=str(self.trace),
             GITHUB_REPOSITORY='cybrrd/brrdfeeder',GITHUB_REF='refs/tags/v1.2.3',GITHUB_REF_NAME='v1.2.3',
             GITHUB_EVENT_NAME='push',GITHUB_ACTOR='fixture',REGISTRY_TOKEN='not-a-secret',RELEASE_APPROVAL_CONFIGURED='true',
+            GH_TOKEN='fixture-token',
             RUNNER_TEMP=str(self.work/'out'),GITHUB_STEP_SUMMARY=str(self.work/'summary'),GITHUB_OUTPUT=str(self.work/'outputs'),
             GIT_AUTHOR_NAME='Development Team',GIT_COMMITTER_NAME='Development Team',GIT_AUTHOR_EMAIL='operator@cybrrd.com',GIT_COMMITTER_EMAIL='operator@cybrrd.com',
             ENGINE_ATTESTATION_URL='https://github.com/cybrrd/brrdfeeder/attestations/123',

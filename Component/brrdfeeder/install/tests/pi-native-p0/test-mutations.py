@@ -18,7 +18,7 @@ OUT=Path(os.environ.get('D44_EVIDENCE_DIR',str(HERE/'evidence')))
 OUT.mkdir(parents=True,exist_ok=True)
 cases=[]
 for label,old,new,test in [
-    ('ble-enable','dict(enabled=True, unblock_rfkill=True, adapter=dict(usb_id=SUPPORTED))','dict(enabled=False, unblock_rfkill=True, adapter=dict(usb_id=SUPPORTED))','BLE.test_rendered_config_present_absent_and_explicit'),
+    ('ble-enable','dict(enabled=True, unblock_rfkill=True, adapter=dict(usb_id=found[0]))','dict(enabled=False, unblock_rfkill=True, adapter=dict(usb_id=found[0]))','BLE.test_rendered_config_present_absent_and_explicit'),
     ('receipt-unit',"value['unit'] != UNIT",'False','BLE.test_receipt_and_config_refuse_before_mutation'),
     ('restore-active',"if prior['active']: ctl('start', UNIT)",'if False: ctl("start", UNIT)','BLE.test_state_matrix_and_missing_receipt'),
     ('engine-owner',"engine != 'inactive'",'False','Controller.test_live_owners_never_open_socket'),

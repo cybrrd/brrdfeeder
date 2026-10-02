@@ -11,6 +11,7 @@ from pathlib import Path
 import subprocess
 import unittest
 import io
+import importlib.util
 import stat
 from unittest.mock import patch
 
@@ -148,5 +149,56 @@ printf 'RETAINED %s %s\\n' "$CONTAINER_IMAGE" "$CONSOLE_IMAGE"
             result=run('bash','-c',script,'pins',bootstrap)
             self.assertEqual(result.returncode,expected,result.stdout+result.stderr)
             if bootstrap=='1': self.assertIn('RETAINED '+engine+'b'*64+' '+console+'d'*64,result.stdout)
+
+class Upgrade(unittest.TestCase):
+    def test_full_one_liner_host_repair_from_0822_a728(self):
+        # Reuse the real-installer OS fixture. Only hardware and external
+        # services are simulated; execute the shipped embedded BLE helper.
+        os.environ['BRRD_NAMING_CONTAINER']='1'
+        spec=importlib.util.spec_from_file_location('naming',ROOT/'tests/brrdfeeder-naming/container-tests.py')
+        naming=importlib.util.module_from_spec(spec); spec.loader.exec_module(naming)
+        fixture=naming.InstallerRerun('test_rerun_keeps_current_new_dropin')
+        fixture.setUp(); self.addCleanup(fixture.tearDown)
+        fixture.seed_installed_node()
+        engine=Path('/etc/containers/systemd/brrdfeeder-engine.container')
+        engine.parent.mkdir(parents=True,exist_ok=True)
+        console=Path('/etc/brrdfeeder/brrdhouse.container')
+        engine.write_text('# Installed by brrdfeeder-install.sh.\nImage=ghcr.io/cybrrd/brrdfeeder@sha256:'+'b'*64+'\n')
+        console.write_text('Image=ghcr.io/cybrrd/brrdhouse@sha256:'+'d'*64+'\n')
+        adapter=Path('/tmp/upgrade-usb/1-2'); adapter.mkdir(parents=True,exist_ok=True)
+        (adapter/'idVendor').write_text('0bda'); (adapter/'idProduct').write_text('a728')
+        uname=fixture.bin/'uname'; uname.write_text('#!/bin/sh\necho aarch64\n'); uname.chmod(0o755)
+        shim=fixture.bin/'python3'
+        shim.write_text('''#!/usr/bin/python3
+import importlib.util,importlib.machinery,json,os,sys
+from pathlib import Path
+if sys.argv[1:2]!=['/usr/local/libexec/brrdfeeder-bluetooth']:
+    os.execv('/usr/bin/python3',['python3',*sys.argv[1:]])
+def load(name,path):
+    s=importlib.util.spec_from_loader(name,importlib.machinery.SourceFileLoader(name,str(path)))
+    m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
+m=load('ble_shipped',sys.argv[1])
+f=load('ble_fixture','/repo/Component/brrdfeeder/install/tests/pi-native-p0/test-ble.py')
+m.USB=Path('/tmp/upgrade-usb')
+m.ctl=f.Systemd()
+def down(adapter):
+    assert adapter=={'usb_id':'0bda:a728'}
+    assert m.ctl.enabled=='masked' and not m.ctl.active
+m.controller_down=down
+sys.argv=sys.argv[1:]
+m.main()
+Path('/tmp/upgrade-bluetooth-state').write_text(json.dumps([m.ctl.enabled,m.ctl.active]))
+'''); shim.chmod(0o755)
+        fixture.env['BRRDFEEDER_BOOTSTRAP_PREPARE']='1'
+        result=fixture.rerun()
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        import json, yaml
+        doc=yaml.safe_load(Path('/etc/brrdfeeder/config.yaml').read_bytes())
+        self.assertEqual(doc['sensors']['rid_ble'],
+                         {'enabled':True,'unblock_rfkill':True,'adapter':{'usb_id':'0bda:a728'}})
+        self.assertEqual(json.loads(Path('/etc/brrdfeeder/.bluetooth-prior.json').read_bytes()),
+                         {'version':1,'unit':'bluetooth.service','enabled':'enabled','active':True})
+        self.assertIn('Image=ghcr.io/cybrrd/brrdfeeder@sha256:'+'b'*64,engine.read_text())
+        self.assertIn('Image=ghcr.io/cybrrd/brrdhouse@sha256:'+'d'*64,console.read_text())
 
 if __name__=='__main__': unittest.main(verbosity=2)

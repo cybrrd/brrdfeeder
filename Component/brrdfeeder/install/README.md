@@ -360,12 +360,12 @@ Default rating thresholds and operator tuning flags are in the
 ## RID.BLE controller ownership
 
 BRRDfeeder includes Wi-Fi and Bluetooth RID. Passive USB inventory names the supported
-Realtek **0bda:876e** receiver without sending HCI commands. On fresh installs
+Realtek **0bda:876e** and **0bda:a728** receivers without sending HCI commands. On fresh installs
 and reruns, **only a missing `sensors.rid_ble` key** is added when exactly one
 supported receiver is present, as `enabled: true`, `unblock_rfkill: true` with
-`adapter.usb_id: 0bda:876e`. Reruns also add only an absent `unblock_rfkill` field
+`adapter.usb_id` set to the detected receiver's actual USB ID. Reruns also add only an absent `unblock_rfkill` field
 to an already-enabled, validated RID.BLE configuration. Explicit true/false wins.
-No receiver means no automatic enablement. Multiple identical receivers require
+No supported receiver means no automatic enablement (including `0bda:8771`). Multiple supported receivers, including one of each ID, require
 an explicit BD_ADDR selection. Explicit existing config (including `enabled:
 false`) is preserved, not silently changed; config migration may reformat YAML
 comments but preserves existing values. The engine, not the installer, performs
@@ -383,6 +383,25 @@ The helper is `/usr/local/libexec/brrdfeeder-bluetooth`. Uninstall validates the
 receipt before mutation, stops the engine first, restores the recorded service
 state, and only then removes the helper/receipt. Partial failures retain the
 receipt for retry; legacy installations without a receipt leave bluetoothd alone.
+
+Realtek RID.BLE uses a raw HCI USER socket; `/dev/cybrrd_ble` is the separate
+legacy Nordic serial symlink and is not required for either Realtek USB ID.
+A 0.8.22 installation with an a728 receiver and no `rid_ble` section receives
+the same configuration and recorded Bluetooth handover when this installer is rerun.
+The one-liner retains already installed engine/console digests during host repair;
+signed Self-Update remains responsible for workload upgrades. Direct installer
+requests to replace an existing digest still refuse.
+
+Installer-owned receipts, recovery commands and marked package files are
+published using a same-directory temporary, file fsync, rename, then directory
+fsync. A zero-byte account receipt left by an older interrupted installation is
+recoverable only at the canonical root-owned, single-link, mode-0600 path, with
+the expected locked, nologin, dedicated account and no privileged memberships.
+An empty local command additionally requires that receipt and account. Uninstall
+also requires its existing login-history/process audit. Nonempty mismatched
+receipts, nonempty foreign commands and human accounts still refuse; ambiguous
+nonempty truncations require operator review. Atomic-write temporary files are
+removed by uninstall only from the finite package directories after validation.
 Disabling RID.BLE explicitly and rerunning also restores a recorded prior state.
 Dry-run only describes these actions. After engine stop and bluetoothd stop/mask,
 the helper identifies the configured **supported USB** controller through sysfs

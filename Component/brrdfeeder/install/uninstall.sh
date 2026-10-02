@@ -295,9 +295,16 @@ for user in brrdfeeder brrdhouse; do
     [[ $(passwd -S "$user" | awk '{print $2}') == L ]] || die "$user password is not locked; it may be a human account"
     receipt=/etc/brrdfeeder/.installer-created-$user
     expected="v1:$user:$id:$group:$home:$shell"
-    if [[ -f $receipt ]]; then
+    if [[ -s $receipt ]]; then
       [[ $(stat -c %a "$receipt") == 600 && $(<"$receipt") == "$expected" ]] || die "account receipt mismatch: $user"
     else
+      if [[ -f $receipt ]]; then
+        [[ $(stat -c %a "$receipt") == 600 ]] || die "unsafe empty account receipt: $user"
+        [[ $(stat -c %u /etc/brrdfeeder) == 0 ]] || die 'unsafe account receipt directory owner'
+        receipt_mode=$(stat -c %a /etc/brrdfeeder)
+        (( (8#$receipt_mode & 0022) == 0 )) || die 'writable account receipt directory'
+        log "interrupted empty account receipt: $user; requiring full legacy identity audit"
+      fi
       audit_legacy_account "$user" "$id" || die "$user cannot be safely recognised; see the named login history or unrelated process check above"
       if (( adopt )); then log "EXPLICIT LEGACY ADOPTION requested for $user; all safety checks still apply"; fi
       log "legacy account recognised: $user uid=$id gid=$group; no creation receipt, profile/history/process checks passed"
@@ -316,7 +323,9 @@ done
 
 safe_file /usr/local/sbin/brrdfeeder
 if exists /usr/local/sbin/brrdfeeder; then
-  grep -qF '# BRRDfeeder local product command — self-contained recovery, no download.' /usr/local/sbin/brrdfeeder || die 'Unrelated local brrdfeeder command; it will not be removed'
+  grep -qF '# BRRDfeeder local product command — self-contained recovery, no download.' /usr/local/sbin/brrdfeeder \
+    || { [[ ! -s /usr/local/sbin/brrdfeeder && -n ${uid[brrdfeeder]:-} && -f /etc/brrdfeeder/.installer-created-brrdfeeder ]]; } \
+    || die 'Unrelated local brrdfeeder command; it will not be removed'
 fi
 
 files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
@@ -339,6 +348,13 @@ files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
   /usr/local/libexec/brrdfeeder-bluetooth /etc/brrdfeeder/.bluetooth-prior.json
   /usr/local/bin/brrdfeeder-updater.sh /run/brrdfeeder-engine.cid /run/brrdfeeder-engine.service.cid)
 shopt -s nullglob dotglob
+for directory in /etc/brrdfeeder /etc/brrdfeeder/secrets /usr/local/sbin /usr/local/libexec /etc/chrony/conf.d /etc/udev/rules.d /etc/systemd/journald.conf.d /etc/containers/systemd; do
+  for temporary in "$directory"/.brrdfeeder-atomic-*; do
+    [[ ${temporary##*/} =~ ^\.brrdfeeder-atomic-[a-z0-9_]{8}$ ]] || die "unexpected atomic temporary: $temporary"
+    safe_file "$temporary"
+    files+=("$temporary")
+  done
+done
 for temporary in /usr/local/sbin/.brrdfeeder.*; do
   [[ $temporary =~ /\.brrdfeeder\.[A-Za-z0-9]{8}$ ]] || die "unexpected local command temporary: $temporary"
   files+=("$temporary")
@@ -403,13 +419,15 @@ if [[ -d /var/lib/brrdfeeder-status ]]; then
 fi
 for entry in /etc/brrdfeeder/*; do
   case ${entry##*/} in config.yaml|secrets|brrdhouse.container|.installer-created-brrdfeeder|.installer-created-brrdhouse|.bluetooth-prior.json|updater.json|.updater-helper.sha256) ;;
-    .release-config-*) safe_file "$entry";;
+    .release-config-*|.config-status-*) safe_file "$entry";;
+    .brrdfeeder-atomic-*) [[ ${entry##*/} =~ ^\.brrdfeeder-atomic-[a-z0-9_]{8}$ ]] && safe_file "$entry" || die "unrecognised atomic temporary: $entry";;
     .bluetooth-*) [[ ${entry##*/} =~ ^\.bluetooth-[a-z0-9_]{8}$ ]] && safe_file "$entry" || die "unrecognised Bluetooth temporary: $entry";;
     *) die "unrecognised config-tree entry: $entry";; esac
 done
 safe_tree /etc/brrdfeeder/secrets
 for entry in /etc/brrdfeeder/secrets/*; do
   case ${entry##*/} in brrdfeeder.creds|oauth_refresh.token) safe_file "$entry";;
+    .brrdfeeder-atomic-*) [[ ${entry##*/} =~ ^\.brrdfeeder-atomic-[a-z0-9_]{8}$ ]] && safe_file "$entry" || die "unrecognised atomic temporary: $entry";;
     *) die "unrecognised secret: $entry";; esac
 done
 for entry in /var/lib/brrdfeeder/*; do

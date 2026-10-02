@@ -45,7 +45,7 @@ runpy.run_path(sys.argv[0], run_name='__main__')
                                str(TESTS/'pi-native-p0/test-ble.py')],
                               cwd=ROOT,capture_output=True,text=True,timeout=120)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
-        self.assertIn('Ran 15 tests',result.stderr)
+        self.assertIn('Ran 19 tests',result.stderr)
         self.assertNotIn('skipped',result.stderr)
 
     def test_public_contract_step_does_not_claim_same_runner(self):
@@ -143,7 +143,8 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         lists={n.targets[0].id:ast.literal_eval(n.value) for n in tree.body
                if isinstance(n,ast.Assign) and isinstance(n.targets[0],ast.Name)
                and n.targets[0].id in ('BASELINES','MUTATIONS')}
-        registered=set(lists['BASELINES']+lists['MUTATIONS']+['uninstall-wtmpdb/test-history.py'])
+        registered=set(lists['BASELINES']+lists['MUTATIONS']+['uninstall-wtmpdb/test-history.py',
+            'interrupted-install/test-container.py'])
         found={p.relative_to(TESTS).as_posix() for p in TESTS.rglob('test-*.py')}
         self.assertEqual(found,{name for name in registered if name.split('/')[-1].startswith('test-')})
     def test_public_gate_runs_all_groups_and_no_private_paths(self):

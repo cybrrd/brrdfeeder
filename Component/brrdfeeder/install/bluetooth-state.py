@@ -22,7 +22,7 @@ RECEIPT = Path('/etc/brrdfeeder/.bluetooth-prior.json')
 USB = Path('/sys/bus/usb/devices')
 HCI = Path('/sys/class/bluetooth')
 DEVICES = Path('/sys/devices')
-SUPPORTED = '0bda:876e'  # finite automatic RID.BLE selection; no HCI discovery
+SUPPORTED = ('0bda:876e', '0bda:a728')  # finite allowlist; no HCI discovery
 UNIT = 'bluetooth.service'
 ENGINE = 'brrdfeeder-engine.service'
 STATUS = Path('/var/lib/brrdfeeder-status/status.json')
@@ -121,10 +121,10 @@ def inventory():
             identity = (device/'idVendor').read_text().strip().lower()+':'+(device/'idProduct').read_text().strip().lower()
         except OSError: continue
         if not re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', identity): continue
-        if identity == SUPPORTED:
+        if identity in SUPPORTED:
             found.append(identity)
             say('supported RID.BLE adapter: Realtek USB '+identity)
-    if not found: say('no supported RID.BLE adapter found (automatic selection supports '+SUPPORTED+'); no HCI probe performed')
+    if not found: say('no supported RID.BLE adapter found (automatic selection supports '+', '.join(SUPPORTED)+'); no HCI probe performed')
     return found
 
 
@@ -152,7 +152,7 @@ def enabled_config(sensors, found):
     changed = False
     if 'rid_ble' not in sensors and found:
         if len(found) > 1: raise ValueError('multiple supported BLE adapters; configure one explicit BD_ADDR before retrying')
-        sensors['rid_ble'] = dict(enabled=True, unblock_rfkill=True, adapter=dict(usb_id=SUPPORTED))
+        sensors['rid_ble'] = dict(enabled=True, unblock_rfkill=True, adapter=dict(usb_id=found[0]))
         changed = True
     ble = sensors.get('rid_ble', {})
     if not isinstance(ble, dict) or set(ble)-{'enabled','adapter','unblock_rfkill','quiet_window_s'}:
@@ -192,14 +192,14 @@ def selected_controller(adapter):
                 if (parent/'idVendor').is_file() and (parent/'idProduct').is_file():
                     usb = (parent/'idVendor').read_text().strip().lower()+':'+(parent/'idProduct').read_text().strip().lower()
                     break
-            if usb != SUPPORTED: continue
+            if usb not in SUPPORTED: continue
             if adapter.get('usb_id') is not None:
                 if usb != adapter['usb_id'].lower(): continue
             elif (path/'address').read_text().strip().lower() != adapter['bd_addr'].lower(): continue
             matches.append((index, device, path.stat().st_ino))
         except OSError: continue
     if len(matches) != 1:
-        raise ValueError('BLE DOWN refused: sysfs must identify exactly one configured supported USB controller (0bda:876e); check driver/connection/identity')
+        raise ValueError('BLE DOWN refused: sysfs must identify exactly one configured supported USB controller (0bda:876e, 0bda:a728); check driver/connection/identity')
     return matches[0]
 
 
@@ -229,7 +229,7 @@ def controller_down(adapter):
                 raise ValueError('BLE DOWN verification failed: controller is UP or identity changed; engine not restarted')
     except OSError as error:
         raise ValueError('BLE DOWN failed: HCIDEVDOWN/HCIGETDEVINFO errno='+str(error.errno)+'; check adapter/driver/permissions; engine not restarted') from None
-    say(f'BLE DOWN verified: hci{index} USB={SUPPORTED} HCIGETDEVINFO HCI_UP=0; no discovery/reset performed')
+    say(f'BLE DOWN verified: hci{index} adapter={adapter} HCIGETDEVINFO HCI_UP=0; no discovery/reset performed')
 
 
 def restore(dry=False):

@@ -63,17 +63,17 @@ ls -1 /lib/firmware/mediatek/ 2>/dev/null | grep -i -E 'mt7961|mt7662|WIFI_RAM' 
 [ "$alfa" -ge 1 ] && V+=("alfa-wifi|PASS $alfa MediaTek USB phy with monitor mode") || V+=("alfa-wifi|FAIL no MediaTek USB phy with monitor mode (plugged in? driver? firmware?)")
 [ "$monphys" -gt 1 ] && V+=("wifi-autodetect|WARN $monphys capture-capable Wi-Fi adapters: select one with --interface")
 
-sec "bluetooth controllers (RID.BLE = Realtek 0bda:876e)"
+sec "bluetooth controllers (RID.BLE = Realtek 0bda:876e or 0bda:a728)"
 rtl=0
 for h in /sys/class/bluetooth/hci*; do
   [ -e "$h" ] || { echo "no HCI controllers"; break; }
   id=$(usbid "$h/device"); drv=$(basename "$(readlink -f "$h/device/driver")" 2>/dev/null)
   echo "$(basename "$h") usb=$id driver=${drv:-?} $( [ -e "$h/device" ] && echo)"
-  [ "$id" = 0bda:876e ] && rtl=$((rtl+1))
+  case "$id" in 0bda:876e|0bda:a728) rtl=$((rtl+1));; esac
 done
 ls -1 /lib/firmware/rtl_bt/ 2>/dev/null | grep -i 8761b | sed 's/^/firmware: /' || true
 have rfkill && run rfkill list
-[ "$rtl" -eq 1 ] && V+=("rid-ble|PASS Realtek 0bda:876e present") || V+=("rid-ble|FAIL Realtek 0bda:876e count=$rtl")
+[ "$rtl" -eq 1 ] && V+=("rid-ble|PASS exactly one supported Realtek receiver present") || V+=("rid-ble|FAIL supported Realtek receiver count=$rtl (0bda:876e, 0bda:a728)")
 [ -n "$(ls /lib/firmware/rtl_bt/ 2>/dev/null | grep -i 8761b)" ] && V+=("rtl-firmware|PASS rtl8761b* present") || V+=("rtl-firmware|FAIL rtl_bt/rtl8761b* missing (firmware-realtek)")
 
 sec "gps (u-blox, USB serial)"

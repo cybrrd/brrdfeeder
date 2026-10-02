@@ -138,9 +138,33 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
             # exercised separately by simple-uninstall's disposable OS acceptance.
             if 'install_local_command() {' in text:
                 a=text.index('install_local_command() {')
-                end='if [[ $DRY_RUN -eq 0 && $VERIFY_ONLY -eq 0 ]]; then install_local_command; fi\n\n'
-                b=text.index(end,a)+len(end)
+                b=text.index('# Never resolve a registry tag here',a)
                 text=text[:a]+text[b:]
+            # 0.8.23 changes publication only; durability and interrupted-state
+            # behavior run against real files/accounts in test-container.py.
+            for before,after in [
+                ('atomic_install 0644 root root "$CONFIG_PATH" "$CONFIG_PATH" sed "s/', 'run sed -i "s/'),
+                ('run atomic_install 0644 root root "$CONFIG_PATH" "$LEGACY_CONFIG"','run install -m 0644 -o root -g root "$LEGACY_CONFIG" "$CONFIG_PATH"'),
+                ('run atomic_install 0600 root root "$CREDS_PATH" "$LEGACY_CREDS"','run install -m 0600 -o root -g root "$LEGACY_CREDS" "$CREDS_PATH"'),
+                ('atomic_install 0755 root root "$STATUS_PROVISIONER"','cat > "$STATUS_PROVISIONER"'),
+                ('atomic_install 0755 root root "$IDENTITY_INSTALL"','cat > "$IDENTITY_INSTALL"'),
+                ('atomic_install 0644 root root "$CONSOLE_QUADLET_FILE"','cat > "$CONSOLE_QUADLET_FILE"'),
+                ('run atomic_install 0644 root root "$backup" "$QUADLET_FILE"','run cp "$QUADLET_FILE" "$backup"'),
+                ('''printf '%s\\n' "$NEW_UDEV_CONTENT" | atomic_install 0644 root root "$UDEV_RULES_FILE"''','echo "$NEW_UDEV_CONTENT" > "$UDEV_RULES_FILE"'),
+                ('''printf '%s\\n' "$NEW_QUADLET" | atomic_install 0644 root root "$QUADLET_FILE"''','echo "$NEW_QUADLET" > "$QUADLET_FILE"'),
+                ('''printf '%s\\n' "$creds_body" | atomic_install 0640 root "$TARGET_GID" "$CREDS_PATH"''','''printf '%s\\n' "$creds_body" > "$CREDS_PATH"
+  run chmod 0640 "$CREDS_PATH"; run chown root:"$TARGET_GID" "$CREDS_PATH"'''),
+                ('''printf '%s\\n' "$refresh_token" | atomic_install 0600 root root "$REFRESH_TOKEN_PATH"''','''printf '%s\\n' "$refresh_token" > "$REFRESH_TOKEN_PATH"
+    run chmod 0600 "$REFRESH_TOKEN_PATH"; run chown root:root "$REFRESH_TOKEN_PATH"''')]:
+                text=text.replace(before,after)
+            text=text.replace('run sed -i "s/^\\(\\s*id:\\s*\\).*/\\1\\"${assigned_id}\\"/"\n',
+                              'run sed -i "s/^\\(\\s*id:\\s*\\).*/\\1\\"${assigned_id}\\"/" "$CONFIG_PATH"\n')
+            text=text.replace('''    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try: os.fsync(directory)
+    finally: os.close(directory)
+''','')
+            text=text.replace(' || $BOOT_PREPARE -eq 1 ]]',' ]]')
+            text=text.replace("  if [[ $BOOT_PREPARE -eq 1 && \"$REQUESTED_IMAGE\" != \"$INSTALLED_IMAGE\" ]]; then say 'Repairing host setup; retaining the installed engine digest for signed Self-Update.'; fi\n",'')
             text=text.replace(' To install this release: sudo brrdfeeder uninstall, then run the one-liner again.','')
             text=text.replace('updates belong to the signed release poller.', 'updates belong to the Blue/updater path.')
             text=text.replace('# Step 5.5 — Install independent signed-release convergence and recovery (D44)', '# Step 5.5 — Install the host-updater self-care effector (#185 Drop 2)')

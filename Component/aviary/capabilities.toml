@@ -82,7 +82,7 @@ hummingbrrd = "planned"
 [rid_transport.bluetooth4_legacy]
 notes = """Present on the SOHO reference at zero marginal cost — the MT7925 M.2 module
 carries BT 5.4 on the same silicon as Wi-Fi. On opensource it is a discrete USB
-controller (Realtek RTL8761BUE, 0bda:876e) taken over a raw HCI USER channel per
+controller (Realtek RTL8761B family, 0bda:876e or 0bda:a728) taken over a raw HCI USER channel per
 ADR 0005: the controller stays DOWN with bluetoothd disabled, which is a requirement
 of RID capture, not a fault. De-framing in cybrrd-rid-protocol/src/ble.rs is bound by
 REQ-BRRD-013; passive sensor runtime by REQ-BRRD-014.
@@ -144,7 +144,7 @@ hummingbrrd = "none"
 [sensors.rid_ble]
 notes = """The BLE Remote-ID receive path that is actually fielded — distinct from
 `ble_sniffer` below, which is the Nordic nRF52840 dedicated-sniffer role (Wave 7.2,
-not built). On BRRDfeeder this is a discrete Realtek RTL8761BUE USB controller (0bda:876e)
+not built). On BRRDfeeder this is a discrete Realtek RTL8761B-family USB controller (0bda:876e or 0bda:a728)
 taken over a raw HCI USER channel per ADR 0005: the controller stays DOWN with
 bluetoothd disabled, which is a requirement of RID capture, not a fault. The engine
 binds it by BD address, not hciN, so a USB re-enumeration does not lose it.

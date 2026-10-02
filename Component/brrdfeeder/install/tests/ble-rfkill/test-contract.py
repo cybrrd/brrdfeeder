@@ -20,18 +20,20 @@ ble=importlib.util.module_from_spec(spec);spec.loader.exec_module(ble)
 
 class Policy(unittest.TestCase):
     def test_new_and_rerun_missing_policy(self):
-        for sensors in [{},{'rid_ble':{'enabled':True,'adapter':{'usb_id':ble.SUPPORTED}}}]:
-            enabled,changed=ble.enabled_config(sensors,[ble.SUPPORTED])
-            self.assertTrue(enabled);self.assertTrue(changed)
-            self.assertIs(sensors['rid_ble']['unblock_rfkill'],True)
-            self.assertEqual(ble.enabled_config(sensors,[ble.SUPPORTED]),(True,False))
+        for usb in ble.SUPPORTED:
+            for sensors in [{},{'rid_ble':{'enabled':True,'adapter':{'usb_id':usb}}}]:
+                enabled,changed=ble.enabled_config(sensors,[usb])
+                self.assertTrue(enabled);self.assertTrue(changed)
+                self.assertIs(sensors['rid_ble']['unblock_rfkill'],True)
+                self.assertEqual(ble.enabled_config(sensors,[usb]),(True,False))
     def test_explicit_policies_win(self):
         for enabled in [False,True]:
             for unblock in [False,True]:
-                sensors={'rid_ble':dict(enabled=enabled,unblock_rfkill=unblock,adapter={'usb_id':ble.SUPPORTED})}
-                before=json.dumps(sensors)
-                self.assertEqual(ble.enabled_config(sensors,[ble.SUPPORTED]),(enabled,False))
-                self.assertEqual(json.dumps(sensors),before)
+                for usb in ble.SUPPORTED:
+                    sensors={'rid_ble':dict(enabled=enabled,unblock_rfkill=unblock,adapter={'usb_id':usb})}
+                    before=json.dumps(sensors)
+                    self.assertEqual(ble.enabled_config(sensors,[usb]),(enabled,False))
+                    self.assertEqual(json.dumps(sensors),before)
         sensors={};self.assertEqual(ble.enabled_config(sensors,[]),(False,False));self.assertEqual(sensors,{})
     def test_engine_source_targets_and_reruns_each_start(self):
         source=(ROOT/'Component/aviary/engine/src/rid_ble.rs').read_text()

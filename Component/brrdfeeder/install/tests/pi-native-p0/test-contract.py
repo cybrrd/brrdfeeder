@@ -123,6 +123,9 @@ warn() { echo " !! $*"; }
 ok() { echo "$*"; }
 say() { echo "$*"; }
 fatal() { echo "$*"; exit 1; }
+# Inert file sink for the TTY/enrollment fixture; durable publication has its
+# own root container tests and must not chown this unprivileged temp tree.
+atomic_install() { cat > "$4"; }
 gate() { log_event PHASE "$1"; }
 run() { run_step enrollment/fixture "$@"; }
 chown() { :; }  # no host ownership mutations

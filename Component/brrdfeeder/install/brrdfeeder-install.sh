@@ -1642,9 +1642,16 @@ for user in brrdfeeder brrdhouse; do
     [[ $(passwd -S "$user" | awk '{print $2}') == L ]] || die "$user password is not locked; it may be a human account"
     receipt=/etc/brrdfeeder/.installer-created-$user
     expected="v1:$user:$id:$group:$home:$shell"
-    if [[ -f $receipt ]]; then
+    if [[ -s $receipt ]]; then
       [[ $(stat -c %a "$receipt") == 600 && $(<"$receipt") == "$expected" ]] || die "account receipt mismatch: $user"
     else
+      if [[ -f $receipt ]]; then
+        [[ $(stat -c %a "$receipt") == 600 ]] || die "unsafe empty account receipt: $user"
+        [[ $(stat -c %u /etc/brrdfeeder) == 0 ]] || die 'unsafe account receipt directory owner'
+        receipt_mode=$(stat -c %a /etc/brrdfeeder)
+        (( (8#$receipt_mode & 0022) == 0 )) || die 'writable account receipt directory'
+        log "interrupted empty account receipt: $user; requiring full legacy identity audit"
+      fi
       audit_legacy_account "$user" "$id" || die "$user cannot be safely recognised; see the named login history or unrelated process check above"
       if (( adopt )); then log "EXPLICIT LEGACY ADOPTION requested for $user; all safety checks still apply"; fi
       log "legacy account recognised: $user uid=$id gid=$group; no creation receipt, profile/history/process checks passed"
@@ -1663,7 +1670,9 @@ done
 
 safe_file /usr/local/sbin/brrdfeeder
 if exists /usr/local/sbin/brrdfeeder; then
-  grep -qF '# BRRDfeeder local product command — self-contained recovery, no download.' /usr/local/sbin/brrdfeeder || die 'Unrelated local brrdfeeder command; it will not be removed'
+  grep -qF '# BRRDfeeder local product command — self-contained recovery, no download.' /usr/local/sbin/brrdfeeder \
+    || { [[ ! -s /usr/local/sbin/brrdfeeder && -n ${uid[brrdfeeder]:-} && -f /etc/brrdfeeder/.installer-created-brrdfeeder ]]; } \
+    || die 'Unrelated local brrdfeeder command; it will not be removed'
 fi
 
 files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
@@ -1686,6 +1695,13 @@ files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
   /usr/local/libexec/brrdfeeder-bluetooth /etc/brrdfeeder/.bluetooth-prior.json
   /usr/local/bin/brrdfeeder-updater.sh /run/brrdfeeder-engine.cid /run/brrdfeeder-engine.service.cid)
 shopt -s nullglob dotglob
+for directory in /etc/brrdfeeder /etc/brrdfeeder/secrets /usr/local/sbin /usr/local/libexec /etc/chrony/conf.d /etc/udev/rules.d /etc/systemd/journald.conf.d /etc/containers/systemd; do
+  for temporary in "$directory"/.brrdfeeder-atomic-*; do
+    [[ ${temporary##*/} =~ ^\.brrdfeeder-atomic-[a-z0-9_]{8}$ ]] || die "unexpected atomic temporary: $temporary"
+    safe_file "$temporary"
+    files+=("$temporary")
+  done
+done
 for temporary in /usr/local/sbin/.brrdfeeder.*; do
   [[ $temporary =~ /\.brrdfeeder\.[A-Za-z0-9]{8}$ ]] || die "unexpected local command temporary: $temporary"
   files+=("$temporary")
@@ -1750,13 +1766,15 @@ if [[ -d /var/lib/brrdfeeder-status ]]; then
 fi
 for entry in /etc/brrdfeeder/*; do
   case ${entry##*/} in config.yaml|secrets|brrdhouse.container|.installer-created-brrdfeeder|.installer-created-brrdhouse|.bluetooth-prior.json|updater.json|.updater-helper.sha256) ;;
-    .release-config-*) safe_file "$entry";;
+    .release-config-*|.config-status-*) safe_file "$entry";;
+    .brrdfeeder-atomic-*) [[ ${entry##*/} =~ ^\.brrdfeeder-atomic-[a-z0-9_]{8}$ ]] && safe_file "$entry" || die "unrecognised atomic temporary: $entry";;
     .bluetooth-*) [[ ${entry##*/} =~ ^\.bluetooth-[a-z0-9_]{8}$ ]] && safe_file "$entry" || die "unrecognised Bluetooth temporary: $entry";;
     *) die "unrecognised config-tree entry: $entry";; esac
 done
 safe_tree /etc/brrdfeeder/secrets
 for entry in /etc/brrdfeeder/secrets/*; do
   case ${entry##*/} in brrdfeeder.creds|oauth_refresh.token) safe_file "$entry";;
+    .brrdfeeder-atomic-*) [[ ${entry##*/} =~ ^\.brrdfeeder-atomic-[a-z0-9_]{8}$ ]] && safe_file "$entry" || die "unrecognised atomic temporary: $entry";;
     *) die "unrecognised secret: $entry";; esac
 done
 for entry in /var/lib/brrdfeeder/*; do
@@ -2089,6 +2107,83 @@ get_storage_class() {
 # ----------------------------------------------------------------------
 # Pre-flight substrate-truth checks
 # ----------------------------------------------------------------------
+atomic_install() {
+  # Same-directory publication; stdin or a source file, with final metadata
+  # durable before rename. No installer-owned final path is ever truncated.
+  python3 /dev/fd/3 "$@" 3<<'ATOMIC_INSTALL_PY'
+import grp, os, pathlib, pwd, subprocess, sys, tempfile
+mode, owner, group, destination, *source = sys.argv[1:]
+path = pathlib.Path(destination)
+uid = int(owner) if owner.isdecimal() else pwd.getpwnam(owner).pw_uid
+gid = int(group) if group.isdecimal() else grp.getgrnam(group).gr_gid
+for parent in [path, *path.parents]:
+    if parent.is_symlink(): raise SystemExit('Unsafe atomic install symlink: '+str(parent))
+    if parent.exists():
+        s = parent.stat()
+        if s.st_uid != 0 or s.st_mode & 0o022:
+            raise SystemExit('Unsafe atomic install owner/mode: '+str(parent))
+if path.exists() and (not path.is_file() or path.stat().st_nlink != 1):
+    raise SystemExit('Unsafe atomic install target: '+str(path))
+if len(source) > 1:
+    # Render edits completely before publication; a failed producer must not
+    # replace a valid config with empty/partial pipeline output.
+    data = subprocess.check_output([*source[1:], source[0]])
+else:
+    data = pathlib.Path(source[0]).read_bytes() if source else sys.stdin.buffer.read()
+fd, temporary = tempfile.mkstemp(prefix='.brrdfeeder-atomic-', dir=path.parent)
+try:
+    with os.fdopen(fd, 'wb') as stream:
+        os.fchown(stream.fileno(), uid, gid)
+        os.fchmod(stream.fileno(), int(mode, 8))
+        stream.write(data); stream.flush(); os.fsync(stream.fileno())
+    os.replace(temporary, path)
+    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try: os.fsync(directory)
+    finally: os.close(directory)
+finally:
+    if os.path.exists(temporary): os.unlink(temporary)
+ATOMIC_INSTALL_PY
+}
+
+validate_account_receipt() {
+  # A zero-byte legacy receipt is evidence of an interrupted write, never
+  # sufficient identity evidence alone. Nonempty mismatches always refuse.
+  local user=$1 record name account_uid account_gid account_home account_shell receipt expected max groups privilege permissions
+  receipt=/etc/brrdfeeder/.installer-created-$user
+  [[ -e $receipt || -L $receipt ]] || return 0
+  [[ ! -L /etc/brrdfeeder && $(realpath -m /etc/brrdfeeder) == /etc/brrdfeeder && $(stat -c %u /etc/brrdfeeder) == 0 ]] || fatal 'Unsafe account receipt directory.'
+  permissions=$(stat -c %a /etc/brrdfeeder)
+  (( (8#$permissions & 0022) == 0 )) || fatal 'Writable account receipt directory.'
+  [[ -f $receipt && ! -L $receipt && $(stat -c %u "$receipt") == 0 && $(stat -c %h "$receipt") == 1 && $(stat -c %a "$receipt") == 600 ]] || fatal 'Unsafe account receipt.'
+  record=$(getent passwd "$user") || fatal 'Orphan account receipt.'
+  [[ $record != *$'\n'* ]] || fatal 'Ambiguous account identity.'
+  IFS=: read -r name _ account_uid account_gid _ account_home account_shell <<< "$record"
+  [[ $name == "$user" && $account_uid =~ ^[0-9]+$ && $account_gid =~ ^[0-9]+$ && $account_uid -ge 100 && $account_gid -ge 100 && $account_home == /var/lib/$user && $account_shell == /usr/sbin/nologin ]] || fatal 'Unsafe interrupted-install account profile.'
+  if [[ $user == brrdfeeder ]]; then
+    max=$(awk '$1=="SYS_UID_MAX" {print $2; exit}' /etc/login.defs); max=${max:-999}
+    [[ $max =~ ^[0-9]+$ && $account_uid -le $max ]] || fatal 'Recovery requires a system account.'
+  fi
+  [[ $(getent passwd | awk -F: -v n="$account_uid" '$3==n {c++} END {print c+0}') == 1 ]] || fatal 'Shared account UID.'
+  [[ $(getent group "$account_gid") == "$user:x:$account_gid:" ]] || fatal 'Recovery requires a dedicated group.'
+  [[ $(passwd -S "$user" | awk '{print $2}') == L ]] || fatal 'Recovery requires a locked password.'
+  groups=$(id -nG "$user") || fatal 'Cannot inspect account groups.'
+  for privilege in sudo adm wheel root; do
+    [[ " $groups " != *" $privilege "* ]] || fatal "Unsafe privileged account group: $privilege"
+  done
+  expected="v1:$user:$account_uid:$account_gid:$account_home:$account_shell"
+  [[ ! -s $receipt || $(<"$receipt") == "$expected" ]] || fatal "account receipt mismatch: $user"
+}
+
+recover_account_receipt() {
+  local user=$1 receipt=/etc/brrdfeeder/.installer-created-$1 record name account_uid account_gid account_home account_shell
+  [[ -f $receipt && ! -s $receipt ]] || return 0
+  validate_account_receipt "$user"
+  record=$(getent passwd "$user")
+  IFS=: read -r name _ account_uid account_gid _ account_home account_shell <<< "$record"
+  printf 'v1:%s:%s:%s:%s:%s\n' "$name" "$account_uid" "$account_gid" "$account_home" "$account_shell" | atomic_install 0600 root root "$receipt"
+  ok "Recovered interrupted account receipt: $user"
+}
+
 record_created_account() {
   # Provenance only: never claim an account the installer reused. No secret data.
   local user=$1 record name account_uid account_gid account_home account_shell receipt
@@ -2099,7 +2194,7 @@ record_created_account() {
   IFS=: read -r name _ account_uid account_gid _ account_home account_shell <<< "$record"
   receipt="/etc/brrdfeeder/.installer-created-$user"
   [[ ! -e $receipt && ! -L $receipt ]] || fatal 'Existing account receipt: refusing to overwrite provenance.'
-  (umask 077; set -C; printf 'v1:%s:%s:%s:%s:%s\n' "$name" "$account_uid" "$account_gid" "$account_home" "$account_shell" > "$receipt")
+  printf 'v1:%s:%s:%s:%s:%s\n' "$name" "$account_uid" "$account_gid" "$account_home" "$account_shell" | atomic_install 0600 root root "$receipt"
 }
 gate pre-flight "Pre-flight"
 
@@ -2115,17 +2210,22 @@ install_local_command() {
   [[ ! -L $command ]] || fatal 'Local brrdfeeder command is a symlink; refusing to overwrite it.'
   if [[ -e $command ]]; then
     [[ -f $command && $(stat -c %u "$command") == 0 && $(stat -c %h "$command") == 1 ]] || fatal 'Unsafe existing brrdfeeder command.'
-    grep -qF '# BRRDfeeder local product command — self-contained recovery, no download.' "$command" || fatal 'An unrelated brrdfeeder command already exists; refusing to overwrite it.'
+    if ! grep -qF '# BRRDfeeder local product command — self-contained recovery, no download.' "$command"; then
+      [[ ! -s $command && -f /etc/brrdfeeder/.installer-created-brrdfeeder ]] || fatal 'An unrelated brrdfeeder command already exists; refusing to overwrite it.'
+      validate_account_receipt brrdfeeder
+    fi
     if cmp -s "$0" "$command"; then return; fi
   fi
-  temporary=$(mktemp /usr/local/sbin/.brrdfeeder.XXXXXXXX)
-  if ! run install -m 0755 -o root -g root -- "$0" "$temporary" || ! run mv -fT -- "$temporary" "$command"; then
-    run rm -- "$temporary"
-    fatal 'Could not install the local recovery command.'
-  fi
+  atomic_install 0755 root root "$command" "$0" || fatal 'Could not install the local recovery command.'
   ok 'Local commands ready: sudo brrdfeeder status | uninstall | support-bundle'
 }
-if [[ $DRY_RUN -eq 0 && $VERIFY_ONLY -eq 0 ]]; then install_local_command; fi
+if [[ $DRY_RUN -eq 0 && $VERIFY_ONLY -eq 0 ]]; then
+  validate_account_receipt brrdfeeder
+  validate_account_receipt brrdhouse
+  install_local_command
+  recover_account_receipt brrdfeeder
+  recover_account_receipt brrdhouse
+fi
 
 # Never resolve a registry tag here, and never use re-install as an update path.
 valid_image_pin() {
@@ -2136,7 +2236,10 @@ CONTAINER_IMAGE=$REQUESTED_IMAGE
 if [[ -f "$QUADLET_FILE" ]]; then
   INSTALLED_IMAGE=$(sed -n 's/^Image=//p' "$QUADLET_FILE")
   valid_image_pin "$INSTALLED_IMAGE" || fatal "Existing Quadlet has no unique approved digest pin; explicit operator migration required (no tag resolution)."
-  [[ -z "$REQUESTED_IMAGE" || "$REQUESTED_IMAGE" == "$INSTALLED_IMAGE" ]] || fatal "Refusing to replace the installed digest: updates belong to the signed release poller. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
+  # A newer one-liner repairs host setup with the installed workload pins.
+  # Explicit direct-installer digest changes still belong to the signed updater.
+  [[ -z "$REQUESTED_IMAGE" || "$REQUESTED_IMAGE" == "$INSTALLED_IMAGE" || $BOOT_PREPARE -eq 1 ]] || fatal "Refusing to replace the installed digest: updates belong to the signed release poller. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
+  if [[ $BOOT_PREPARE -eq 1 && "$REQUESTED_IMAGE" != "$INSTALLED_IMAGE" ]]; then say 'Repairing host setup; retaining the installed engine digest for signed Self-Update.'; fi
   CONTAINER_IMAGE=$INSTALLED_IMAGE
 fi
 valid_image_pin "$CONTAINER_IMAGE" || fatal "Fresh install requires --image ${IMAGE_REPOSITORY}@sha256:<approved-release-digest>; tags are not accepted."
@@ -2146,7 +2249,7 @@ CONSOLE_IMAGE=$REQUESTED_CONSOLE_IMAGE
 if [[ -f "$CONSOLE_QUADLET_FILE" ]]; then
   INSTALLED_CONSOLE_IMAGE=$(sed -n 's/^Image=//p' "$CONSOLE_QUADLET_FILE")
   valid_image_pin "$INSTALLED_CONSOLE_IMAGE" "$CONSOLE_REPOSITORY" || fatal "Existing console Quadlet has no unique approved digest pin; no tag resolution."
-  [[ -z "$REQUESTED_CONSOLE_IMAGE" || "$REQUESTED_CONSOLE_IMAGE" == "$INSTALLED_CONSOLE_IMAGE" ]] \
+  [[ -z "$REQUESTED_CONSOLE_IMAGE" || "$REQUESTED_CONSOLE_IMAGE" == "$INSTALLED_CONSOLE_IMAGE" || $BOOT_PREPARE -eq 1 ]] \
     || fatal "Refusing to replace the installed console digest; reinstall is not an update channel. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
   CONSOLE_IMAGE=$INSTALLED_CONSOLE_IMAGE
   if [[ -z "$CONSOLE_LISTEN" ]]; then
@@ -2268,11 +2371,11 @@ fi
 # --- Legacy migration (pre-2026-06-10 layout) -------------------------
 if [[ ! -f "$CONFIG_PATH" && -f "$LEGACY_CONFIG" ]]; then
   say "migrating legacy config: $LEGACY_CONFIG → $CONFIG_PATH"
-  run install -m 0644 -o root -g root "$LEGACY_CONFIG" "$CONFIG_PATH"
+  run atomic_install 0644 root root "$CONFIG_PATH" "$LEGACY_CONFIG"
 fi
 if [[ ! -f "$CREDS_PATH" && -f "$LEGACY_CREDS" ]]; then
   say "migrating legacy creds: $LEGACY_CREDS → $CREDS_PATH"
-  run install -m 0600 -o root -g root "$LEGACY_CREDS" "$CREDS_PATH"
+  run atomic_install 0600 root root "$CREDS_PATH" "$LEGACY_CREDS"
 fi
 
 # --- config.yaml: generate baseline template if absent ----------------
@@ -2282,7 +2385,7 @@ if [[ ! -f "$CONFIG_PATH" ]]; then
     # Schema mirrors the known-good running config (test-node-1/test-node-2). The
     # The pinned engine still requires node.location. Its ExecStartPre helper
     # supplies a measured GPS fix before the container runs; never a placeholder.
-    cat > "$CONFIG_PATH" <<'CFGEOF'
+    atomic_install 0644 root root "$CONFIG_PATH" <<'CFGEOF'
 # /etc/brrdfeeder/config.yaml — BRRDfeeder node configuration
 # Generated as a TEMPLATE by brrdfeeder-install.sh.
 # Replace the placeholder field(s) below, then re-run: sudo bash brrdfeeder-install.sh
@@ -2319,10 +2422,10 @@ sensors:
     required: true
 CFGEOF
     if [[ -n "$INSTALL_INTERFACE" ]]; then
-      run sed -i -e "s/EDIT-ME-wlanX/$INSTALL_INTERFACE/" "$CONFIG_PATH"
+      atomic_install 0644 root root "$CONFIG_PATH" "$CONFIG_PATH" sed -e "s/EDIT-ME-wlanX/$INSTALL_INTERFACE/"
     fi
     if [[ -n "$INSTALL_LATITUDE" ]]; then
-      run sed -i "/^  # location is seeded/c\\  location: {latitude: $INSTALL_LATITUDE, longitude: $INSTALL_LONGITUDE, elevation_meters: 0}" "$CONFIG_PATH"
+      atomic_install 0644 root root "$CONFIG_PATH" "$CONFIG_PATH" sed "/^  # location is seeded/c\\  location: {latitude: $INSTALL_LATITUDE, longitude: $INSTALL_LONGITUDE, elevation_meters: 0}"
       say "Position: optional expert override supplied."
     else
       say "Position: GPS service will seed a measured fix; installer will not wait."
@@ -2486,18 +2589,16 @@ zitadel_device_flow() {
   assigned_id=$(awk -F': ' 'tolower($1)=="x-cybrrd-node-id" {gsub(/\r/,"",$2); print $2}' "$hdrs")
   run rm -f "$hdrs"
   if [[ -n "$assigned_id" ]]; then
-    run sed -i "s/^\(\s*id:\s*\).*/\1\"${assigned_id}\"/" "$CONFIG_PATH"
+    atomic_install 0644 root root "$CONFIG_PATH" "$CONFIG_PATH" sed "s/^\(\s*id:\s*\).*/\1\"${assigned_id}\"/"
     ok "node identity assigned by flock: ${assigned_id} (written to config.yaml)"
   else
     warn "flock did not return X-Cybrrd-Node-Id — config node.id left as-is"
   fi
 
   umask 077
-  printf '%s\n' "$creds_body" > "$CREDS_PATH"
-  run chmod 0640 "$CREDS_PATH"; run chown root:"$TARGET_GID" "$CREDS_PATH"
+  printf '%s\n' "$creds_body" | atomic_install 0640 root "$TARGET_GID" "$CREDS_PATH"
   if [[ -n "$refresh_token" ]]; then
-    printf '%s\n' "$refresh_token" > "$REFRESH_TOKEN_PATH"
-    run chmod 0600 "$REFRESH_TOKEN_PATH"; run chown root:root "$REFRESH_TOKEN_PATH"
+    printf '%s\n' "$refresh_token" | atomic_install 0600 root root "$REFRESH_TOKEN_PATH"
     ok "refresh token stored (enables non-interactive creds renewal)"
   fi
   ok "NATS creds written to $CREDS_PATH (0640 root:service-group)"
@@ -2577,9 +2678,9 @@ for ble_device in /sys/bus/usb/devices/*; do
   if [[ -r "$ble_device/idVendor" && -r "$ble_device/idProduct" ]]; then
     read -r ble_vendor < "$ble_device/idVendor" || continue
     read -r ble_product < "$ble_device/idProduct" || continue
-    if [[ ${ble_vendor,,}:${ble_product,,} == 0bda:876e ]]; then
+    if [[ ${ble_vendor,,}:${ble_product,,} == 0bda:876e || ${ble_vendor,,}:${ble_product,,} == 0bda:a728 ]]; then
       HAVE_REALTEK=1
-      ok "Supported RID.BLE adapter found: Realtek USB 0bda:876e; missing config key will be enabled before service startup."
+      ok "Supported RID.BLE adapter found: Realtek USB ${ble_vendor,,}:${ble_product,,}; missing config key will be enabled before service startup."
     fi
   fi
 done
@@ -2759,7 +2860,7 @@ LISTEN_PY
   printf '%s\n' "$CONSOLE_REPO_DIGESTS" | grep -qxF "$CONSOLE_IMAGE" || fatal "Console RepoDigests mismatch; deployment not changed."
   run install -d -m 0755 -o root -g root /usr/local/libexec
   # Exact shipped deploy/provision-status.sh; equality-checked by package tests.
-  cat > "$STATUS_PROVISIONER" <<'STATUS_PROVISIONER_EOF'
+  atomic_install 0755 root root "$STATUS_PROVISIONER" <<'STATUS_PROVISIONER_EOF'
 #!/bin/bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
@@ -2833,6 +2934,9 @@ try:
         os.fchmod(output.fileno(), 0o644)
         os.fsync(output.fileno())
     os.replace(temp, path)
+    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try: os.fsync(directory)
+    finally: os.close(directory)
 finally:
     if os.path.exists(temp): os.unlink(temp)
 STATUS_CONFIG_PY
@@ -2875,7 +2979,7 @@ else
   if [[ $DRY_RUN -eq 1 ]]; then
     say "[dry-run] would write $CHRONY_DROPIN + restart chrony"
   else
-    echo "$NEW_CHRONY" > "$CHRONY_DROPIN"
+    printf '%s\n' "$NEW_CHRONY" | atomic_install 0644 root root "$CHRONY_DROPIN"
     run chmod 0644 "$CHRONY_DROPIN"
     if [[ -f $LEGACY_CHRONY_DROPIN ]]; then
       # Ownership marker checked above; remove only this obsolete package file.
@@ -2927,7 +3031,7 @@ else
     say "[dry-run] would write:"
     echo "$NEW_UDEV_CONTENT" | sed 's/^/  /'
   else
-    echo "$NEW_UDEV_CONTENT" > "$UDEV_RULES_FILE"
+    printf '%s\n' "$NEW_UDEV_CONTENT" | atomic_install 0644 root root "$UDEV_RULES_FILE"
     run chmod 0644 "$UDEV_RULES_FILE"
     ok "wrote $UDEV_RULES_FILE"
   fi
@@ -2986,7 +3090,7 @@ JEOF
     if [[ $DRY_RUN -eq 1 ]]; then
       say "[dry-run] would write $JOURNALD_DROPIN"
     else
-      echo "$NEW_JOURNALD" > "$JOURNALD_DROPIN"
+      printf '%s\n' "$NEW_JOURNALD" | atomic_install 0644 root root "$JOURNALD_DROPIN"
       run chmod 0644 "$JOURNALD_DROPIN"
       JOURNALD_CHANGED=1
       ok "journald Storage=volatile applied (logs in /run/log/journal tmpfs)"
@@ -3022,7 +3126,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
   say "[dry-run] would install $IDENTITY_INSTALL"
 else
   run install -d -m 0755 -o root -g root /usr/local/libexec
-  cat > "$IDENTITY_INSTALL" <<'IDENTITY_SH_EOF'
+  atomic_install 0755 root root "$IDENTITY_INSTALL" <<'IDENTITY_SH_EOF'
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
@@ -3087,7 +3191,7 @@ gate quadlets "Step 5 — system-mode Quadlet (rootful container, non-root engin
 if [[ $DRY_RUN -eq 1 ]]; then
   say "[dry-run] would install GPS position seed helper; service waits for GPS, installer does not"
 else
-  cat > "$GPS_SEED" <<'GPS_SEED_EOF'
+  atomic_install 0755 root root "$GPS_SEED" <<'GPS_SEED_EOF'
 #!/usr/bin/python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
@@ -3617,13 +3721,13 @@ if [[ -f "$QUADLET_FILE" ]] && diff -q <(echo "$NEW_QUADLET") "$QUADLET_FILE" >/
 else
   if [[ -f "$QUADLET_FILE" ]]; then
     backup="${QUADLET_FILE}.bak.$(date +%Y%m%d-%H%M%S)"
-    run cp "$QUADLET_FILE" "$backup"
+    run atomic_install 0644 root root "$backup" "$QUADLET_FILE"
     say "backed up existing Quadlet to $backup"
   fi
   if [[ $DRY_RUN -eq 1 ]]; then
     say "[dry-run] would write Quadlet to $QUADLET_FILE"
   else
-    echo "$NEW_QUADLET" > "$QUADLET_FILE"
+    printf '%s\n' "$NEW_QUADLET" | atomic_install 0644 root root "$QUADLET_FILE"
     run chmod 0644 "$QUADLET_FILE"
     ok "wrote $QUADLET_FILE"
   fi
@@ -3638,7 +3742,7 @@ else
   CONSOLE_PORT=${CONSOLE_LISTEN##*:}
   UNIT_HOSTNAME=$(hostname -s)
   [[ $UNIT_HOSTNAME =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] || fatal "Hostname is not a safe DNS label for console Host validation."
-  cat > "$CONSOLE_QUADLET_FILE" <<CONSOLE_QUADLET_EOF
+  atomic_install 0644 root root "$CONSOLE_QUADLET_FILE" <<CONSOLE_QUADLET_EOF
 [Unit]
 Description=BRRDhouse intrinsic read-only LAN status console
 After=network-online.target
@@ -3697,9 +3801,13 @@ else
     run curl --fail --silent --show-error --proto '=https' --tlsv1.2 --connect-timeout 10 --max-time 120 --max-filesize 33554432 --output "$UPDATE_STAGE/brrdfeeder-release" "$RELEASE_HELPER_URL"
     [[ $(sha256sum "$UPDATE_STAGE/brrdfeeder-release" | cut -d' ' -f1) == "$RELEASE_HELPER_SHA256" ]] || fatal 'Standalone updater SHA256 mismatch; refusing execution'
     install -d -m 0755 /usr/local/libexec
-    install -m 0755 -o root -g root "$UPDATE_STAGE/brrdfeeder-release" "$UPDATE_HELPER"
-    sha256sum "$UPDATE_HELPER" > /etc/brrdfeeder/.updater-helper.sha256
-    chmod 0600 /etc/brrdfeeder/.updater-helper.sha256
+    # Receipt first: a crash can leave the verified hash without the executable,
+    # but never an executable lacking provenance. Retry requires the same hash.
+    if [[ -e /etc/brrdfeeder/.updater-helper.sha256 ]]; then
+      [[ $(< /etc/brrdfeeder/.updater-helper.sha256) == "$RELEASE_HELPER_SHA256  $UPDATE_HELPER" ]] || fatal 'Mismatched pending updater ownership receipt'
+    fi
+    printf '%s  %s\n' "$RELEASE_HELPER_SHA256" "$UPDATE_HELPER" | atomic_install 0600 root root /etc/brrdfeeder/.updater-helper.sha256
+    atomic_install 0755 root root "$UPDATE_HELPER" "$UPDATE_STAGE/brrdfeeder-release"
     "$UPDATE_HELPER" self-test || fatal 'Pinned host updater cannot start on this host'
   fi
   # GPS may not yet have seeded location. Project only updater fields rather
@@ -3721,8 +3829,12 @@ if config['upward'].get('spool_dir')!='/var/lib/brrdfeeder/upward': raise System
 fd,tmp=tempfile.mkstemp(prefix='.release-config-',dir=str(Path(path).parent))
 try:
     with os.fdopen(fd,'w') as f:
+        prior=os.stat(path);os.fchmod(f.fileno(),prior.st_mode & 0o777);os.fchown(f.fileno(),prior.st_uid,prior.st_gid)
         f.write(yaml.safe_dump(config,sort_keys=False));f.flush();os.fsync(f.fileno())
-    prior=os.stat(path);os.chmod(tmp,prior.st_mode & 0o777);os.chown(tmp,prior.st_uid,prior.st_gid);os.replace(tmp,path)
+    os.replace(tmp,path)
+    directory=os.open(str(Path(path).parent),os.O_RDONLY | os.O_DIRECTORY)
+    try: os.fsync(directory)
+    finally: os.close(directory)
 finally:
     if os.path.exists(tmp): os.unlink(tmp)
 Path(out).write_text(json.dumps(dict(node_id=node['id'],gps_required=config.get('sensors',{}).get('gps',{}).get('required',False),status_file=node['status_file'],upward_enabled=True,ring=ring,console_uid=int(uid),console_url='http://'+listen,console_build_seq=int(build))))
@@ -3792,7 +3904,7 @@ else
     helper_mode=$(stat -c %a "$BLUETOOTH_HELPER")
     (( (8#$helper_mode & 0022) == 0 )) || fatal "Writable Bluetooth helper."
   fi
-  cat > "$BLUETOOTH_HELPER" <<'BLUETOOTH_EOF'
+  atomic_install 0755 root root "$BLUETOOTH_HELPER" <<'BLUETOOTH_EOF'
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
@@ -3817,7 +3929,7 @@ RECEIPT = Path('/etc/brrdfeeder/.bluetooth-prior.json')
 USB = Path('/sys/bus/usb/devices')
 HCI = Path('/sys/class/bluetooth')
 DEVICES = Path('/sys/devices')
-SUPPORTED = '0bda:876e'  # finite automatic RID.BLE selection; no HCI discovery
+SUPPORTED = ('0bda:876e', '0bda:a728')  # finite allowlist; no HCI discovery
 UNIT = 'bluetooth.service'
 ENGINE = 'brrdfeeder-engine.service'
 STATUS = Path('/var/lib/brrdfeeder-status/status.json')
@@ -3916,10 +4028,10 @@ def inventory():
             identity = (device/'idVendor').read_text().strip().lower()+':'+(device/'idProduct').read_text().strip().lower()
         except OSError: continue
         if not re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', identity): continue
-        if identity == SUPPORTED:
+        if identity in SUPPORTED:
             found.append(identity)
             say('supported RID.BLE adapter: Realtek USB '+identity)
-    if not found: say('no supported RID.BLE adapter found (automatic selection supports '+SUPPORTED+'); no HCI probe performed')
+    if not found: say('no supported RID.BLE adapter found (automatic selection supports '+', '.join(SUPPORTED)+'); no HCI probe performed')
     return found
 
 
@@ -3947,7 +4059,7 @@ def enabled_config(sensors, found):
     changed = False
     if 'rid_ble' not in sensors and found:
         if len(found) > 1: raise ValueError('multiple supported BLE adapters; configure one explicit BD_ADDR before retrying')
-        sensors['rid_ble'] = dict(enabled=True, unblock_rfkill=True, adapter=dict(usb_id=SUPPORTED))
+        sensors['rid_ble'] = dict(enabled=True, unblock_rfkill=True, adapter=dict(usb_id=found[0]))
         changed = True
     ble = sensors.get('rid_ble', {})
     if not isinstance(ble, dict) or set(ble)-{'enabled','adapter','unblock_rfkill','quiet_window_s'}:
@@ -3987,14 +4099,14 @@ def selected_controller(adapter):
                 if (parent/'idVendor').is_file() and (parent/'idProduct').is_file():
                     usb = (parent/'idVendor').read_text().strip().lower()+':'+(parent/'idProduct').read_text().strip().lower()
                     break
-            if usb != SUPPORTED: continue
+            if usb not in SUPPORTED: continue
             if adapter.get('usb_id') is not None:
                 if usb != adapter['usb_id'].lower(): continue
             elif (path/'address').read_text().strip().lower() != adapter['bd_addr'].lower(): continue
             matches.append((index, device, path.stat().st_ino))
         except OSError: continue
     if len(matches) != 1:
-        raise ValueError('BLE DOWN refused: sysfs must identify exactly one configured supported USB controller (0bda:876e); check driver/connection/identity')
+        raise ValueError('BLE DOWN refused: sysfs must identify exactly one configured supported USB controller (0bda:876e, 0bda:a728); check driver/connection/identity')
     return matches[0]
 
 
@@ -4024,7 +4136,7 @@ def controller_down(adapter):
                 raise ValueError('BLE DOWN verification failed: controller is UP or identity changed; engine not restarted')
     except OSError as error:
         raise ValueError('BLE DOWN failed: HCIDEVDOWN/HCIGETDEVINFO errno='+str(error.errno)+'; check adapter/driver/permissions; engine not restarted') from None
-    say(f'BLE DOWN verified: hci{index} USB={SUPPORTED} HCIGETDEVINFO HCI_UP=0; no discovery/reset performed')
+    say(f'BLE DOWN verified: hci{index} adapter={adapter} HCIGETDEVINFO HCI_UP=0; no discovery/reset performed')
 
 
 def restore(dry=False):

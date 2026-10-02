@@ -142,6 +142,8 @@ for group in groups:
         base = ['podman','run','--rm','--pull=never','--network=none','-v',str(ROOT)+':/repo:ro',
                 '-e','PYTHONDONTWRITEBYTECODE=1']
         run('uninstall-wtmpdb',base+[image,'python3','/repo/Component/brrdfeeder/install/tests/uninstall-wtmpdb/test-history.py'])
+        run('interrupted-install',base+['-e','BRRD_INTERRUPTED_CONTAINER=1',image,
+            'python3','/repo/Component/brrdfeeder/install/tests/interrupted-install/test-container.py'])
         run('naming-compat',base+['-e','BRRD_NAMING_CONTAINER=1','-e','NAMING_ROOT=/repo',
             image,'python3','/repo/Component/brrdfeeder/install/tests/brrdfeeder-naming/container-tests.py'])
         run('release-real-podman',[sys.executable,RELEASE/'tests/run-runtime-proof.py'])

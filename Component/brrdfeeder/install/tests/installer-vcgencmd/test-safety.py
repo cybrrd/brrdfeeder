@@ -179,6 +179,7 @@ class Ownership(unittest.TestCase):
                 script = '''set -eu
 gate() { :; }; ok() { :; }; say() { :; }
 fatal() { echo "$*"; exit 1; }
+atomic_install() { cat > "$4"; }
 run() { if [[ $1 == systemctl || $1 == install ]]; then :; else "$@"; fi; }
 stat() { echo 0; }
 '''+block

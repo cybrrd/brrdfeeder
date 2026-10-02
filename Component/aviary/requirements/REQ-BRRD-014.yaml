@@ -28,7 +28,7 @@ verify:
   - "engine::rid_ble::tests::verify_req_brrd_014_health_and_disabled_no_hardware"
   - "engine::node_config::tests::verify_req_brrd_014_config_refuses_unknown_and_defaults_disabled"
   - "engine::capture::tests::verify_req_brrd_014_shared_pipeline_gps_dedup_store_backpressure"
-  - "tools/test-bt-dongle-gate.sh (offline fixtures: 876e/8771 accept, a728 reject with kernel commits, unknown stop, dry-run no-touch)"
+  - "tools/test-bt-dongle-gate.sh (offline fixtures: 876e/a728 accept, 8771/unknown stop, dry-run no-touch)"
 status: open
 note: >-
   Field-evidenced on test-node-3 2026-09-17: exclusive USER startup, runtime 1M+Coded

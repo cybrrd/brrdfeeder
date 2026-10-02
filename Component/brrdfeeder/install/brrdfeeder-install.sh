@@ -2111,7 +2111,7 @@ atomic_install() {
   # Same-directory publication; stdin or a source file, with final metadata
   # durable before rename. No installer-owned final path is ever truncated.
   python3 /dev/fd/3 "$@" 3<<'ATOMIC_INSTALL_PY'
-import grp, os, pathlib, pwd, stat, sys, tempfile
+import grp, os, pathlib, pwd, subprocess, sys, tempfile
 mode, owner, group, destination, *source = sys.argv[1:]
 path = pathlib.Path(destination)
 uid = int(owner) if owner.isdecimal() else pwd.getpwnam(owner).pw_uid
@@ -2124,7 +2124,12 @@ for parent in [path, *path.parents]:
             raise SystemExit('Unsafe atomic install owner/mode: '+str(parent))
 if path.exists() and (not path.is_file() or path.stat().st_nlink != 1):
     raise SystemExit('Unsafe atomic install target: '+str(path))
-data = pathlib.Path(source[0]).read_bytes() if source else sys.stdin.buffer.read()
+if len(source) > 1:
+    # Render edits completely before publication; a failed producer must not
+    # replace a valid config with empty/partial pipeline output.
+    data = subprocess.check_output([*source[1:], source[0]])
+else:
+    data = pathlib.Path(source[0]).read_bytes() if source else sys.stdin.buffer.read()
 fd, temporary = tempfile.mkstemp(prefix='.brrdfeeder-atomic-', dir=path.parent)
 try:
     with os.fdopen(fd, 'wb') as stream:
@@ -2417,10 +2422,10 @@ sensors:
     required: true
 CFGEOF
     if [[ -n "$INSTALL_INTERFACE" ]]; then
-      run sed -i -e "s/EDIT-ME-wlanX/$INSTALL_INTERFACE/" "$CONFIG_PATH"
+      atomic_install 0644 root root "$CONFIG_PATH" "$CONFIG_PATH" sed -e "s/EDIT-ME-wlanX/$INSTALL_INTERFACE/"
     fi
     if [[ -n "$INSTALL_LATITUDE" ]]; then
-      run sed -i "/^  # location is seeded/c\\  location: {latitude: $INSTALL_LATITUDE, longitude: $INSTALL_LONGITUDE, elevation_meters: 0}" "$CONFIG_PATH"
+      atomic_install 0644 root root "$CONFIG_PATH" "$CONFIG_PATH" sed "/^  # location is seeded/c\\  location: {latitude: $INSTALL_LATITUDE, longitude: $INSTALL_LONGITUDE, elevation_meters: 0}"
       say "Position: optional expert override supplied."
     else
       say "Position: GPS service will seed a measured fix; installer will not wait."
@@ -2584,7 +2589,7 @@ zitadel_device_flow() {
   assigned_id=$(awk -F': ' 'tolower($1)=="x-cybrrd-node-id" {gsub(/\r/,"",$2); print $2}' "$hdrs")
   run rm -f "$hdrs"
   if [[ -n "$assigned_id" ]]; then
-    run sed -i "s/^\(\s*id:\s*\).*/\1\"${assigned_id}\"/" "$CONFIG_PATH"
+    atomic_install 0644 root root "$CONFIG_PATH" "$CONFIG_PATH" sed "s/^\(\s*id:\s*\).*/\1\"${assigned_id}\"/"
     ok "node identity assigned by flock: ${assigned_id} (written to config.yaml)"
   else
     warn "flock did not return X-Cybrrd-Node-Id — config node.id left as-is"

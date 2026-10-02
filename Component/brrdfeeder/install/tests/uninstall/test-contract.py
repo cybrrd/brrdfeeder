@@ -143,6 +143,7 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
             # 0.8.23 changes publication only; durability and interrupted-state
             # behavior run against real files/accounts in test-container.py.
             for before,after in [
+                ('atomic_install 0644 root root "$CONFIG_PATH" "$CONFIG_PATH" sed "s/', 'run sed -i "s/'),
                 ('run atomic_install 0644 root root "$CONFIG_PATH" "$LEGACY_CONFIG"','run install -m 0644 -o root -g root "$LEGACY_CONFIG" "$CONFIG_PATH"'),
                 ('run atomic_install 0600 root root "$CREDS_PATH" "$LEGACY_CREDS"','run install -m 0600 -o root -g root "$LEGACY_CREDS" "$CREDS_PATH"'),
                 ('atomic_install 0755 root root "$STATUS_PROVISIONER"','cat > "$STATUS_PROVISIONER"'),
@@ -156,6 +157,8 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
                 ('''printf '%s\\n' "$refresh_token" | atomic_install 0600 root root "$REFRESH_TOKEN_PATH"''','''printf '%s\\n' "$refresh_token" > "$REFRESH_TOKEN_PATH"
     run chmod 0600 "$REFRESH_TOKEN_PATH"; run chown root:root "$REFRESH_TOKEN_PATH"''')]:
                 text=text.replace(before,after)
+            text=text.replace('run sed -i "s/^\\(\\s*id:\\s*\\).*/\\1\\"${assigned_id}\\"/"\n',
+                              'run sed -i "s/^\\(\\s*id:\\s*\\).*/\\1\\"${assigned_id}\\"/" "$CONFIG_PATH"\n')
             text=text.replace('''    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
     try: os.fsync(directory)
     finally: os.close(directory)

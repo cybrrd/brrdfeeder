@@ -90,6 +90,19 @@ class Recovery(unittest.TestCase):
                     self.assertEqual(run('getent','passwd','brrdfeeder').returncode,0)
 
 class Durability(unittest.TestCase):
+    def test_failed_config_transform_preserves_original(self):
+        code=(ROOT/'brrdfeeder-install.sh').read_text().split("3<<'ATOMIC_INSTALL_PY'\n",1)[1].split('\nATOMIC_INSTALL_PY',1)[0]
+        directory=Path('/etc/brrdfeeder'); directory.mkdir(exist_ok=True)
+        target=directory/'atomic-transform'; target.write_bytes(b'old'); target.chmod(0o600)
+        try:
+            with patch('sys.argv',['atomic','0600','root','root',str(target),str(target),'false']):
+                with self.assertRaises(subprocess.CalledProcessError): exec(compile(code,'atomic-install','exec'),{})
+            self.assertEqual(target.read_bytes(),b'old')
+            with patch('sys.argv',['atomic','0600','root','root',str(target),str(target),'sed','s/old/new/']):
+                exec(compile(code,'atomic-install','exec'),{})
+            self.assertEqual(target.read_bytes(),b'new')
+        finally: target.unlink()
+
     def test_publish_order_and_pre_rename_failure(self):
         code=(ROOT/'brrdfeeder-install.sh').read_text().split("3<<'ATOMIC_INSTALL_PY'\n",1)[1].split('\nATOMIC_INSTALL_PY',1)[0]
         directory=Path('/etc/brrdfeeder'); directory.mkdir(exist_ok=True)

@@ -10,6 +10,9 @@ import os
 from pathlib import Path
 import subprocess
 import unittest
+import io
+import stat
+from unittest.mock import patch
 
 assert os.geteuid()==0 and Path('/run/.containerenv').exists()
 assert os.environ.get('BRRD_INTERRUPTED_CONTAINER')=='1'
@@ -33,7 +36,7 @@ class Recovery(unittest.TestCase):
         COMMAND.write_bytes(b''); COMMAND.chmod(0o755)
         RECEIPT.write_bytes(b''); RECEIPT.chmod(0o600)
         stub=Path('/tmp/interrupted-stubs'); stub.mkdir(exist_ok=True)
-        for name in ('systemctl','udevadm'):
+        for name in ('systemctl','udevadm','loginctl'):
             p=stub/name
             p.write_text('#!/bin/sh\nif [ "$1" = show ]; then echo not-found; fi\nexit 0\n')
             p.chmod(0o755)
@@ -63,6 +66,11 @@ class Recovery(unittest.TestCase):
         self.assertNotEqual(run('getent','passwd','brrdfeeder').returncode,0)
     def test_exact_leftovers_uninstall_directly(self):
         self.clean_uninstall()
+    def test_atomic_temp_residue_uninstalls(self):
+        temporary=RECEIPT.parent/'.brrdfeeder-atomic-abcdefgh'
+        temporary.write_text('partial'); temporary.chmod(0o600)
+        self.clean_uninstall()
+        self.assertFalse(temporary.exists())
     def test_negative_controls(self):
         for bad in ('foreign-command','human-shell','human-home','unlocked','privileged','mismatched-receipt'):
             with self.subTest(bad=bad):
@@ -79,5 +87,66 @@ class Recovery(unittest.TestCase):
                     self.assertNotEqual(result.returncode,0,result.stdout+result.stderr)
                     self.assertEqual((COMMAND.read_bytes(),RECEIPT.read_bytes()),original)
                     self.assertEqual(run('getent','passwd','brrdfeeder').returncode,0)
+
+class Durability(unittest.TestCase):
+    def test_publish_order_and_pre_rename_failure(self):
+        code=(ROOT/'brrdfeeder-install.sh').read_text().split("3<<'ATOMIC_INSTALL_PY'\n",1)[1].split('\nATOMIC_INSTALL_PY',1)[0]
+        directory=Path('/etc/brrdfeeder'); directory.mkdir(exist_ok=True)
+        target=directory/'atomic-test'; target.write_bytes(b'old'); target.chmod(0o600)
+        original_sync=os.fsync; original_replace=os.replace
+        for fail in (True,False):
+            calls=[]
+            def sync(fd):
+                kind='dir' if stat.S_ISDIR(os.fstat(fd).st_mode) else 'file'
+                calls.append('fsync-'+kind)
+                if fail and kind=='file': raise OSError('seeded power loss before rename')
+                original_sync(fd)
+            def replace(src,dst):
+                self.assertEqual(Path(src).parent,target.parent)
+                self.assertEqual(Path(src).stat().st_mode & 0o777,0o600)
+                self.assertEqual(Path(src).read_bytes(),b'new')
+                calls.append('rename'); original_replace(src,dst)
+            with patch('sys.argv',['atomic','0600','root','root',str(target)]), \
+                 patch('sys.stdin',io.TextIOWrapper(io.BytesIO(b'new'))), \
+                 patch('os.fsync',sync),patch('os.replace',replace):
+                if fail:
+                    with self.assertRaisesRegex(OSError,'seeded'): exec(compile(code,'atomic-install','exec'),{})
+                    self.assertEqual(target.read_bytes(),b'old')
+                    self.assertEqual(calls,['fsync-file'])
+                else:
+                    exec(compile(code,'atomic-install','exec'),{})
+                    self.assertEqual(target.read_bytes(),b'new')
+                    self.assertEqual(calls,['fsync-file','rename','fsync-dir'])
+            self.assertFalse(list(directory.glob('.brrdfeeder-atomic-*')))
+        target.unlink()
+
+class RerunPins(unittest.TestCase):
+    def test_one_liner_preserves_installed_pins_but_explicit_change_refuses(self):
+        source=(ROOT/'brrdfeeder-install.sh').read_text()
+        block=source.split('# Never resolve a registry tag here',1)[1].split('# Service identity',1)[0]
+        engine='ghcr.io/cybrrd/brrdfeeder@sha256:'
+        console='ghcr.io/cybrrd/brrdhouse@sha256:'
+        quadlet=Path('/tmp/installed-engine'); quadlet.write_text('Image='+engine+'b'*64+'\n')
+        console_quadlet=Path('/tmp/installed-console'); console_quadlet.write_text('Image='+console+'d'*64+'\n')
+        script='''set -euo pipefail
+fatal() { echo "$*"; exit 1; }; say() { echo "$*"; }
+INSTALL_INTERFACE=; INSTALL_LATITUDE=; INSTALL_LONGITUDE=
+CONSOLE_LISTEN=127.0.0.1:8080
+CONFIG_PATH=/tmp/no-config
+'''+f'''
+IMAGE_REPOSITORY=ghcr.io/cybrrd/brrdfeeder
+CONSOLE_REPOSITORY=ghcr.io/cybrrd/brrdhouse
+QUADLET_FILE={quadlet}
+CONSOLE_QUADLET_FILE={console_quadlet}
+REQUESTED_IMAGE={engine+'a'*64}
+REQUESTED_CONSOLE_IMAGE={console+'c'*64}
+BOOT_PREPARE=$1
+# Never resolve a registry tag here'''+block+'''
+printf 'RETAINED %s %s\\n' "$CONTAINER_IMAGE" "$CONSOLE_IMAGE"
+'''
+        for bootstrap,expected in [('1',0),('0',1)]:
+            result=run('bash','-c',script,'pins',bootstrap)
+            self.assertEqual(result.returncode,expected,result.stdout+result.stderr)
+            if bootstrap=='1': self.assertIn('RETAINED '+engine+'b'*64+' '+console+'d'*64,result.stdout)
 
 if __name__=='__main__': unittest.main(verbosity=2)

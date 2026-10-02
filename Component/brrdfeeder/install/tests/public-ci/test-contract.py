@@ -45,7 +45,7 @@ runpy.run_path(sys.argv[0], run_name='__main__')
                                str(TESTS/'pi-native-p0/test-ble.py')],
                               cwd=ROOT,capture_output=True,text=True,timeout=120)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
-        self.assertIn('Ran 19 tests',result.stderr)
+        self.assertIn('Ran 25 tests',result.stderr)
         self.assertNotIn('skipped',result.stderr)
 
     def test_public_contract_step_does_not_claim_same_runner(self):

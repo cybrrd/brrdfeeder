@@ -25,17 +25,23 @@ ble=importlib.util.module_from_spec(spec); spec.loader.exec_module(ble)
 class Systemd:
     def __init__(self, enabled='enabled', active=True):
         self.enabled=enabled; self.active=active; self.calls=[]; self.fail=None
+        self.engine='inactive'; self.pid='0'; self.stop_state='inactive'; self.stop_pid='0'
     def __call__(self,*args):
         self.calls.append(args)
         if self.fail and args==self.fail: raise ValueError('seeded systemctl failure')
         if args[0]=='show' and args[1]==ble.ENGINE:
-            return 'loaded\n' if args[2]=='--property=LoadState' else 'inactive\n'
+            return {'--property=LoadState':'loaded', '--property=ActiveState':self.engine,
+                    '--property=MainPID':self.pid}[args[2]]+'\n'
         if args[0]=='show':
             load='masked' if self.enabled.startswith('masked') else ('not-found' if self.enabled=='absent' else 'loaded')
             return f'LoadState={load}\nUnitFileState={self.enabled}\nActiveState={"active" if self.active else "inactive"}\n'
         runtime=args[0]=='--runtime'
         command=args[1] if runtime else args[0]
-        if args[-1]==ble.ENGINE: return ''
+        if args[-1]==ble.ENGINE:
+            if command=='stop': self.engine=self.stop_state; self.pid=self.stop_pid
+            elif command=='start': self.engine='active'; self.pid='43'
+            elif command=='reset-failed': self.engine='inactive'
+            return ''
         if command=='stop': self.active=False
         elif command=='start': self.active=True
         elif command=='disable': self.enabled='disabled'
@@ -59,6 +65,7 @@ class BLE(unittest.TestCase):
         self.config.write_text(self.template.replace('EDIT-ME-wlanX','wlan1').replace('EDIT-ME-node','fixture'))
         self.config.chmod(0o644)
         self.systemd=Systemd()
+        self.systemd.engine='active'; self.systemd.pid='42'
         self.log=io.StringIO()
         for p in [patch.object(ble,'CONFIG',self.config),patch.object(ble,'RECEIPT',self.receipt),patch.object(ble,'USB',self.usb),
                   patch.object(ble,'controller_down'),
@@ -70,6 +77,45 @@ class BLE(unittest.TestCase):
     def explicit(self,value):
         doc=yaml.safe_load(self.config.read_bytes()); doc.setdefault('sensors',{})['rid_ble']=value
         self.config.write_text(yaml.safe_dump(doc,sort_keys=False))
+    def test_failed_engine_stop_is_stopped_and_reset(self):
+        self.adapter(); self.systemd.stop_state='failed'
+        ble.apply()
+        self.assertEqual(self.systemd.engine,'inactive')
+        self.assertIn(('reset-failed',ble.ENGINE),self.systemd.calls)
+        self.assertEqual(self.systemd.enabled,'masked')
+    def test_live_engine_refuses_and_recovers(self):
+        self.adapter(); before=self.config.read_bytes()
+        for state,pid in [('active','42'),('deactivating','42'),('inactive','42'),('failed','42')]:
+            with self.subTest(state=state,pid=pid):
+                self.systemd.stop_state=state; self.systemd.stop_pid=pid; self.systemd.calls=[]
+                with self.assertRaises(ValueError): ble.apply()
+                self.assertIn(('start',ble.ENGINE),self.systemd.calls)
+                self.assertEqual(self.systemd.engine,'active')
+                self.assertEqual(before,self.config.read_bytes()); self.assertFalse(self.receipt.exists())
+    def test_late_refusal_rolls_back_and_restarts(self):
+        self.adapter(); before=self.config.read_bytes()
+        with patch.object(ble,'controller_down',side_effect=ValueError('seeded DOWN failure')):
+            with self.assertRaises(ValueError): ble.apply()
+        self.assertEqual(self.systemd.engine,'active')
+        self.assertEqual((self.systemd.enabled,self.systemd.active),('enabled',True))
+        self.assertEqual(self.config.read_bytes(),before)
+    def test_restart_failure_has_exact_recovery(self):
+        self.adapter(); self.systemd.fail=('start',ble.ENGINE)
+        with patch.object(ble,'controller_down',side_effect=ValueError('seeded DOWN failure')):
+            with self.assertRaisesRegex(ValueError,'STOPPED.*sudo systemctl start brrdfeeder-engine.service'):
+                ble.apply()
+    def test_inactive_engine_is_not_started_on_refusal(self):
+        self.adapter(); self.systemd.engine='inactive'; self.systemd.pid='0'
+        with patch.object(ble,'controller_down',side_effect=ValueError('seeded DOWN failure')):
+            with self.assertRaises(ValueError): ble.apply()
+        self.assertNotIn(('start',ble.ENGINE),self.systemd.calls)
+    def test_restore_refusal_recovers_engine_and_bluetooth(self):
+        self.adapter(); ble.apply(); self.systemd.engine='active'; self.systemd.pid='43'
+        self.systemd.fail=('enable',ble.UNIT)
+        with self.assertRaises(ValueError): ble.restore()
+        self.assertEqual(self.systemd.engine,'active')
+        self.assertEqual((self.systemd.enabled,self.systemd.active),('masked',False))
+        self.assertTrue(self.receipt.exists())
     def test_rendered_config_present_absent_and_explicit(self):
         ble.apply(); self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
         self.assertNotIn('rid_ble',yaml.safe_load(self.config.read_bytes())['sensors'])

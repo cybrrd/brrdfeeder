@@ -3923,6 +3923,8 @@ import sys
 import tempfile
 import time
 import datetime as dt
+from contextlib import contextmanager
+import shutil
 
 CONFIG = Path('/etc/brrdfeeder/config.yaml')
 RECEIPT = Path('/etc/brrdfeeder/.bluetooth-prior.json')
@@ -4011,14 +4013,92 @@ def receipt():
     return value
 
 
+def container_gone():
+    # Read-only, current privileges only; never sudo or initialize a new store.
+    if not shutil.which('podman'): return
+    try:
+        result = subprocess.run(['podman', 'container', 'exists', 'brrdfeeder-engine'],
+                                capture_output=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        say('container absence unavailable; using systemd state and MainPID=0')
+        return
+    if result.returncode == 1: return
+    if result.returncode == 125:
+        say('container store unavailable at current privileges; using systemd state and MainPID=0')
+        return
+    raise ValueError('engine container remains or absence is ambiguous; refusing Bluetooth ownership change')
+
+
+def set_service_state(prior):
+    if service_state()['enabled'] != 'absent': ctl('stop', UNIT)
+    ctl('unmask', UNIT)
+    ctl('--runtime', 'unmask', UNIT)
+    state = prior['enabled']
+    if state in ('enabled','enabled-runtime'):
+        ctl(*(['--runtime'] if state.endswith('-runtime') else []), 'enable', UNIT)
+    elif state in ('masked','masked-runtime'):
+        ctl(*(['--runtime'] if state.endswith('-runtime') else []), 'mask', UNIT)
+    elif state == 'disabled': ctl('disable', UNIT)
+    if prior['active']: ctl('start', UNIT)
+    if service_state() != prior: raise ValueError('Bluetooth restore did not reproduce prior state; receipt retained')
+
+
+@contextmanager
 def stop_engine():
-    # Stop the waiter too, so no concurrent seed can overwrite the config migration.
+    """Stop for a handover; a failed handover restores a previously running node."""
     output = ctl('show', ENGINE, '--property=LoadState', '--value').strip()
-    if output == 'not-found': return
-    if output != 'loaded': raise ValueError('cannot establish engine service identity for BLE takeover')
-    ctl('stop', ENGINE)
-    if ctl('show', ENGINE, '--property=ActiveState', '--value').strip() != 'inactive':
-        raise ValueError('engine did not stop; refusing Bluetooth ownership change')
+    if output not in ('loaded', 'not-found'):
+        raise ValueError('cannot establish engine service identity for BLE takeover')
+    state = ctl('show', ENGINE, '--property=ActiveState', '--value').strip()
+    if state not in ('active', 'activating', 'inactive', 'failed'):
+        raise ValueError('engine already transitional; refusing Bluetooth ownership change')
+    restart = output == 'loaded' and state in ('active', 'activating')
+    attempted = False
+    snapshot = None
+    try:
+        if output == 'loaded':
+            attempted = True  # even a failed/timeout stop may have stopped the unit
+            ctl('stop', ENGINE)
+        stopped = ctl('show', ENGINE, '--property=ActiveState', '--value').strip()
+        pid = ctl('show', ENGINE, '--property=MainPID', '--value').strip()
+        if stopped not in ('inactive', 'failed') or pid != '0':
+            raise ValueError('engine did not stop; refusing Bluetooth ownership change')
+        container_gone()
+        if stopped == 'failed':
+            ctl('reset-failed', ENGINE)
+            if ctl('show', ENGINE, '--property=ActiveState', '--value').strip() != 'inactive':
+                raise ValueError('engine failed state did not clear; refusing Bluetooth ownership change')
+        # Capture after stopping the GPS waiter so its last position seed survives.
+        safe(CONFIG)
+        config = (CONFIG.read_bytes(), stat.S_IMODE(CONFIG.stat().st_mode)) if CONFIG.exists() else None
+        snapshot = (service_state(), config, RECEIPT.read_bytes() if RECEIPT.exists() else None)
+        yield
+    except Exception as error:
+        rollback_failed = False
+        if snapshot is not None:
+            prior, config, saved_receipt = snapshot
+            try:
+                if config is not None and CONFIG.read_bytes() != config[0]: atomic(CONFIG, *config)
+            except Exception:
+                rollback_failed = True
+            try:
+                if service_state() != prior: set_service_state(prior)
+                if saved_receipt is not None and not RECEIPT.exists(): atomic(RECEIPT, saved_receipt, 0o600)
+            except Exception:
+                rollback_failed = True
+        if attempted and restart:
+            try:
+                ctl('start', ENGINE)
+                active = ctl('show', ENGINE, '--property=ActiveState', '--value').strip()
+                pid = ctl('show', ENGINE, '--property=MainPID', '--value').strip()
+                if active != 'active' or not pid.isdecimal() or int(pid) == 0:
+                    raise ValueError('engine recovery unverified')
+                say('refusal recovery: engine restarted to prior running state')
+            except Exception:
+                raise ValueError('engine STOPPED or recovery unverified; recover with: sudo systemctl start brrdfeeder-engine.service; inspect Bluetooth state and retained receipt') from error
+        if rollback_failed:
+            raise ValueError('Bluetooth rollback incomplete; inspect retained receipt and service/config state; recover engine with: sudo systemctl start brrdfeeder-engine.service') from error
+        raise
 
 
 def inventory():
@@ -4133,9 +4213,9 @@ def controller_down(adapter):
             actual = struct.unpack_from('@H',info,0)[0]
             flags = struct.unpack_from('@I',info,16)[0]
             if actual != index or flags & 1 or selected_controller(adapter) != target:
-                raise ValueError('BLE DOWN verification failed: controller is UP or identity changed; engine not restarted')
+                raise ValueError('BLE DOWN verification failed: controller is UP or identity changed')
     except OSError as error:
-        raise ValueError('BLE DOWN failed: HCIDEVDOWN/HCIGETDEVINFO errno='+str(error.errno)+'; check adapter/driver/permissions; engine not restarted') from None
+        raise ValueError('BLE DOWN failed: HCIDEVDOWN/HCIGETDEVINFO errno='+str(error.errno)+'; check adapter/driver/permissions') from None
     say(f'BLE DOWN verified: hci{index} adapter={adapter} HCIGETDEVINFO HCI_UP=0; no discovery/reset performed')
 
 
@@ -4146,21 +4226,11 @@ def restore(dry=False):
         return
     say(('WOULD restore' if dry else 'restoring')+' bluetooth.service enabled='+prior['enabled']+' active='+str(prior['active']).lower())
     if dry: return
-    stop_engine()
-    if service_state()['enabled'] != 'absent': ctl('stop', UNIT)
-    ctl('unmask', UNIT)
-    ctl('--runtime', 'unmask', UNIT)
-    state = prior['enabled']
-    if state in ('enabled','enabled-runtime'):
-        ctl(*(['--runtime'] if state.endswith('-runtime') else []), 'enable', UNIT)
-    elif state in ('masked','masked-runtime'):
-        ctl(*(['--runtime'] if state.endswith('-runtime') else []), 'mask', UNIT)
-    elif state == 'disabled': ctl('disable', UNIT)
-    if prior['active']: ctl('start', UNIT)
-    if service_state() != prior: raise ValueError('Bluetooth restore did not reproduce prior state; receipt retained')
-    RECEIPT.unlink()
-    sync_parent(RECEIPT)
-    say('restored Bluetooth prior state; removed '+str(RECEIPT))
+    with stop_engine():
+        set_service_state(prior)
+        RECEIPT.unlink()
+        sync_parent(RECEIPT)
+        say('restored Bluetooth prior state; removed '+str(RECEIPT))
 
 
 def apply(dry=False):
@@ -4180,27 +4250,27 @@ def apply(dry=False):
     if dry:
         say('WOULD stop engine, add missing rid_ble key if needed, record '+str(RECEIPT)+', stop/disable/mask bluetooth.service, then targeted HCIDEVDOWN and read-verify; existing explicit config preserved')
         return
-    stop_engine()
-    # Re-read after stopping the GPS waiter. Preserve a fix it may just have seeded.
-    doc, sensors, raw = load_config()
-    enabled, changed = enabled_config(sensors, found)
-    if not enabled: raise ValueError('BLE config changed during takeover; retry')
-    if changed:
-        if CONFIG.read_bytes() != raw: raise ValueError('config changed during migration; retry')
-        atomic(CONFIG, yaml.safe_dump(doc, sort_keys=False).encode(), stat.S_IMODE(CONFIG.stat().st_mode))
-        say('added missing RID.BLE config/unblock_rfkill policy; explicit values preserved')
-    if not RECEIPT.exists():
-        atomic(RECEIPT, (json.dumps(prior,sort_keys=True)+'\n').encode(), 0o600)
-    # Receipt precedes every service mutation; retries never overwrite history.
-    if prior['enabled'] != 'absent': ctl('stop', UNIT)
-    if prior['enabled'] in ('enabled','enabled-runtime'):
-        ctl(*(['--runtime'] if prior['enabled'].endswith('-runtime') else []), 'disable', UNIT)
-    ctl('mask', UNIT)  # persist across reboot, even if the prior mask was runtime-only
-    now = service_state()
-    if now['active'] or now['enabled'] not in ('masked','masked-runtime'):
-        raise ValueError('Bluetooth ownership not established; receipt retained')
-    controller_down(sensors['rid_ble']['adapter'])
-    say('RID.BLE owns Bluetooth; bluetoothd stopped/masked and adapter DOWN verified. Engine still checks rfkill and exclusive USER bind.')
+    with stop_engine():
+        # Re-read after stopping the GPS waiter. Preserve a fix it may just have seeded.
+        doc, sensors, raw = load_config()
+        enabled, changed = enabled_config(sensors, found)
+        if not enabled: raise ValueError('BLE config changed during takeover; retry')
+        if changed:
+            if CONFIG.read_bytes() != raw: raise ValueError('config changed during migration; retry')
+            atomic(CONFIG, yaml.safe_dump(doc, sort_keys=False).encode(), stat.S_IMODE(CONFIG.stat().st_mode))
+            say('added missing RID.BLE config/unblock_rfkill policy; explicit values preserved')
+        if not RECEIPT.exists():
+            atomic(RECEIPT, (json.dumps(prior,sort_keys=True)+'\n').encode(), 0o600)
+        # Receipt precedes every service mutation; retries never overwrite history.
+        if prior['enabled'] != 'absent': ctl('stop', UNIT)
+        if prior['enabled'] in ('enabled','enabled-runtime'):
+            ctl(*(['--runtime'] if prior['enabled'].endswith('-runtime') else []), 'disable', UNIT)
+        ctl('mask', UNIT)  # persist across reboot, even if the prior mask was runtime-only
+        now = service_state()
+        if now['active'] or now['enabled'] not in ('masked','masked-runtime'):
+            raise ValueError('Bluetooth ownership not established; receipt retained')
+        controller_down(sensors['rid_ble']['adapter'])
+        say('RID.BLE owns Bluetooth; bluetoothd stopped/masked and adapter DOWN verified. Engine still checks rfkill and exclusive USER bind.')
 
 
 def main():

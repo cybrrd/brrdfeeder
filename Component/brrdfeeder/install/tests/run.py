@@ -127,6 +127,7 @@ for group in groups:
             run(name,['go','test','-race','-count=1','-v','./...'],folder)
             run(name+'-vet',['go','vet','./...'],folder)
     elif group == 'rust':
+        run('rust-shutdown-signals',[sys.executable,ROOT/'Component/aviary/engine/tests/shutdown-fixture.py'])
         run('rust-workspace',['cargo','test','--offline','--locked','--workspace','--','--nocapture'],
             ROOT/'Component/aviary',3600)
     elif group == 'mutations':

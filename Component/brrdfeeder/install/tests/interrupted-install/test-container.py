@@ -181,6 +181,10 @@ class Upgrade(unittest.TestCase):
         adapter=Path('/tmp/upgrade-usb/1-2'); adapter.mkdir(parents=True,exist_ok=True)
         (adapter/'idVendor').write_text('0bda'); (adapter/'idProduct').write_text('a728')
         uname=fixture.bin/'uname'; uname.write_text('#!/bin/sh\necho aarch64\n'); uname.chmod(0o755)
+        # No engine container remains after this fixture's simulated stop.
+        podman=fixture.bin/'podman'
+        stub=podman.read_text().split('\n',1)
+        podman.write_text(stub[0]+"\nimport sys\nif sys.argv[1:3] == ['container','exists']: sys.exit(1)\n"+stub[1])
         shim=fixture.bin/'python3'
         shim.write_text('''#!/usr/bin/python3
 import importlib.util,importlib.machinery,json,os,sys
@@ -194,6 +198,7 @@ m=load('ble_shipped',sys.argv[1])
 f=load('ble_fixture','/repo/Component/brrdfeeder/install/tests/pi-native-p0/test-ble.py')
 m.USB=Path('/tmp/upgrade-usb')
 m.ctl=f.Systemd()
+m.ctl.engine='active'; m.ctl.pid='42'; m.ctl.stop_state='failed'
 def down(adapter):
     assert adapter=={'usb_id':'0bda:a728'}
     assert m.ctl.enabled=='masked' and not m.ctl.active

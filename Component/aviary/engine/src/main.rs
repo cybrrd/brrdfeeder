@@ -606,17 +606,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::signal::unix::SignalKind::interrupt(),
     )?;
 
-    tokio::select! {
+    let intentional_stop = tokio::select! {
         _ = &mut capture_future => {
             eprintln!("[shutdown] capture loop returned (unexpected); entering bounded cleanup");
+            false
         }
         _ = sigterm.recv() => {
             eprintln!("[shutdown] SIGTERM received; entering bounded cleanup");
+            true
         }
         _ = sigint.recv() => {
             eprintln!("[shutdown] SIGINT received; entering bounded cleanup");
+            true
         }
-    }
+    };
 
     gps_cancel.cancel(); // GPS and BLE share the engine shutdown token.
     upward_cancel.cancel();
@@ -624,31 +627,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Bounded cleanup: 5 second hard ceiling per ADR 0010. Tokio
     // software defense; systemd TimeoutStopSec=10 is the OS-level
-    // failsafe. If cleanup hangs (Drop blocked on a serial-port
-    // syscall, NATS flush stalled, etc.), std::process::exit(1) fires
-    // and systemd's Restart=always brings us back cleanly.
+    // failsafe. Explicit service stops must succeed even on the hard ceiling;
+    // unexpected capture termination remains a failure. Restart= is unchanged.
+    let exit_code = if intentional_stop { 0 } else { 1 };
+    let mut cleanup_stage = "upward";
     match tokio::time::timeout(
         std::time::Duration::from_secs(5),
         async {
+            eprintln!("[shutdown] waiting for upward reporting");
             if let Some(task) = upward_task { let _ = task.await; }
+            cleanup_stage = "status";
+            eprintln!("[shutdown] waiting for status unlink");
             if let Some(source) = status_cleanup {
                 // Shares the writer lock: unlink cannot race a late rename.
                 if let Err(e) = source.shutdown().await {
                     eprintln!("[status] best-effort shutdown unlink failed: {e}");
                 }
             }
+            cleanup_stage = "ble";
+            eprintln!("[shutdown] waiting for BLE keeper");
             if let Some(keeper) = ble_keeper { let _ = keeper.await; }
-            // Phase 1 (current): rely on Drop semantics. The async-nats
-            // client, tokio_serial GPS handle, libpcap capture, and the
-            // various spawned tasks all release resources in their Drop
-            // impls. The 5s timeout is defense-in-depth against any one
-            // of those Drops blocking on a syscall.
-            //
-            // Phase 2 (future): wire explicit drain calls here for
-            // NATS publish flush + audit-publisher drain + lake-writer
-            // drain. For now, a small yield lets Tokio's runtime
-            // schedule the Drop tasks before we proceed.
-            eprintln!("[shutdown] running Drop-based resource release");
+            // Give cancelled tasks a scheduling grace period. process::exit
+            // below does not run stack destructors or await a NATS drain;
+            // kernel process teardown releases any remaining descriptors.
+            eprintln!("[shutdown] scheduler grace before process exit");
+            cleanup_stage = "scheduler grace";
             tokio::task::yield_now().await;
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         },
@@ -656,14 +659,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await
     {
         Ok(_) => {
-            eprintln!("[shutdown] cleanup complete; exit(0)");
-            std::process::exit(0);
+            eprintln!("[shutdown] cleanup complete; exit({exit_code})");
+            std::process::exit(exit_code);
         }
         Err(_) => {
             eprintln!(
-                "[shutdown] cleanup TIMEOUT at 5s; hard-exiting so systemd can restart cleanly"
+                "[shutdown] cleanup TIMEOUT at 5s stage={cleanup_stage}; intentional_stop={intentional_stop}; exit({exit_code})"
             );
-            std::process::exit(1);
+            std::process::exit(exit_code);
         }
     }
 }

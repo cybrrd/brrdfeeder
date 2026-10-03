@@ -11,6 +11,7 @@ import argparse
 import os
 from pathlib import Path
 import signal
+import re
 import subprocess
 import tempfile
 import time
@@ -19,7 +20,9 @@ p=argparse.ArgumentParser(); p.add_argument('--systemd',action='store_true'); ar
 source=(Path(__file__).resolve().parents[1]/'src/main.rs').read_text()
 tail=source[source.index('    let mut sigterm = tokio::signal::unix::signal('):]
 assert tail.rstrip().endswith('}')
-tail=tail.replace('    tokio::select! {','    println!("READY");\n    tokio::select! {',1)
+tail,count=re.subn(r'(?m)^(    (?:let intentional_stop = )?tokio::select! \{)',
+                  r'    println!("READY");\n\1',tail,count=1)
+assert count == 1
 prefix=r'''
 struct Cancel;
 impl Cancel { fn cancel(&self) {} }
@@ -74,6 +77,7 @@ with tempfile.TemporaryDirectory(prefix='brrd-shutdown-') as folder:
             if not all(x in result.splitlines() for x in ['ActiveState=inactive','Result=success','ExecMainStatus=0']):
                 errors.append('systemd')
         finally:
-            subprocess.run(['systemctl','--user','stop',unit],check=False)
-            subprocess.run(['systemctl','--user','reset-failed',unit],check=False)
+            # Successful transient units may already have been garbage-collected.
+            subprocess.run(['systemctl','--user','stop',unit],check=False,capture_output=True)
+            subprocess.run(['systemctl','--user','reset-failed',unit],check=False,capture_output=True)
     assert not errors, 'shutdown regressions: '+repr(errors)

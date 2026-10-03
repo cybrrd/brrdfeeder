@@ -69,6 +69,7 @@ class BLE(unittest.TestCase):
         self.log=io.StringIO()
         for p in [patch.object(ble,'CONFIG',self.config),patch.object(ble,'RECEIPT',self.receipt),patch.object(ble,'USB',self.usb),
                   patch.object(ble,'controller_down'),
+                  patch.object(ble,'container_gone'),
                   patch.object(ble,'ctl',self.systemd),patch.object(ble,'safe'),contextlib.redirect_stdout(self.log)]:
             p.__enter__(); self.addCleanup(p.__exit__,None,None,None)
         # Ownership checks are a separate adversarial test: this fixture is NOT root.
@@ -116,6 +117,16 @@ class BLE(unittest.TestCase):
         self.assertEqual(self.systemd.engine,'active')
         self.assertEqual((self.systemd.enabled,self.systemd.active),('masked',False))
         self.assertTrue(self.receipt.exists())
+    def test_stop_and_reset_errors_restore_prior_running_state(self):
+        self.adapter()
+        for command in ('stop','reset-failed'):
+            with self.subTest(command=command):
+                self.systemd.stop_state='failed'; self.systemd.fail=(command,ble.ENGINE)
+                self.systemd.calls=[]
+                with self.assertRaises(ValueError): ble.apply()
+                self.assertIn(('start',ble.ENGINE),self.systemd.calls)
+                self.assertEqual(self.systemd.engine,'active')
+                self.assertFalse(self.receipt.exists())
     def test_rendered_config_present_absent_and_explicit(self):
         ble.apply(); self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
         self.assertNotIn('rid_ble',yaml.safe_load(self.config.read_bytes())['sensors'])
@@ -230,6 +241,16 @@ class BLE(unittest.TestCase):
 
 
 class Safety(unittest.TestCase):
+    def test_container_absence_without_new_privileges(self):
+        with patch.object(ble.shutil,'which',return_value='/usr/bin/podman'), patch.object(ble.subprocess,'run') as run:
+            for code in (1,125,0,2):
+                run.return_value=subprocess.CompletedProcess([],code)
+                if code in (1,125): ble.container_gone()
+                else:
+                    with self.assertRaises(ValueError): ble.container_gone()
+            self.assertEqual(run.call_args.args[0],['podman','container','exists','brrdfeeder-engine'])
+        with patch.object(ble.shutil,'which',return_value=None), patch.object(ble.subprocess,'run') as run:
+            ble.container_gone(); run.assert_not_called()
     def test_restore_helper_permissions_guard_executes(self):
         # Execute the shipped validation loop with inert stat/diagnostic functions.
         source=(INSTALL/'uninstall.sh').read_text()

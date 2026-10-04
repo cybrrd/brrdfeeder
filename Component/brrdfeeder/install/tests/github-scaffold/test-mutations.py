@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import re
 import shutil
 import tempfile
 import unittest
@@ -19,6 +20,10 @@ def load(name,file):
     return module
 contracts=load('scaffold_contract','test-contract.py')
 behavior=load('scaffold_behavior','test-release.py')
+checkout_pin=re.search(r'actions/checkout@[0-9a-f]{40}\b',
+                       (ROOT/'.github/workflows/release.yml').read_text())
+if checkout_pin is None:
+    raise AssertionError('missing SHA-pinned checkout mutation target')
 cases=[
     ('environment-bypass','.github/workflows/release.yml','environment: release','environment: unprotected',
      contracts.Scaffold,'test_publisher_requires_environment_and_all_builds'),
@@ -30,7 +35,7 @@ cases=[
      contracts.Scaffold,'test_no_build_or_scan_job_has_registry_or_oidc_writes'),
     ('settings-bypass','.github/workflows/release.yml'," && vars.RELEASE_APPROVAL_CONFIGURED == 'true'",'',
      contracts.Scaffold,'test_publisher_requires_environment_and_all_builds'),
-    ('floating-action','.github/workflows/release.yml','actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683','actions/checkout@v4',
+    ('floating-action','.github/workflows/release.yml',checkout_pin[0],'actions/checkout@v7',
      contracts.Scaffold,'test_every_external_action_is_commit_pinned'),
     ('provenance-missing','.github/workflows/release.yml','actions/attest-build-provenance@','actions/not-provenance@',
      contracts.Scaffold,'test_two_image_provenances_are_after_approval'),

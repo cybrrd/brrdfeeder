@@ -30,7 +30,7 @@ pub fn parse_message_pack(
 
 /// Parse a Message Pack whose transport framing has already been removed.
 ///
-/// Unlike [`parse_message_pack`], this requires the Pack header at byte zero,
+/// Unlike [`parse_message_pack`], this requires a Message Pack header at byte zero,
 /// count 1..=9, and an exact declared-length match.
 pub fn parse_message_pack_strict(
     payload: &[u8],

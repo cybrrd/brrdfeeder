@@ -15,6 +15,16 @@ def heredoc(marker):
     return TEXT.split("<<'" + marker + "'\n", 1)[1].split('\n' + marker, 1)[0]
 
 class Package(unittest.TestCase):
+    def test_console_does_not_redefine_automatic_build_platform(self):
+        recipe=(ROOT/'Component/brrdhouse/Containerfile').read_text()
+        self.assertIn('\nARG BUILDPLATFORM\n',recipe)
+        self.assertNotRegex(recipe,r'(?m)^ARG (?:BUILD|TARGET)PLATFORM=')
+        self.assertIn('FROM --platform=$BUILDPLATFORM ',recipe)
+        build=(ROOT/'Component/brrdhouse/build.sh').read_text()
+        self.assertIn('--build-arg "BUILDPLATFORM=$build_platform"',build)
+        self.assertIn('aarch64|arm64) build_platform=linux/arm64',build)
+        self.assertIn('x86_64|amd64) build_platform=linux/amd64',build)
+
     def test_shipped_provisioner_is_embedded_byte_for_byte(self):
         self.assertEqual(heredoc('STATUS_PROVISIONER_EOF') + '\n',
                          (ROOT / 'Component/brrdhouse/deploy/provision-status.sh').read_text())

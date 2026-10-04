@@ -23,6 +23,8 @@ for label,old,new,test in [
     ('restore-active',"if prior['active']: ctl('start', UNIT)",'if False: ctl("start", UNIT)','BLE.test_state_matrix_and_missing_receipt'),
     ('engine-owner',"engine != 'inactive'",'False','Controller.test_live_owners_never_open_socket'),
     ('down-flags','flags & 1','False','Controller.test_still_up_read_failure_and_identity_change_refuse'),
+    ('engine-mainpid'," or pid != '0'",'','BLE.test_live_engine_refuses_and_recovers'),
+    ('engine-recovery',"restart = output == 'loaded' and state in ('active', 'activating')",'restart = False','BLE.test_late_refusal_rolls_back_and_restarts'),
 ]:
     spec=importlib.util.spec_from_file_location('mutant_test',HERE/'test-ble.py')
     module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)

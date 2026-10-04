@@ -23,7 +23,7 @@ radiotap = "1.2"
 cybrrd-rid-protocol = { path = "../cybrrd-rid-protocol" }
 caps = "0.5"  # Wave 7.1: startup capability check (cap_net_admin, cap_net_raw)
 nl80211-ng = "0.5"  # Wave 7.1: native nl80211 channel control (no shell-out)
-neli = "0.6"  # Wave 7.1 Inc 4: direct netlink for CMD_GET_SURVEY (not exposed by nl80211-ng)
+neli = "0.7"  # Wave 7.1 Inc 4: direct netlink for CMD_GET_SURVEY (not exposed by nl80211-ng)
 
 # Wave 7.2 (2026-05-26) — Sensor trait + UbloxGps. First non-Wi-Fi
 # producer in the Anastomotic Reticulum. BLE + SDR will land next as

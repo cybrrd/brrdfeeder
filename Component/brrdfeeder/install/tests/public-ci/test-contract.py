@@ -4,6 +4,7 @@
 """Offline CI parity and public closure; no credentials, network or builds."""
 import ast
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -69,6 +70,60 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         for digest in ('e3853c5a252fca15252d07cb23a1bdd9377a8c6f3efa01531109281ae47f841c',
                        '20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c'):
             self.assertIn(digest,text)
+
+    def test_rust_provisioning_uses_fresh_roots_and_exports_them(self):
+        text=(ROOT/'.github/scripts/setup-tests.sh').read_text()
+        self.assertIn('# Isolate hosted toolchains',text)
+        snippet=text.split('# Isolate hosted toolchains',1)[1].split('# rustup dispatches',1)[0]
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            old=root/'preinstalled'
+            old.mkdir()
+            (old/'sentinel').write_text('unchanged')
+            env=dict(os.environ, RUNNER_TEMP=folder, GITHUB_ENV=str(root/'env'),
+                     RUSTUP_HOME=str(old), CARGO_HOME=str(old))
+            for _ in range(2):
+                result=subprocess.run(['bash','-euc',snippet],env=env,capture_output=True,text=True)
+                self.assertEqual(result.returncode,0,result.stderr)
+            values=(root/'env').read_text().splitlines()
+            self.assertEqual(len(values),4)
+            self.assertEqual(len(set(values)),4)
+            for line in values:
+                key,value=line.split('=',1)
+                self.assertIn(key,('CARGO_HOME','RUSTUP_HOME'))
+                self.assertTrue(Path(value).is_relative_to(root))
+                self.assertNotEqual(Path(value),old)
+            self.assertEqual((old/'sentinel').read_text(),'unchanged')
+        self.assertIn('export PATH="$CARGO_HOME/bin:$PATH"',text)
+        self.assertIn('"$CARGO_HOME/bin" >> "$GITHUB_PATH"',text)
+
+    def test_test_image_pull_matches_containerfile_and_rejects_unpinned(self):
+        text=(ROOT/'.github/scripts/setup-tests.sh').read_text()
+        self.assertIn('os_base=',text)
+        snippet='set -euo pipefail\n'+text[text.index('os_base='):]
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            containerfile=root/'Component/brrdfeeder/install/tests/Containerfile'
+            containerfile.parent.mkdir(parents=True)
+            binary=root/'podman'
+            binary.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALLS"\n')
+            binary.chmod(0o755)
+            calls=root/'calls'
+            env=dict(os.environ,PATH=str(root)+':'+os.environ['PATH'],CALLS=str(calls))
+            for digest in ('a'*64,'b'*64):
+                base='docker.io/library/debian:13-slim@sha256:'+digest
+                containerfile.write_text('FROM '+base+'\n')
+                result=subprocess.run(['bash','-c',snippet],cwd=root,env=env,capture_output=True,text=True)
+                self.assertEqual(result.returncode,0,result.stderr)
+                self.assertEqual(calls.read_text().splitlines()[-2],'pull '+base)
+                self.assertIn('build --pull=never',calls.read_text().splitlines()[-1])
+            before=calls.read_bytes()
+            for invalid in ('FROM debian:latest\n','FROM debian@sha256:abc\n','',
+                            'FROM debian@sha256:'+'a'*64+'\nFROM debian@sha256:'+'b'*64+'\n'):
+                containerfile.write_text(invalid)
+                result=subprocess.run(['bash','-c',snippet],cwd=root,env=env,capture_output=True,text=True)
+                self.assertNotEqual(result.returncode,0)
+                self.assertEqual(calls.read_bytes(),before)
 
     def test_dependabot_workspace_uses_only_root_lockfile(self):
         updates=yaml.safe_load((ROOT/'.github/dependabot.yml').read_text())['updates']

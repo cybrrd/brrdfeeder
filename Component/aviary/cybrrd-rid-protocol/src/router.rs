@@ -68,3 +68,67 @@ pub fn ingest_frame(dot11_payload: &[u8], rssi_dbm: i32) -> Option<TelemetryData
 
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::RidTransport;
+
+    const MAC: [u8; 6] = [0x8c, 0x1e, 0xd9, 0x56, 0xe5, 0x81];
+
+    fn standard_pack() -> Vec<u8> {
+        let mut pack = vec![0xf2, 25, 2];
+
+        let mut basic_id = [0u8; 25];
+        basic_id[0] = 0x02;
+        basic_id[1] = 0x12;
+        basic_id[2..22].copy_from_slice(b"1581F9DEC261802966XD");
+        pack.extend_from_slice(&basic_id);
+
+        let mut location = [0u8; 25];
+        location[0] = 0x12;
+        location[1] = 0x20;
+        location[5..9].copy_from_slice(&407_608_000_i32.to_le_bytes());
+        location[9..13].copy_from_slice(&(-953_702_000_i32).to_le_bytes());
+        location[15..17].copy_from_slice(&2200_u16.to_le_bytes());
+        pack.extend_from_slice(&location);
+        pack
+    }
+
+    fn standard_beacon(counter: u8) -> Vec<u8> {
+        let pack = standard_pack();
+        let vendor_len = 3 + 1 + 1 + pack.len();
+        let mut frame = vec![0u8; MIN_802_11_MGMT_LEN];
+        frame[0] = FC_BEACON;
+        frame[TRANSMITTER_MAC_OFFSET..TRANSMITTER_MAC_OFFSET + 6].copy_from_slice(&MAC);
+        frame.extend_from_slice(&[VENDOR_SPECIFIC_IE, vendor_len as u8]);
+        frame.extend_from_slice(&FA_OUI);
+        frame.push(ODID_OUI_TYPE);
+        frame.push(counter);
+        frame.extend_from_slice(&pack);
+        frame
+    }
+
+    #[test]
+    fn standard_beacon_accepts_every_message_counter_value() {
+        let rejected: Vec<u8> = (0u8..=u8::MAX)
+            .filter(|&counter| ingest_frame(&standard_beacon(counter), -52).is_none())
+            .collect();
+        assert!(
+            rejected.is_empty(),
+            "standard Beacon counters rejected: {rejected:02x?}"
+        );
+    }
+
+    #[test]
+    fn standard_beacon_sets_transport_and_counter_on_wire() {
+        let data = ingest_frame(&standard_beacon(0x7a), -52)
+            .expect("standard Beacon must reach its metadata assertions");
+        assert_eq!(data.transport, Some(RidTransport::WifiBeacon));
+        assert_eq!(data.message_counter, Some(0x7a));
+
+        let wire = serde_json::to_value(data).expect("telemetry serializes");
+        assert_eq!(wire["transport"], "wifi_beacon");
+        assert_eq!(wire["message_counter"], 0x7a);
+    }
+}

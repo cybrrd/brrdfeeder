@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 # Disposable fixtures only. Never an installed product or privileged host mount.
-FROM docker.io/library/debian:13-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132
+FROM docker.io/library/debian:13-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
 # Freeze the transitive Debian package universe as well as direct tools.
 RUN printf '%s\n' \
     'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260928T000000Z trixie main' \

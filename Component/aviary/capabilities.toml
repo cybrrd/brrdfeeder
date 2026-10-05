@@ -22,7 +22,7 @@
 
 schema = 2
 system = "aviary"
-updated = "2026-09-22"
+updated = "2026-10-04"
 reference_profile = "soho"          # ADR 0001 — subtract from the superset
 
 # ── Profiles ────────────────────────────────────────────────────────────────
@@ -69,14 +69,16 @@ opensource  = "implemented"
 hummingbrrd = "planned"
 
 [rid_transport.wifi_nan]
-notes = """Pre-beta commitment (the release approver, 2026-07-13): same radio, software-only.
-decode_nan_action is currently a stub returning None — NO NAN decode exists yet.
-The release approver 2026-09-22: released in a FUTURE version. `planned` is the honest status and it
-MUST NOT be claimed publicly as working until the stub is replaced."""
+notes = """Bounded ODID NAN Service Discovery Action admission and shared strict
+Message Pack decoding are implemented in router::ingest_frame. Evidence covers
+all 256 counters, counts 1–9, malformed-input controls, and independent C-oracle
+frames. Addr2 is provenance; aircraft dedup uses Message Pack identity.
+Software/fixture verified only: no real NAN transmitter or field reception has
+been demonstrated. No RF timing or channel-scheduling conformance claim."""
 [rid_transport.wifi_nan.status]
 soho        = "planned"
 enterprise  = "planned"
-opensource  = "planned"
+opensource  = "implemented"
 hummingbrrd = "planned"
 
 [rid_transport.bluetooth4_legacy]

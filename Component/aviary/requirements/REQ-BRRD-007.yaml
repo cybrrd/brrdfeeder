@@ -23,7 +23,7 @@ rationale: >-
   enters the evidence chain looking valid (Daubert posture — a decode we cannot
   defend is a decode we must not emit).
 binds:
-  - "cybrrd-rid-protocol/src/parsers.rs"
+  - "cybrrd-rid-protocol/src/astm.rs"
   - "cybrrd-rid-protocol/src/router.rs"
   - "capabilities.toml::rid_transport.wifi_beacon"
 verify:

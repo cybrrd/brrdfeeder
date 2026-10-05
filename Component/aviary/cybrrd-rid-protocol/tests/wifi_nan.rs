@@ -56,7 +56,10 @@ fn sdf(counter: u8, count: u8) -> Vec<u8> {
 #[test]
 fn nan_sdf_sets_wire_metadata() {
     let result = ingest_frame(&sdf(0xf7, 2), -49);
-    assert!(result.is_some(), "valid ODID NAN SDF was dropped at admission");
+    assert!(
+        result.is_some(),
+        "valid ODID NAN SDF was dropped at admission"
+    );
     let data = result.unwrap();
     assert_eq!(data.transport, Some(RidTransport::WifiNan));
     assert_eq!(data.message_counter, Some(0xf7));
@@ -75,13 +78,17 @@ fn nan_all_counters_and_pack_counts() {
     for count in 1..=9 {
         for counter in 0..=255 {
             match ingest_frame(&sdf(counter, count), -49) {
-                Some(data) if data.transport == Some(RidTransport::WifiNan)
-                    && data.message_counter == Some(counter) => {}
+                Some(data)
+                    if data.transport == Some(RidTransport::WifiNan)
+                        && data.message_counter == Some(counter) => {}
                 _ => rejected.push((count, counter)),
             }
         }
     }
-    assert!(rejected.is_empty(), "NAN (count, counter) failures: {rejected:?}");
+    assert!(
+        rejected.is_empty(),
+        "NAN (count, counter) failures: {rejected:?}"
+    );
 }
 
 #[test]
@@ -92,7 +99,12 @@ fn nan_skips_unknown_attributes() {
     attributes.extend(unrelated);
     attributes.extend(descriptor(0x24, &pack(2)));
     attributes.extend(attr(0x0e, &[1, 0, 2, 0x24]));
-    assert_eq!(ingest_frame(&action(&attributes), -49).unwrap().message_counter, Some(0x24));
+    assert_eq!(
+        ingest_frame(&action(&attributes), -49)
+            .unwrap()
+            .message_counter,
+        Some(0x24)
+    );
 }
 
 #[test]
@@ -100,7 +112,10 @@ fn nan_rejects_wrong_service() {
     let mut frame = sdf(0x24, 2);
     for offset in 33..39 {
         frame[offset] ^= 1;
-        assert!(ingest_frame(&frame, -49).is_none(), "service-ID byte {offset} ignored");
+        assert!(
+            ingest_frame(&frame, -49).is_none(),
+            "service-ID byte {offset} ignored"
+        );
         frame[offset] ^= 1;
     }
 }
@@ -111,7 +126,10 @@ fn nan_rejects_other_actions() {
     for offset in [0, 24, 25, 26, 27, 28, 29, 41] {
         let mut bad = good.clone();
         bad[offset] ^= 1;
-        assert!(ingest_frame(&bad, -49).is_none(), "admission byte {offset} ignored");
+        assert!(
+            ingest_frame(&bad, -49).is_none(),
+            "admission byte {offset} ignored"
+        );
     }
     // Protected frames and fragments cannot be interpreted as a complete SDF.
     for flags in [0x40, 0x04] {
@@ -136,7 +154,10 @@ fn nan_rejects_sync_beacon() {
     frame.extend(body);
     assert!(ingest_frame(&frame, -49).is_none());
     frame[38..42].copy_from_slice(&[0x2a, 0x1a, 5, 0x13]);
-    assert!(ingest_frame(&frame, -49).is_none(), "unverified legacy OUI accepted");
+    assert!(
+        ingest_frame(&frame, -49).is_none(),
+        "unverified legacy OUI accepted"
+    );
 }
 
 #[test]
@@ -145,12 +166,18 @@ fn nan_rejects_bad_lengths() {
     for (offset, value) in [(31, 0), (31, 255), (32, 255), (42, 0), (42, 255)] {
         let mut bad = good.clone();
         bad[offset] = value;
-        assert!(ingest_frame(&bad, -49).is_none(), "bad length at {offset} accepted");
+        assert!(
+            ingest_frame(&bad, -49).is_none(),
+            "bad length at {offset} accepted"
+        );
     }
     for trailer in [&[0xee][..], &[0xee, 2][..], &[0xee, 2, 0, 7][..]] {
         let mut bad = good.clone();
         bad.extend_from_slice(trailer);
-        assert!(ingest_frame(&bad, -49).is_none(), "truncated trailing attribute accepted");
+        assert!(
+            ingest_frame(&bad, -49).is_none(),
+            "truncated trailing attribute accepted"
+        );
     }
     let mut overlong = pack(9);
     overlong.extend([0; 27]); // 256-byte service info; cannot fit its one-byte length.
@@ -173,7 +200,10 @@ fn nan_rejects_bad_pack() {
 fn nan_truncation_and_byte_mutations_do_not_panic() {
     let frame = sdf(0xff, 9);
     for len in 0..frame.len() {
-        assert!(ingest_frame(&frame[..len], -127).is_none(), "prefix {len} accepted");
+        assert!(
+            ingest_frame(&frame[..len], -127).is_none(),
+            "prefix {len} accepted"
+        );
     }
     for offset in 0..frame.len() {
         for value in 0..=255 {
@@ -182,4 +212,71 @@ fn nan_truncation_and_byte_mutations_do_not_panic() {
             let _ = ingest_frame(&bytes, -127);
         }
     }
+}
+
+#[test]
+fn nan_independent_c_oracle_fields_match() {
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/nan-oracle.json")).unwrap();
+    assert_eq!(
+        fixture["upstream_commit"],
+        "6484f26545d4f012682524e2d843fab0fbdc0b34"
+    );
+    let unhex = |value: &serde_json::Value| -> Vec<u8> {
+        value
+            .as_str()
+            .unwrap()
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+            .collect()
+    };
+    let cases = fixture["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 36);
+    for case in cases {
+        let frame = unhex(&case["frame_hex"]);
+        let data = ingest_frame(&frame, -49).expect("C-generated NAN frame must decode");
+        let wire = serde_json::to_value(data).unwrap();
+        assert_eq!(wire["message_counter"], case["counter"]);
+        assert_eq!(wire["transport"], "wifi_nan");
+        assert_eq!(wire["mac_address"], "02:01:02:03:04:05");
+        assert_eq!(wire["wifi_bssid"], "50:6f:9a:01:00:ff");
+        for (field, expected) in case["decoded"].as_object().unwrap() {
+            assert_eq!(
+                &wire[field], expected,
+                "C/Rust field {field}, count {}",
+                case["count"]
+            );
+        }
+        assert_eq!(wire["drone_id"], case["decoded"]["hardware_serial"]);
+    }
+    assert!(ingest_frame(&unhex(&fixture["sync_frame_hex"]), -49).is_none());
+}
+
+#[test]
+fn nan_negative_controls_have_valid_pairs() {
+    // These assertions keep rejection tests honest: repairing the changed byte
+    // must recover real telemetry rather than just another rejected input.
+    let good = sdf(0x24, 2);
+    assert!(ingest_frame(&good, -49).is_some());
+    for offset in [24, 25, 26, 27, 28, 29, 33, 34, 35, 36, 37, 38, 41, 42] {
+        let mut changed = good.clone();
+        changed[offset] ^= 1;
+        assert!(ingest_frame(&changed, -49).is_none());
+        changed[offset] ^= 1;
+        assert!(ingest_frame(&changed, -49).is_some());
+    }
+    for offset in [31, 32, 44, 45, 46] {
+        let mut changed = good.clone();
+        changed[offset] = 0;
+        if good[offset] == 0 {
+            changed[offset] = 255;
+        }
+        assert!(ingest_frame(&changed, -49).is_none());
+        changed[offset] = good[offset];
+        assert!(ingest_frame(&changed, -49).is_some());
+    }
+    let mut duplicate = descriptor(1, &pack(1));
+    duplicate.extend(descriptor(2, &pack(1)));
+    assert!(ingest_frame(&action(&duplicate), -49).is_none());
 }

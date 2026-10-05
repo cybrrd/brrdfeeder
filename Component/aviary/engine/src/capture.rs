@@ -661,7 +661,7 @@ mod tests {
         ];
         // 802.11 Beacon: 36-byte management header (FC 0x80; transmitter MAC
         // at Address 2, offset 10) + vendor-specific IE 221 carrying the
-        // ASD-STAN OUI, ODID type 0x0D, and the pack.
+        // ASD-STAN OUI, ODID type 0x0D, and the Message Pack.
         let mut beacon = vec![0u8; 36];
         beacon[0] = 0x80;
         beacon[10..16].copy_from_slice(&[0x8c, 0x1e, 0xd9, 0x56, 0xe5, 0x81]);

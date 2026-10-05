@@ -371,7 +371,7 @@ impl Scheduler {
             // Single social channel: keep it first; sweep splits around 149-less remainder.
             (self.plan_social[0], self.plan_social[0])
         } else {
-            // No social channels configured: plain shuffled round robin.
+            // No social channels configured: plain shuffled round-robin.
             let mut visits: Vec<Visit> = Vec::new();
             for ch in &sweep {
                 let base = self.other_dwell_ms;
@@ -980,8 +980,9 @@ mod sim {
     fn sim_legacy_lock_on_monopolizes_for_chatty_incomplete_aircraft() {
         // A 10 Hz identity-only emitter never completes the capture budget,
         // so the legacy lock refreshes its 2 s deadline on every frame:
-        // unbounded channel monopoly (Codex/GLM convergence). The social
-        // default has no aircraft keying at all and must be unaffected.
+        // an unbounded channel monopoly (both independent Q3b analyses
+        // converge on this failure mode). The social default has no
+        // aircraft keying at all and must be unaffected.
         let legacy = legacy_plan();
         let chatty = Tx {
             channel: 6,

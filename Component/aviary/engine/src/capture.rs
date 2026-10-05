@@ -569,6 +569,51 @@ mod tests {
     use super::*;
     use cybrrd_rid_protocol::models::NodeLocation;
 
+    /// Channel-scheduler acceptance C4 (red on the pre-scheduler wire):
+    /// every Wi-Fi observation on the NATS wire must carry the receive
+    /// channel as an additive optional field, with its provenance
+    /// (radiotap-measured vs hunter-configured). The pre-scheduler wire
+    /// omits the field entirely and fails this assertion.
+    #[test]
+    fn wire_carries_rx_channel() {
+        // Real DJI Mini 5 Pro pack (counter + F3411 Message Pack), the same
+        // bytes used by the cybrrd-rid-protocol golden fixture.
+        let pack: [u8; 79] = [
+            0x01, 0xf2, 0x19, 0x03, 0x02, 0x12, b'1', b'5', b'8', b'1', b'F', b'9', b'D', b'E',
+            b'C', b'2', b'6', b'1', b'8', b'0', b'2', b'9', b'6', b'6', b'X', b'D', 0x00, 0x00,
+            0x00, 0x12, 0x16, 0xb5, 0x00, 0x00, 0x12, 0x30, 0x5e, 0x18, 0x6a, 0xba, 0xf6, 0xc6,
+            0x00, 0x00, 0x46, 0x0a, 0xd0, 0x07, 0x2c, 0x04, 0xa6, 0x48, 0x0a, 0x00, 0x42, 0x01,
+            0x26, 0x31, 0x5e, 0x18, 0xdb, 0xb9, 0xf6, 0xc6, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x4b, 0x0a, 0xe3, 0x2c, 0xd2, 0x0d, 0x00,
+        ];
+        // 802.11 Beacon: 36-byte management header (FC 0x80; transmitter MAC
+        // at Address 2, offset 10) + vendor-specific IE 221 carrying the
+        // ASD-STAN OUI, ODID type 0x0D, and the pack.
+        let mut beacon = vec![0u8; 36];
+        beacon[0] = 0x80;
+        beacon[10..16].copy_from_slice(&[0x8c, 0x1e, 0xd9, 0x56, 0xe5, 0x81]);
+        beacon.push(221);
+        beacon.push((4 + pack.len()) as u8);
+        beacon.extend_from_slice(&[0xFA, 0x0B, 0xBC, 0x0D]);
+        beacon.extend_from_slice(&pack);
+        // Minimal radiotap header (present flags: flags + antenna signal),
+        // same shape as the NAN fixture uses.
+        let mut raw = vec![0u8, 0, 10, 0, 0x22, 0, 0, 0, 0, 200u8.wrapping_neg()];
+        raw.extend_from_slice(&beacon);
+
+        let data = ingest_monitor_frame(&raw).expect("beacon fixture must decode");
+        assert_eq!(data.drone_id, "1581F9DEC261802966XD");
+        let value = serde_json::to_value(&data).unwrap();
+        assert!(
+            value.get("rx_channel").is_some(),
+            "every Wi-Fi observation must carry rx_channel on the wire"
+        );
+        assert!(
+            value.get("rx_channel_source").is_some(),
+            "rx_channel must carry its provenance (radiotap vs configured)"
+        );
+    }
+
     #[test]
     fn unknown_position_reaches_backhaul_and_tick_store_without_fabrication() {
         let mut bytes = [0_u8; 53];

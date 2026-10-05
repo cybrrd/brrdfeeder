@@ -3,6 +3,63 @@
 
 # Wi-Fi Beacon message-counter acceptance
 
+## Channel scheduler acceptance (social-dwell default; C1–C5)
+
+The receiver's objective is the set of aircraft in range, not a good track for
+whichever aircraft spoke first. The default schedule becomes cadence-aware and
+fair; aircraft-following lock-on leaves the default path entirely.
+
+Parameters (config-tunable; `preset: social` default): channels 6 and 149 dwell
+**1200 ms** each per visit; every other configured channel **220 ms**; dwell
+jitter ±15% with the social dwell clamped to a 1000 ms floor so the ≥1 s
+`BUR0010` Beacon interval and one full 512 TU (524.288 ms) NAN discovery window
+plus margin survive jitter; sweep channels are re-shuffled each supercycle and
+the two social channels are placed approximately half a supercycle apart; the
+schedule is deterministic for a given seed. Rationale: 1200 ms spans two NAN
+discovery-window periods and gives P(catch) = 1−e^−1.2 ≈ 70% per visit against
+a 1 Hz Beacon; 220 ms covers the 200 TU (204.8 ms) any-channel Beacon interval
+(`BWFB0040`/`BWFB0050`) with guard time. Retune dead time is modelled at the
+cited 8.5 ms same-silicon MT7921e PCIe proxy (734-switch measurement, mean 8.5
+/ p50 8.1 / p90 9.5 ms) with a 25 ms conservative sensitivity; the engine now
+measures and reports its own per-switch retune time so the fleet value can
+replace the proxy. Presets: `social` (default), `park6` (fixed ch 6 for dense
+single-band sites), `sweep` (legacy rotation for spectrum-witness missions).
+Existing explicit hunter configs keep their exact values (back-compat) with a
+logged notice; `lock_on_duration_ms > 0` remains available and is documented as
+an opt-in single-target audit tool.
+
+Pre-registered expected numbers (deterministic simulator, 600 s, 12-channel
+set, 1 Hz Beacon aircraft on every channel, NAN discovery windows every
+524.288 ms on ch 6, T_r = 8.5 ms, sensitivity 25 ms):
+
+| Measure | Legacy default (expected) | Social default (expected) |
+|---|---|---|
+| ch 6 / ch 149 dwell share | 10.25% each | ≥ 24% each (26.1% at T_r=0; 24.5% at 25 ms) |
+| Other-channel dwell share | 5.1–10.25% | 4.4–4.8% (accepted trade: −~10% sweep yield for 2.5× social) |
+| Per-aircraft capture rate, 1 Hz Beacon on 6/149 | 0.081–0.089 fps | 0.145–0.155 fps (≥ 1.7× legacy) |
+| Mean time-to-first-detection on 6/149 | 6.5–10 s | ≤ 2.7 s |
+| Inter-catch gap on 6/149 (legacy + lock-on + 1 s dedup modeled) | p10 3.7–5.5 s, median 4–9 s — reproduces the 24-h capture (p10 4.0 s, median 5–8 s) within reason | median ≤ 7 s, p10 ≥ 2 s |
+| NAN discovery windows covered per social visit | ≤ 1 (82.5%/visit overlap) | ≥ 2 full periods |
+| Chatty 10 Hz identity-only aircraft on ch 6 (never completes budget) | channel monopoly: rotation starves, other channels lose ≥ 25% of visits | zero effect: every channel still visited each supercycle; no dwell exceeds 1200 ms × 1.15 |
+
+| Requirement | Executable evidence | Acceptance |
+|---|---|---|
+| C1 — social long dwell + fair sweep + jitter | `hunter_defaults_give_social_channels_long_dwell_share` (node_config), `schedule::*` unit tests, simulator asserts | 6/149 ≥ 24% share each; social dwell ≥ 1000 ms and ≥ 1 NAN window + margin after jitter; every configured channel visited every supercycle; dwell order/length jittered deterministically. |
+| C2 — no aircraft-following lock in default | `hunter_default_disables_aircraft_following_lock_on` (node_config), `schedule::sim_chatty_aircraft_cannot_monopolize_social_default` | Default `lock_on_duration_ms == 0`; a drone observation does not defer rotation; a chatty identity-only aircraft changes no other channel's visit. |
+| C3 — presets + back-compat + docs | `schedule::preset_resolution_*`, `schedule::explicit_config_wins_over_preset`, tools/CHANNEL-SCHEDULER.md | `social` default; `park6` parks one social channel (no rotation churn); `sweep` reproduces legacy dwells; explicit values always win with a logged notice. |
+| C4 — wire + heartbeat measurement | `wire_carries_rx_channel` (capture), `channel_vitals_report_dwell_and_hits` (heartbeat), `schedule::*` share tests | Additive optional `rx_channel` + `rx_channel_source` (`radiotap`, else `configured`) on every Wi-Fi observation (wire v4 unchanged); heartbeat hunter block carries per-channel `dwell_ms_total`, `rid_hits_total`, `dwell_share_pct`, and retune stats. |
+| C5 — device boundary | `route_guard::*` tests, main.rs startup gate | Only the designated capture adapter is administered (channel setting only in this slice); the engine fails closed if that adapter carries the default route, before any radio administration. |
+| S1 — simulator | `schedule::sim_*` tests | Table above, including the legacy reproduction of the 24-h gap distribution and the legacy lock-on monopoly demonstration. |
+| S2 — retune dead time | `hunter` retune telemetry (heartbeat), ACCEPTANCE citation | Cited 8.5 ms proxy + 25 ms sensitivity in the model; per-switch `last/max/count` measured live so the fleet value replaces the proxy. |
+
+Before implementation, this table and the compiling behavioral tests were
+committed and their assertions recorded red against the pre-scheduler code.
+After implementation, two mutations must each fail a test: re-enabling the
+2000 ms default lock-on (fails `hunter_default_disables_aircraft_following_lock_on`)
+and shrinking the social dwell to 400 ms (fails
+`hunter_defaults_give_social_channels_long_dwell_share`). Engine version at
+PR head: 0.8.27 (separate bump commit); no tag or release.
+
 ## Wi-Fi NAN reception acceptance
 
 Stacked on the Beacon counter fix. Corpus references: BWF0010, BWF0020,

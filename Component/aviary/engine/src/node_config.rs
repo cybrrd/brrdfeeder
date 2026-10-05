@@ -534,6 +534,70 @@ impl ClockYaml {
 mod tests {
     use super::*;
 
+    /// Channel-scheduler acceptance C1 (red on the pre-scheduler default):
+    /// the DEFAULT hunter configuration must give the social channels
+    /// (6 and 149) a long-dwell share — at least 24% of scheduled dwell
+    /// time each — so a ≥1 Hz Beacon and the 512 TU NAN discovery-window
+    /// cadence are caught with high probability per visit. The pre-scheduler
+    /// default (400 ms priority dwell inside a 3800 ms cycle ≈ 10.5%) fails
+    /// this assertion.
+    #[test]
+    fn hunter_defaults_give_social_channels_long_dwell_share() {
+        let cfg = HunterYaml::default();
+        assert!(!cfg.channel_set.is_empty(), "default channel set must exist");
+        let dwell_for = |ch: u32| -> u64 {
+            if cfg.priority_channels.contains(&ch) {
+                cfg.dwell_priority_ms
+            } else {
+                cfg.dwell_default_ms
+            }
+        };
+        let total: u64 = cfg.channel_set.iter().map(|c| dwell_for(*c)).sum();
+        assert!(total > 0);
+        for social in [6u32, 149] {
+            assert!(
+                cfg.channel_set.contains(&social),
+                "social channel {social} must be in the default channel set"
+            );
+            let share_pct = dwell_for(social) * 100 / total;
+            assert!(
+                share_pct >= 24,
+                "social channel {social} must hold >=24% of scheduled dwell (got {share_pct}%)"
+            );
+            let d = dwell_for(social);
+            assert!(
+                d >= 1000,
+                "social dwell {d} ms must be >=1000 ms (>=1 s Beacon interval)"
+            );
+            // One NAN discovery window period is 512 TU = 524.288 ms; the
+            // dwell must cover at least one full period plus margin.
+            assert!(
+                d as f64 >= 524.288 * 1.15,
+                "social dwell {d} ms must cover a NAN discovery window plus margin"
+            );
+        }
+    }
+
+    /// Channel-scheduler acceptance C2 (red on the pre-scheduler default):
+    /// aircraft-following lock-on must be OFF by default. A network receiver
+    /// hears ALL aircraft in range; a drone being heard must never defer
+    /// channel rotation. The pre-scheduler default (2000 ms) fails both the
+    /// config assertion and the behavioral hunter-state assertion.
+    #[test]
+    fn hunter_default_disables_aircraft_following_lock_on() {
+        let cfg = HunterYaml::default();
+        assert_eq!(
+            cfg.lock_on_duration_ms, 0,
+            "lock-on must default to 0 (opt-in single-target audit tool only)"
+        );
+        let hs = crate::hunter::HunterState::new();
+        hs.record_drone_observation("ACCEPTANCE-AIR-1", true, cfg.lock_on_duration_ms);
+        assert!(
+            !hs.lock_on_active(),
+            "a drone observation under the default config must not defer rotation"
+        );
+    }
+
     #[test]
     fn status_file_is_explicitly_opt_in() {
         let base = "id: test\nlocation: {latitude: 0, longitude: 0, elevation_meters: 0}\n";

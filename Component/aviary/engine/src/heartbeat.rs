@@ -667,6 +667,30 @@ pub async fn run_heartbeat_emitter<P, Fut>(
 mod tests {
     use super::*;
 
+    /// Channel-scheduler acceptance C4 (red on the pre-scheduler heartbeat):
+    /// the hunter block's per-channel vitals must report dwell accounting
+    /// (accumulated dwell milliseconds and RID frames heard) so field data
+    /// can prove the schedule improvement. The pre-scheduler ChannelVitals
+    /// carries neither field and fails this assertion.
+    #[test]
+    fn channel_vitals_report_dwell_and_hits() {
+        let v = ChannelVitals {
+            channel: 6,
+            noise_dbm: None,
+            busy_pct: None,
+            sample_age_ms: 42,
+        };
+        let json = serde_json::to_value(&v).unwrap();
+        assert!(
+            json.get("dwell_ms_total").is_some(),
+            "ChannelVitals must carry dwell_ms_total (accumulated dwell)"
+        );
+        assert!(
+            json.get("rid_hits_total").is_some(),
+            "ChannelVitals must carry rid_hits_total (frames heard on channel)"
+        );
+    }
+
     #[test]
     fn parses_canonical_proc_loadavg_line() {
         let s = "0.42 0.31 0.22 1/256 12345\n";

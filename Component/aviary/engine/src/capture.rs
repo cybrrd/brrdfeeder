@@ -639,6 +639,38 @@ mod tests {
         }
     }
 
+    #[test]
+    fn nan_rotating_mac_deduplicates_by_identity() {
+        use cybrrd_rid_protocol::models::TelemetryData;
+        let mut data: TelemetryData = serde_json::from_str(r#"{"protocol":"ASTM_F3411_22a","transport":"wifi_nan","mac_address":"02:01:02:03:04:05","drone_id":"NAN-TEST-01","hardware_serial":"NAN-TEST-01","signal_rssi_dbm":-49}"#).unwrap();
+        let (tx, mut rx) = mpsc::channel(8);
+        let store = crate::tick_publisher::ObservationStore::new();
+        let mut pipe = PostParse::new(ForwardContext {
+            tx, node: static_node(), counters: DropCounters::new(), hunter: None,
+            lock_on_duration_ms: 0, gps: Arc::new(ArcSwap::from_pointee(None)),
+            observation_store: Some(Arc::clone(&store)),
+        }, 1000);
+        assert!(pipe.forward(data.clone()));
+        assert_eq!(rx.try_recv().unwrap().data.mac_address, data.mac_address);
+        data.mac_address = [2, 9, 8, 7, 6, 5];
+        assert!(pipe.forward(data.clone()));
+        assert!(rx.try_recv().is_err(), "NAN address rotation split one pack identity");
+        assert_eq!(store.len(), 1);
+        data.drone_id = "NAN-TEST-02".into();
+        data.hardware_serial = Some(data.drone_id.clone());
+        assert!(pipe.forward(data.clone()));
+        assert_eq!(rx.try_recv().unwrap().data.drone_id, "NAN-TEST-02");
+        assert_eq!(store.len(), 2);
+        data.drone_id = "UNKNOWN".into();
+        data.hardware_serial = None;
+        for mac in [[2; 6], [4; 6]] {
+            data.mac_address = mac;
+            assert!(pipe.forward(data.clone()));
+            assert_eq!(rx.try_recv().unwrap().data.mac_address, mac);
+        }
+        assert_eq!(store.len(), 2, "identity-less NAN must not create a shared UNKNOWN track");
+    }
+
     fn fresh_fix(now_ms: i64) -> GpsFix {
         GpsFix {
             lat: 40.999_999,

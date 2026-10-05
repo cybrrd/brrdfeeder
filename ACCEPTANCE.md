@@ -19,6 +19,11 @@ established by synthetic decoder tests.
 | N5 — obsolete parser removal | repository reference check and migrated NAN/legacy-OUI negative tests | Remove both unused alternate entry points and their unverified legacy branch. |
 | N6 — preserved transports | existing eight Beacon regressions, complete BLE suite and legacy differential oracle | Existing Beacon fixture bytes/output remain identical; no BLE, BPF, hunter, or radio-administration changes. |
 
+Review follow-up: `standard_beacon_skips_bad_odid_ie` must decode a later valid
+ODID IE after an earlier well-bounded IE contains malformed RID data. Commit
+and record its behavioral failure first. An outer IE whose declared length
+overruns the frame still stops walking because the next boundary is unknown.
+
 Before implementation, commit this table and compiling behavioral tests, then
 record admission/256-counter red assertions on the parent branch's code.
 After implementation, prove service-ID and counter-peel mutations fail their

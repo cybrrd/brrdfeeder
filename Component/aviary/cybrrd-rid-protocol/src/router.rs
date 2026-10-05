@@ -210,6 +210,37 @@ mod tests {
     }
 
     #[test]
+    fn standard_beacon_skips_bad_odid_ie() {
+        let mut framed = vec![0x21];
+        framed.extend(standard_pack());
+        let mut bad_header = framed.clone();
+        bad_header[1] = 0x12;
+        let mut bad_size = framed.clone();
+        bad_size[2] = 24;
+        let mut bad_count = framed.clone();
+        bad_count[3] = 0;
+        let mut too_many = framed.clone();
+        too_many[3] = 10;
+        let mut trailing = framed;
+        trailing.push(0);
+        let malformed = [
+            vec![], vec![0x21], vec![0x21, 0xf2, 25], standard_pack(),
+            bad_header, bad_size, bad_count, too_many, trailing,
+        ];
+        for (case, bad) in malformed.iter().enumerate() {
+            let mut frame = management_frame(FC_BEACON, FA_OUI, ODID_OUI_TYPE, bad);
+            assert!(ingest_frame(&frame, -52).is_none());
+            frame.extend_from_slice(&standard_beacon(0xf7)[MIN_802_11_MGMT_LEN..]);
+            let result = ingest_frame(&frame, -52);
+            assert!(result.is_some(), "malformed ODID IE case {case} hid a later valid IE");
+            let data = result.unwrap();
+            assert_eq!(data.message_counter, Some(0xf7));
+            assert_eq!(data.transport, Some(RidTransport::WifiBeacon));
+            assert_eq!(data.drone_id, "1581F9DEC261802966XD");
+        }
+    }
+
+    #[test]
     fn standard_beacon_deframer_is_panic_free_for_arbitrary_bytes() {
         let mut state = 0x6d5a_56e9_u32;
         for len in 0..=512 {

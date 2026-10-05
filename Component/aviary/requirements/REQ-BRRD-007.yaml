@@ -27,6 +27,7 @@ binds:
   - "cybrrd-rid-protocol/src/router.rs"
   - "capabilities.toml::rid_transport.wifi_beacon"
 verify:
+  - "cybrrd-rid-protocol::router::tests::standard_beacon_skips_bad_odid_ie — a malformed RID body must not hide a later valid, well-bounded ODID IE"
   - "cybrrd-rid-protocol::tests::parses_real_dji_mini5pro_to_wire — real-hardware golden (DJI Mini 5 Pro); the anchor test on verbatim captured bytes"
   - "cybrrd-rid-protocol::tests::parses_basic_id_and_location_to_wire — Basic ID + Location to canonical wire"
   - "cybrrd-rid-protocol::tests::dual_basic_id_splits_serial_and_registration_on_wire — dual Basic ID disambiguation"

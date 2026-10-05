@@ -66,9 +66,13 @@ pub fn ingest_frame(dot11_payload: &[u8], rssi_dbm: i32) -> Option<TelemetryData
                 // zero and never has to guess about transport framing.
                 let framed_start = offset + IE_HEADER_LEN + MIN_VENDOR_IE_LEN;
                 let framed = &dot11_payload[framed_start..ie_end];
-                return astm::parse_wifi_service_info(
+                if let Some(data) = astm::parse_wifi_service_info(
                     framed, mac_address, rssi_dbm, RidTransport::WifiBeacon,
-                );
+                ) {
+                    return Some(data);
+                }
+                // This IE has a known outer boundary even when its RID body is
+                // invalid. Keep walking: a later ODID IE may contain valid data.
             }
         }
         offset = ie_end;

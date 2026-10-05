@@ -20,6 +20,11 @@ The capture adapter removes FCS only when radiotap declares it, and rejects
 NAN frames marked as having a bad FCS. Encrypted/fragmented Action frames are
 not parsed as complete SDFs.
 
+The Beacon walker also implements the review follow-up: an ODID IE with a
+malformed RID body is skipped when its outer IE length still identifies the
+next boundary. A later valid ODID IE may then produce the observation. An outer
+IE that overruns the frame still stops the walk; no boundary is guessed.
+
 ## Identity and wire provenance
 
 `mac_address` remains the received Addr2. It is not a stable aircraft key:

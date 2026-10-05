@@ -15,6 +15,13 @@ case "$(uname -m)" in
   x86_64) rust_arch=x86_64-unknown-linux-gnu; rust_sha=20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c ;;
   *) exit 2 ;;
 esac
+# Isolate hosted toolchains
+# Never install components into a runner's pre-existing Rust installation.
+# Persist these job-owned roots for the later offline contract step.
+rust_root=$(mktemp -d "${RUNNER_TEMP:?}/brrd-rust.XXXXXXXX")
+export RUSTUP_HOME="$rust_root/rustup"
+export CARGO_HOME="$rust_root/cargo"
+printf 'RUSTUP_HOME=%s\nCARGO_HOME=%s\n' "$RUSTUP_HOME" "$CARGO_HOME" >> "${GITHUB_ENV:?}"
 # rustup dispatches by argv[0]; a random tmp.* basename is not an installer.
 rust_installer_dir=$(mktemp -d)
 rust_installer="$rust_installer_dir/rustup-init"
@@ -24,11 +31,13 @@ curl --fail --show-error --location --max-time 120 \
 printf '%s  %s\n' "$rust_sha" "$rust_installer" | sha256sum -c -
 chmod 0700 "$rust_installer"
 "$rust_installer" -y --profile minimal --default-toolchain 1.88.0 --no-modify-path
-export PATH="$HOME/.cargo/bin:$PATH"
-printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+export PATH="$CARGO_HOME/bin:$PATH"
+printf '%s\n' "$CARGO_HOME/bin" >> "$GITHUB_PATH"
 rustup toolchain install 1.88.0 --profile minimal --component clippy,rustfmt
 cargo fetch --locked --manifest-path Component/aviary/Cargo.toml
 podman pull docker.io/library/nats@sha256:e4bf19f15fd3218814a4e3c9e0064e1334bd8aa20d5984b9f1a0afd084f8cc00
-podman pull docker.io/library/debian:13-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132
+os_base=$(awk '$1=="FROM" {print $2}' Component/brrdfeeder/install/tests/Containerfile)
+[[ $os_base =~ ^[^[:space:]]+@sha256:[a-f0-9]{64}$ ]]
+podman pull "$os_base"
 podman build --pull=never -f Component/brrdfeeder/install/tests/Containerfile \
   -t localhost/brrd-contract-os:20260929 Component/brrdfeeder/install/tests

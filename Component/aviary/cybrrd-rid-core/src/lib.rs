@@ -165,6 +165,10 @@ pub enum ParseError {
     NotAMessagePack,
     /// MessageSize byte is not the ASTM-mandated 25 (misaligned / non-conformant).
     BadMessageSize,
+    /// Message-count byte is outside the ASTM transport limit of 1..=9.
+    BadMessageCount,
+    /// Payload length does not exactly match the declared message count.
+    BadMessagePackLength,
     /// Legacy error name: no LOCATION and no usable aircraft identity.
     /// Unknown position alone is not a rejection in wire v4.
     NoLocation,
@@ -173,12 +177,14 @@ pub enum ParseError {
 /// Decode a raw ODID Message Pack payload (the bytes following the `0x0D`
 /// ODID OUI-type marker inside a Vendor Specific IE).
 ///
-/// Tolerates the 1-byte non-spec prefix DJI Mini/Neo drones emit before the
-/// standard 3-byte header. Returns `Err` on structural failure or when no
-/// LOCATION or aircraft identity is present. Never panics.
+/// Retains the historical one-byte-prefix and truncated-count tolerance for
+/// callers that already validate their transport boundary. New transport
+/// deframers should use [`decode_message_pack_strict`] after removing their
+/// message counter. Returns `Err` on structural failure or when no LOCATION or
+/// aircraft identity is present. Never panics.
 pub fn decode_message_pack(payload: &[u8]) -> Result<RidPack, ParseError> {
-    // Tolerate optional 1-byte non-standard prefix (DJI dialect): slide one
-    // byte forward if the first byte's high nibble isn't 0xF.
+    // Compatibility behavior: slide one byte when a legacy caller includes
+    // transport framing. Transport-specific code must not depend on this.
     let p = if !payload.is_empty() && (payload[0] >> 4) != 0xF {
         &payload[1..]
     } else {
@@ -210,6 +216,38 @@ pub fn decode_message_pack(payload: &[u8]) -> Result<RidPack, ParseError> {
     };
 
     let out = decode_submessages(pack_data);
+    if !out.has_observation() {
+        return Err(ParseError::NoLocation);
+    }
+    Ok(out)
+}
+
+/// Decode an exactly framed ASTM Message Pack.
+///
+/// The caller must remove any transport-level message counter first. This
+/// entry point accepts only a Pack header at byte zero, MessageSize 25, a
+/// count in 1..=9, and an exact count/length match. It performs no byte slide
+/// and no truncated-pack salvage.
+pub fn decode_message_pack_strict(payload: &[u8]) -> Result<RidPack, ParseError> {
+    if payload.len() < 3 {
+        return Err(ParseError::TooShort);
+    }
+    if (payload[0] >> 4) != 0xF {
+        return Err(ParseError::NotAMessagePack);
+    }
+    if payload[1] as usize != SUB_MESSAGE_LEN {
+        return Err(ParseError::BadMessageSize);
+    }
+    let count = payload[2] as usize;
+    if !(1..=9).contains(&count) {
+        return Err(ParseError::BadMessageCount);
+    }
+    let required_len = 3 + count * SUB_MESSAGE_LEN;
+    if payload.len() != required_len {
+        return Err(ParseError::BadMessagePackLength);
+    }
+
+    let out = decode_submessages(&payload[3..]);
     if !out.has_observation() {
         return Err(ParseError::NoLocation);
     }
@@ -511,8 +549,8 @@ mod tests {
     fn structural_rejections_return_err() {
         // Empty → too short.
         assert_eq!(decode_message_pack(&[]), Err(ParseError::TooShort));
-        // A lone non-0xF byte is treated as a DJI prefix and slid off, leaving
-        // a 2-byte remainder → TooShort (prefix tolerance is intended).
+        // A lone non-0xF byte is treated as legacy transport framing and slid
+        // off, leaving a 2-byte remainder → TooShort.
         assert_eq!(decode_message_pack(&[0x10, 25, 1]), Err(ParseError::TooShort));
         // Prefix slid off, but the real header byte is still not a Pack (0xF).
         assert_eq!(
@@ -527,6 +565,50 @@ mod tests {
     }
 
     #[test]
+    fn strict_pack_requires_exact_standard_framing() {
+        let mut valid = [0u8; 3 + SUB_MESSAGE_LEN];
+        valid[..3].copy_from_slice(&[0xF1, 25, 1]);
+        put_basic_id(&mut valid, 3, 1, b"STRICT-SERIAL");
+        assert_eq!(
+            decode_message_pack_strict(&valid)
+                .unwrap()
+                .hardware_serial
+                .as_deref(),
+            Some("STRICT-SERIAL")
+        );
+
+        let mut prefixed = [0u8; 4 + SUB_MESSAGE_LEN];
+        prefixed[1..].copy_from_slice(&valid);
+        assert_eq!(
+            decode_message_pack_strict(&prefixed),
+            Err(ParseError::NotAMessagePack)
+        );
+
+        let mut bad_count = valid;
+        bad_count[2] = 0;
+        assert_eq!(
+            decode_message_pack_strict(&bad_count),
+            Err(ParseError::BadMessageCount)
+        );
+        bad_count[2] = 10;
+        assert_eq!(
+            decode_message_pack_strict(&bad_count),
+            Err(ParseError::BadMessageCount)
+        );
+
+        assert_eq!(
+            decode_message_pack_strict(&valid[..valid.len() - 1]),
+            Err(ParseError::BadMessagePackLength)
+        );
+        let mut trailing = [0u8; 4 + SUB_MESSAGE_LEN];
+        trailing[..valid.len()].copy_from_slice(&valid);
+        assert_eq!(
+            decode_message_pack_strict(&trailing),
+            Err(ParseError::BadMessagePackLength)
+        );
+    }
+
+    #[test]
     fn over_claimed_count_does_not_panic() {
         // Header claims 5 subs; only 1 (LOCATION) provided. Must not panic.
         let mut buf = [0u8; 3 + SUB_MESSAGE_LEN];
@@ -536,7 +618,9 @@ mod tests {
         assert!((pack.drone_pos.unwrap().lat - 40.7608).abs() < 1e-6);
     }
 
-    /// Verbatim real DJI Mini 5 Pro broadcast captured by test-node-2 2026-05-07.
+    /// Verbatim counter + Message Pack from a real DJI Mini 5 Pro broadcast,
+    /// captured by test-node-2 2026-05-07. Byte 0 is the standard Wi-Fi
+    /// message counter; the historical compatibility decoder removes it.
     /// IDType nibble of the BASIC_ID byte 1 (0x12) is 0x1 → SerialNumber.
     #[test]
     fn real_dji_mini5pro_decodes_serial_and_position() {

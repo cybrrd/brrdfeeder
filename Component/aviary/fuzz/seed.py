@@ -27,7 +27,7 @@ def seed(target, data):
         path.write_bytes(data)
         counts[target] = counts.get(target, 0) + 1
 
-def pack_seeds(pack, mac=b"\x01" * 6):
+def pack_seeds(pack, mac=b"\x01" * 6, wifi_counter=0):
     seed("pack", pack)
     if len(pack) <= 245:
         seed("ble", bytes([5 + len(pack), 0x16, 0xfa, 0xff, 0x0d, 0]) + pack)
@@ -36,9 +36,9 @@ def pack_seeds(pack, mac=b"\x01" * 6):
         if len(single) == 25:
             seed("pack", single)
             seed("ble", bytes([30, 0x16, 0xfa, 0xff, 0x0d, 0]) + single)
-    if len(pack) <= 251:
+    if len(pack) <= 250:
         header = bytearray(36); header[0] = 0x80; header[10:16] = mac
-        seed("wifi", header + bytes([0xdd, 4 + len(pack), 0xfa, 0x0b, 0xbc, 0x0d]) + pack)
+        seed("wifi", header + bytes([0xdd, 5 + len(pack), 0xfa, 0x0b, 0xbc, 0x0d, wifi_counter]) + pack)
 
 vectors = REPO / "Standards/F3411/vectors"
 for path in sorted(vectors.glob("*.pcap")):
@@ -61,7 +61,7 @@ for path in sorted(vectors.glob("*.pcap")):
             end = ie+2+packet[ie+1]
             if end > len(packet): break
             if packet[ie] == 0xdd and packet[ie+2:ie+6] == bytes.fromhex("fa0bbc0d"):
-                pack_seeds(packet[ie+6:end])
+                pack_seeds(packet[ie+7:end], wifi_counter=packet[ie+6])
             ie = end
 
 spec = importlib.util.spec_from_file_location("ble_vectors", ROOT / "tools/ble_vector_extract.py")

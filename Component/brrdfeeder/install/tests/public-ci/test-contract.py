@@ -125,6 +125,17 @@ runpy.run_path(sys.argv[0], run_name='__main__')
                 self.assertNotEqual(result.returncode,0)
                 self.assertEqual(calls.read_bytes(),before)
 
+    def test_nmea_stays_on_07_and_dependabot_ignores_breaking_updates(self):
+        manifest=tomllib.loads((ROOT/'Component/aviary/engine/Cargo.toml').read_text())
+        self.assertEqual(manifest['dependencies']['nmea'],'0.7')
+        lock=tomllib.loads((ROOT/'Component/aviary/Cargo.lock').read_text())
+        self.assertEqual([p['version'] for p in lock['package'] if p['name']=='nmea'],['0.7.0'])
+        updates=yaml.safe_load((ROOT/'.github/dependabot.yml').read_text())['updates']
+        cargo=next(u for u in updates if u['package-ecosystem']=='cargo')
+        ignores=[i for i in cargo['ignore'] if i['dependency-name']=='nmea']
+        self.assertTrue(any('>=0.8' in i.get('versions',[]) for i in ignores))
+        self.assertTrue(any('version-update:semver-major' in i.get('update-types',[]) for i in ignores))
+
     def test_dependabot_workspace_uses_only_root_lockfile(self):
         updates=yaml.safe_load((ROOT/'.github/dependabot.yml').read_text())['updates']
         cargo=[u for u in updates if u['package-ecosystem']=='cargo']

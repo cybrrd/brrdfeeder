@@ -10,6 +10,13 @@ updates:
     # Stale nested locks create invalid member-scoped security-update jobs.
     directory: /Component/aviary
     schedule: {interval: weekly}
+    # GPS parsing stays on 0.7 until its separately reviewed migration.
+    # Explicit range also blocks the breaking 0.x minor (0.7 -> 0.8).
+    ignore:
+      - dependency-name: nmea
+        versions: ['>=0.8']
+      - dependency-name: nmea
+        update-types: ['version-update:semver-major']
     groups:
       cargo-version: {patterns: ['*'], applies-to: version-updates}
       cargo-security: {patterns: ['*'], applies-to: security-updates}

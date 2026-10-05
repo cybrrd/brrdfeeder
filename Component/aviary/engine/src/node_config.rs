@@ -435,7 +435,7 @@ impl EngineConfig {
         if !crate::silver::valid_coordinates(loc.latitude, loc.longitude) {
             return Err("node.location: (0,0) is declared unknown, not a valid configured installation position".into());
         }
-        cfg.loaded_config_hash = Some(format!("sha256:{:x}", Sha256::digest(content.as_bytes())));
+        cfg.loaded_config_hash = Some(format!("sha256:{}", hex::encode(Sha256::digest(content.as_bytes()))));
         for key in cfg.deprecated_keys() {
             eprintln!("[config] deprecated {key}: accepted for installer compatibility, ignored by engine");
         }
@@ -695,7 +695,8 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
         }
         let loaded = EngineConfig::load(path.to_str().unwrap()).unwrap();
         let hash = loaded.loaded_config_hash.clone().unwrap();
-        assert_eq!(hash, format!("sha256:{:x}", Sha256::digest(yaml("40", "-95").as_bytes())));
+        // Independent sha256sum golden: preserve the wire format across digest API upgrades.
+        assert_eq!(hash, "sha256:93d35e0eb3ffc08474e7beccee891788f641daa5032f1dc3a18abb6e6add81fb");
         std::fs::write(&path, yaml("41", "-96")).unwrap();
         assert_eq!(loaded.silver_context().config_hash.as_deref(), Some(hash.as_str()), "disk replacement is not a reload");
         let reloaded = EngineConfig::load(path.to_str().unwrap()).unwrap();

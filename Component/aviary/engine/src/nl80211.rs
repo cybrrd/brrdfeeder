@@ -28,12 +28,13 @@
 // itself when the substrate jostles it loose.
 
 use neli::attr::Attribute;
-use neli::consts::nl::{NlmF, NlmFFlags, Nlmsg};
+use neli::consts::nl::NlmF;
 use neli::consts::socket::NlFamily;
-use neli::genl::{Genlmsghdr, Nlattr};
-use neli::nl::{NlPayload, Nlmsghdr};
-use neli::socket::NlSocketHandle;
-use neli::types::{Buffer, GenlBuffer};
+use neli::genl::{AttrTypeBuilder, Genlmsghdr, GenlmsghdrBuilder, NlattrBuilder};
+use neli::nl::NlPayload;
+use neli::router::synchronous::NlRouter;
+use neli::types::GenlBuffer;
+use neli::utils::Groups;
 use nl80211_ng::attr::{
     Nl80211Attr, Nl80211ChanWidth, Nl80211ChannelType, Nl80211Iftype, Nl80211SurveyInfo,
 };
@@ -145,114 +146,101 @@ pub struct SurveyEntry {
 /// `frequency_mhz == 0` are filtered out (kernel sometimes sends
 /// padding entries during driver init; substrate-truth filter).
 pub fn get_survey(ifindex: u32) -> Result<Vec<SurveyEntry>, String> {
-    let mut sock = NlSocketHandle::connect(NlFamily::Generic, None, &[])
+    let (sock, _) = NlRouter::connect(NlFamily::Generic, None, Groups::empty())
         .map_err(|e| format!("nl80211 socket connect: {}", e))?;
     let family_id = sock
         .resolve_genl_family(NL_80211_GENL_NAME)
         .map_err(|e| format!("resolve nl80211 family: {}", e))?;
-
-    let mut attrs: GenlBuffer<Nl80211Attr, Buffer> = GenlBuffer::new();
-    attrs.push(
-        Nlattr::new(false, false, Nl80211Attr::AttrIfindex, ifindex)
-            .map_err(|e| format!("build AttrIfindex: {}", e))?,
-    );
-
-    let msghdr = Genlmsghdr::<Nl80211Cmd, Nl80211Attr>::new(
-        Nl80211Cmd::CmdGetSurvey,
-        NL_80211_GENL_VERSION,
-        attrs,
-    );
-
-    let nlhdr: Nlmsghdr<u16, Genlmsghdr<Nl80211Cmd, Nl80211Attr>> = Nlmsghdr::new(
-        None,
-        family_id,
-        NlmFFlags::new(&[NlmF::Request, NlmF::Dump]),
-        None,
-        None,
-        NlPayload::Payload(msghdr),
-    );
-
-    sock.send(nlhdr)
+    // The router adds REQUEST and validates sequence/PID, dump completion and
+    // kernel errors. No ACK is requested, matching the existing dump protocol.
+    let responses = sock
+        .send::<_, _, u16, Genlmsghdr<u8, u16>>(
+            family_id,
+            NlmF::DUMP,
+            NlPayload::Payload(survey_request(ifindex)?),
+        )
         .map_err(|e| format!("CMD_GET_SURVEY send: {}", e))?;
-
     let mut entries = Vec::new();
-    let iter = sock.iter::<Nlmsg, Genlmsghdr<Nl80211Cmd, Nl80211Attr>>(false);
-
-    for res in iter {
-        let response = res.map_err(|e| format!("CMD_GET_SURVEY recv: {}", e))?;
-        match response.nl_type {
-            Nlmsg::Done => break,
-            Nlmsg::Error => return Err("CMD_GET_SURVEY: kernel returned NLMSG_ERROR".into()),
-            Nlmsg::Noop => continue,
-            _ => {
-                let payload = match response.nl_payload.get_payload() {
-                    Some(p) => p,
-                    None => continue,
-                };
-                if payload.cmd != Nl80211Cmd::CmdNewSurveyResults {
-                    continue;
-                }
-                let handle = payload.get_attr_handle();
-                let survey_attr = match handle.get_attribute(Nl80211Attr::AttrSurveyInfo) {
-                    Some(a) => a,
-                    None => continue,
-                };
-
-                let mut entry = SurveyEntry::default();
-                let nested = match survey_attr.get_attr_handle::<Nl80211SurveyInfo>() {
-                    Ok(h) => h,
-                    Err(_) => continue,
-                };
-
-                for inner in nested.get_attrs() {
-                    match inner.nla_type.nla_type {
-                        Nl80211SurveyInfo::SurveyInfoFrequency => {
-                            if let Ok(v) = inner.get_payload_as::<u32>() {
-                                entry.frequency_mhz = v;
-                                entry.channel = freq_mhz_to_channel(v);
-                            }
-                        }
-                        Nl80211SurveyInfo::SurveyInfoNoise => {
-                            if let Ok(v) = inner.get_payload_as::<i8>() {
-                                entry.noise_dbm = Some(v);
-                            }
-                        }
-                        Nl80211SurveyInfo::SurveyInfoInUse => {
-                            // Flag attribute (zero-length); presence == true.
-                            entry.in_use = true;
-                        }
-                        Nl80211SurveyInfo::SurveyInfoTime => {
-                            if let Ok(v) = inner.get_payload_as::<u64>() {
-                                entry.time_active_ms = Some(v);
-                            }
-                        }
-                        Nl80211SurveyInfo::SurveyInfoTimeBusy => {
-                            if let Ok(v) = inner.get_payload_as::<u64>() {
-                                entry.time_busy_ms = Some(v);
-                            }
-                        }
-                        Nl80211SurveyInfo::SurveyInfoTimeRx => {
-                            if let Ok(v) = inner.get_payload_as::<u64>() {
-                                entry.time_rx_ms = Some(v);
-                            }
-                        }
-                        Nl80211SurveyInfo::SurveyInfoTimeTx => {
-                            if let Ok(v) = inner.get_payload_as::<u64>() {
-                                entry.time_tx_ms = Some(v);
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-
-                if entry.frequency_mhz != 0 {
-                    entries.push(entry);
-                }
+    for response in responses {
+        let response = response.map_err(|e| format!("CMD_GET_SURVEY recv: {}", e))?;
+        if let NlPayload::Payload(payload) = response.nl_payload() {
+            if let Some(entry) = parse_survey(payload) {
+                entries.push(entry);
             }
         }
     }
-
     Ok(entries)
+}
+
+// nl80211-ng still uses neli 0.6. Cross the version boundary using the kernel
+// u8/u16 wire IDs, not that dependency's version-specific serialization traits.
+fn survey_request(ifindex: u32) -> Result<Genlmsghdr<u8, u16>, String> {
+    let attr_type = AttrTypeBuilder::default()
+        .nla_type(u16::from(Nl80211Attr::AttrIfindex))
+        .build()
+        .map_err(|e| format!("build AttrIfindex type: {}", e))?;
+    let attr = NlattrBuilder::default()
+        .nla_type(attr_type)
+        .nla_payload(ifindex)
+        .build()
+        .map_err(|e| format!("build AttrIfindex: {}", e))?;
+    GenlmsghdrBuilder::default()
+        .cmd(u8::from(Nl80211Cmd::CmdGetSurvey))
+        .version(NL_80211_GENL_VERSION)
+        .attrs(std::iter::once(attr).collect::<GenlBuffer<_, _>>())
+        .build()
+        .map_err(|e| format!("build CMD_GET_SURVEY: {}", e))
+}
+
+fn parse_survey(payload: &Genlmsghdr<u8, u16>) -> Option<SurveyEntry> {
+    if *payload.cmd() != u8::from(Nl80211Cmd::CmdNewSurveyResults) {
+        return None;
+    }
+    let handle = payload.attrs().get_attr_handle();
+    let survey_attr = handle.get_attribute(u16::from(Nl80211Attr::AttrSurveyInfo))?;
+    let nested = survey_attr.get_attr_handle::<u16>().ok()?;
+    let mut entry = SurveyEntry::default();
+    for inner in nested.get_attrs() {
+        match Nl80211SurveyInfo::from(*inner.nla_type().nla_type()) {
+            Nl80211SurveyInfo::SurveyInfoFrequency => {
+                if let Ok(v) = inner.get_payload_as::<u32>() {
+                    entry.frequency_mhz = v;
+                    entry.channel = freq_mhz_to_channel(v);
+                }
+            }
+            Nl80211SurveyInfo::SurveyInfoNoise => {
+                if let Ok(v) = inner.get_payload_as::<i8>() {
+                    entry.noise_dbm = Some(v);
+                }
+            }
+            Nl80211SurveyInfo::SurveyInfoInUse => {
+                // Flag attribute (zero-length); presence == true.
+                entry.in_use = true;
+            }
+            Nl80211SurveyInfo::SurveyInfoTime => {
+                if let Ok(v) = inner.get_payload_as::<u64>() {
+                    entry.time_active_ms = Some(v);
+                }
+            }
+            Nl80211SurveyInfo::SurveyInfoTimeBusy => {
+                if let Ok(v) = inner.get_payload_as::<u64>() {
+                    entry.time_busy_ms = Some(v);
+                }
+            }
+            Nl80211SurveyInfo::SurveyInfoTimeRx => {
+                if let Ok(v) = inner.get_payload_as::<u64>() {
+                    entry.time_rx_ms = Some(v);
+                }
+            }
+            Nl80211SurveyInfo::SurveyInfoTimeTx => {
+                if let Ok(v) = inner.get_payload_as::<u64>() {
+                    entry.time_tx_ms = Some(v);
+                }
+            }
+            _ => {}
+        }
+    }
+    (entry.frequency_mhz != 0).then_some(entry)
 }
 
 /// Wave 7.1 Inc 8 — query whether an interface is currently in
@@ -418,6 +406,102 @@ pub fn establish_monitor_mode(ifindex: u32) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use neli::{FromBytesWithInput, ToBytes};
+    use std::io::Cursor;
+
+    // Hand-encoded Linux nl80211 ABI fixtures, independent of neli's builders.
+    fn wire_attr(id: u16, payload: &[u8]) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&((payload.len() + 4) as u16).to_ne_bytes());
+        bytes.extend_from_slice(&id.to_ne_bytes());
+        bytes.extend_from_slice(payload);
+        bytes.resize((bytes.len() + 3) & !3, 0);
+        bytes
+    }
+
+    fn wire_survey(cmd: u8, attrs: &[u8]) -> Genlmsghdr<u8, u16> {
+        let mut bytes = vec![cmd, 1, 0, 0];
+        bytes.extend_from_slice(attrs);
+        Genlmsghdr::from_bytes_with_input(&mut Cursor::new(&bytes), bytes.len()).unwrap()
+    }
+
+    fn survey_fields(fields: &[Vec<u8>]) -> Genlmsghdr<u8, u16> {
+        wire_survey(51, &wire_attr(84 | 0x8000, &fields.concat()))
+    }
+
+    #[test]
+    fn survey_request_preserves_kernel_wire_abi() {
+        let mut wire = Cursor::new(Vec::new());
+        survey_request(0x01020304).unwrap().to_bytes(&mut wire).unwrap();
+        let mut expected = vec![50, 1, 0, 0];
+        expected.extend(wire_attr(3, &0x01020304_u32.to_ne_bytes()));
+        assert_eq!(wire.into_inner(), expected);
+    }
+
+    #[test]
+    fn survey_decodes_signed_noise_flag_and_64_bit_counters() {
+        let payload = survey_fields(&[
+            wire_attr(1, &5180_u32.to_ne_bytes()),
+            wire_attr(2, &(-97_i8).to_ne_bytes()),
+            wire_attr(3, &[]),
+            wire_attr(4, &(u32::MAX as u64 + 100).to_ne_bytes()),
+            wire_attr(5, &1234_u64.to_ne_bytes()),
+            wire_attr(7, &567_u64.to_ne_bytes()),
+            wire_attr(8, &89_u64.to_ne_bytes()),
+            wire_attr(999, &[1, 2, 3]),
+        ]);
+        let entry = parse_survey(&payload).unwrap();
+        assert_eq!(entry.frequency_mhz, 5180);
+        assert_eq!(entry.channel, Some(36));
+        assert_eq!(entry.noise_dbm, Some(-97));
+        assert!(entry.in_use);
+        assert_eq!(entry.time_active_ms, Some(u32::MAX as u64 + 100));
+        assert_eq!(entry.time_busy_ms, Some(1234));
+        assert_eq!(entry.time_rx_ms, Some(567));
+        assert_eq!(entry.time_tx_ms, Some(89));
+    }
+
+    #[test]
+    fn survey_ignores_missing_zero_or_malformed_frequency() {
+        for fields in [vec![], vec![wire_attr(1, &0_u32.to_ne_bytes())],
+                       vec![wire_attr(1, &[1, 2])]] {
+            assert!(parse_survey(&survey_fields(&fields)).is_none());
+        }
+    }
+
+    #[test]
+    fn survey_ignores_other_commands_missing_and_malformed_nesting() {
+        let attrs = wire_attr(84 | 0x8000, &wire_attr(1, &2412_u32.to_ne_bytes()));
+        assert!(parse_survey(&wire_survey(50, &attrs)).is_none());
+        assert!(parse_survey(&wire_survey(51, &[])).is_none());
+        assert!(parse_survey(&wire_survey(51, &wire_attr(84 | 0x8000, &[8, 0, 1]))).is_none());
+    }
+
+    #[test]
+    fn survey_optional_malformed_values_stay_unknown() {
+        let payload = survey_fields(&[
+            wire_attr(1, &2412_u32.to_ne_bytes()), wire_attr(2, &[]),
+            wire_attr(4, &[1, 2]), wire_attr(5, &[]),
+            wire_attr(7, &[1]), wire_attr(8, &[1, 2, 3]),
+        ]);
+        let entry = parse_survey(&payload).unwrap();
+        assert_eq!(entry.channel, Some(1));
+        assert!(!entry.in_use);
+        assert_eq!(entry.noise_dbm, None);
+        assert_eq!(entry.time_active_ms, None);
+        assert_eq!(entry.time_busy_ms, None);
+        assert_eq!(entry.time_rx_ms, None);
+        assert_eq!(entry.time_tx_ms, None);
+    }
+
+    #[test]
+    fn survey_malformed_duplicate_does_not_erase_valid_counter() {
+        let payload = survey_fields(&[
+            wire_attr(1, &2412_u32.to_ne_bytes()),
+            wire_attr(5, &42_u64.to_ne_bytes()), wire_attr(5, &[1]),
+        ]);
+        assert_eq!(parse_survey(&payload).unwrap().time_busy_ms, Some(42));
+    }
 
     #[test]
     fn channel_to_freq_us_24ghz() {

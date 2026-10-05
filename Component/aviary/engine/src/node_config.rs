@@ -112,106 +112,73 @@ pub struct CaptureYaml {
     pub hunter: HunterYaml,
 }
 
-/// Hunter task config (Wave 7.1).
+/// Hunter task config (channel scheduler).
 ///
-/// When `enabled: false`, no channel rotation occurs — the engine
-/// expects the operator (or a startup systemd unit) to have already
-/// locked the interface to its operating channel.
+/// WHAT: `preset` selects the schedule family; every other field is an
+/// OPTIONAL explicit override. `social` (the default) gives channels 6 and
+/// 149 long dwells (1200 ms: two NAN discovery-window periods and a ≥1 s
+/// `BUR0010` Beacon interval) while every other configured channel still
+/// gets a short, fair 220 ms visit each supercycle, all jittered ±15% so
+/// no transmitter cadence can phase-lock against us. `park6` parks the
+/// first social channel (dense single-band sites). `sweep` reproduces the
+/// legacy 200/400 ms rotation values (spectrum-witness missions).
 ///
-/// When `enabled: true`, the Hunter task rotates the interface
-/// through `channel_set` with `dwell_default_ms` per channel, except
-/// channels listed in `priority_channels` which get
-/// `dwell_priority_ms`. See `docs/src/substrate-device-identity.md`
-/// for the architectural rationale (the Kittler Substrate Defense).
-#[derive(Debug, Deserialize)]
+/// WHY: the receiver's objective is the SET of aircraft in range. The
+/// 200/400 ms rotation gave ch 6 and 149 only ~10% of wall time and turned
+/// the ≥1 Hz broadcast cadence into ~4–5 s observation gaps; dwell-to-follow
+/// made the node a single-aircraft tracker. See `engine/src/schedule.rs`.
+///
+/// WHEN-to-tune: raise `dwell_priority_ms` if field heartbeat data
+/// (`hunter.channels[].dwell_share_pct`, `rid_hits_total`) shows NAN
+/// windows missed at visit edges; lower `dwell_default_ms` only if sweep
+/// starvation hurts more than social yield; set `lock_on_duration_ms > 0`
+/// ONLY for single-target audit missions — it is off in every preset.
+///
+/// DEPENDS-ON: `BWF0090` (NAN ch 6/149), `BWFB0030` (Beacon social
+/// channels), `BUR0010` (≥1 Hz dynamic), `BWFB0040/0050` (200 TU
+/// any-channel Beacon interval). Explicit values always win over preset
+/// defaults (back-compat); `HunterPlan::from_yaml` resolves and records
+/// which fields were explicit.
+///
+/// When `enabled: false`, no channel rotation occurs — the engine expects
+/// the operator (or a startup systemd unit) to have already locked the
+/// interface to its operating channel.
+#[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HunterYaml {
     #[serde(default)]
     pub enabled: bool,
-    #[serde(default = "default_hunter_channel_set")]
-    pub channel_set: Vec<u32>,
-    #[serde(default = "default_dwell_default_ms")]
-    pub dwell_default_ms: u64,
-    #[serde(default = "default_dwell_priority_ms")]
-    pub dwell_priority_ms: u64,
-    #[serde(default = "default_priority_channels")]
-    pub priority_channels: Vec<u32>,
-    /// Wave 7.1 Inc 6 — hard cap on lock-on duration (ms). When the
-    /// capture loop sees any drone-class RID frame (vendor-neutral),
-    /// the Hunter defers channel rotation for at MOST this long.
-    /// Set to 0 to disable lock-on entirely (round-robin scanning
-    /// without lock-on behavior).
-    #[serde(default = "default_lock_on_duration_ms")]
-    pub lock_on_duration_ms: u64,
-    /// Wave 7.1b — minimum lock-on duration (ms). After the
-    /// capture-budget is satisfied (drone_id + position observed),
-    /// the Hunter still holds the lock for at least this long to
-    /// catch follow-on frames before resuming rotation. Substrate-
-    /// truth floor on how quickly the radio can leave a channel
-    /// after a drone-class frame.
-    #[serde(default = "default_lock_on_min_ms")]
-    pub lock_on_min_ms: u64,
-}
-
-impl Default for HunterYaml {
-    fn default() -> Self {
-        HunterYaml {
-            enabled: false,
-            channel_set: default_hunter_channel_set(),
-            dwell_default_ms: default_dwell_default_ms(),
-            dwell_priority_ms: default_dwell_priority_ms(),
-            priority_channels: default_priority_channels(),
-            lock_on_duration_ms: default_lock_on_duration_ms(),
-            lock_on_min_ms: default_lock_on_min_ms(),
-        }
-    }
-}
-
-fn default_lock_on_duration_ms() -> u64 {
-    // Wave 7.1b — hard cap reduced from 5000 to 2000ms. At 1 Hz
-    // Beacon Mode, 2 seconds captures 2 full message cycles even
-    // for non-Pack-mode drones (worst case). The capture-budget
-    // release typically fires much earlier (~500ms) for Pack-mode
-    // drones like the Mavic 3T that broadcast all message types in
-    // a single Pack frame. Closes the 25-drone-different-channels
-    // starvation gap.
-    2000
-}
-
-fn default_lock_on_min_ms() -> u64 {
-    // Wave 7.1b — floor on effective lock duration. Even when the
-    // capture-budget completes on the first observed frame
-    // (Pack-mode drones), hold the channel at least this long so
-    // follow-on frames within the broadcast cycle still get
-    // witnessed before the radio rotates away.
-    500
-}
-
-fn default_hunter_channel_set() -> Vec<u32> {
-    // 2.4 GHz primary RID (1/6/11) + 5 GHz UNII-1 (36-48) + UNII-3 (149-165).
-    // DFS UNII-2 channels (52-144) are deliberately excluded from default
-    // until we have radar-clearance confidence; they can listen but the
-    // driver may refuse passive-monitor on first set without DFS clearance.
-    vec![1, 6, 11, 36, 40, 44, 48, 149, 153, 157, 161, 165]
-}
-
-fn default_dwell_default_ms() -> u64 {
-    // 200ms = 20% per-visit hit probability against 1 Hz RID Beacon Mode.
-    // 12 channels × 200ms baseline = ~2.4s full cycle; 3 cycles to converge.
-    200
-}
-
-fn default_dwell_priority_ms() -> u64 {
-    // 400ms = 40% per-visit hit probability on statistically-dense channels
-    // (DJI Neo / Mini 5 Pro / Mavic 3 default operating bands).
-    400
-}
-
-fn default_priority_channels() -> Vec<u32> {
-    // Channels with highest empirical drone-broadcast density. Will
-    // refine via the Surface 3 fleet-wide channel-productivity heatmap
-    // (Wave 6.6 / 7.6 dependency).
-    vec![1, 6, 11, 36, 149, 157, 161]
+    /// Schedule family: `social` (default) | `park6` | `sweep`.
+    #[serde(default)]
+    pub preset: Option<crate::schedule::HunterPreset>,
+    /// Explicit channel set override (default: 12-channel RID set).
+    #[serde(default)]
+    pub channel_set: Option<Vec<u32>>,
+    /// Explicit non-social (sweep) dwell override in ms.
+    #[serde(default)]
+    pub dwell_default_ms: Option<u64>,
+    /// Explicit social/priority dwell override in ms.
+    #[serde(default)]
+    pub dwell_priority_ms: Option<u64>,
+    /// Explicit social/priority channel list override.
+    #[serde(default)]
+    pub priority_channels: Option<Vec<u32>>,
+    /// Opt-in single-target audit lock in ms. WHAT: when > 0, a drone-class
+    /// frame defers rotation for at most this long. WHY: single-target
+    /// audit tool ONLY — off (0) in every preset because a network receiver
+    /// must never let one aircraft starve the others. WHEN-to-tune: audit
+    /// missions only. DEPENDS-ON: capture-budget release (lock_on_min_ms).
+    #[serde(default)]
+    pub lock_on_duration_ms: Option<u64>,
+    /// Lock minimum hold floor in ms (audit mode only).
+    #[serde(default)]
+    pub lock_on_min_ms: Option<u64>,
+    /// Dwell jitter fraction in [0, 0.5] (default 0.15).
+    #[serde(default)]
+    pub jitter_fraction: Option<f64>,
+    /// Deterministic jitter seed (default fixed for CI/fleet agreement).
+    #[serde(default)]
+    pub jitter_seed: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -311,7 +278,12 @@ pub struct RidBleYaml {
 
 impl Default for RidBleYaml {
     fn default() -> Self {
-        Self { enabled: false, unblock_rfkill: false, adapter: BleAdapterYaml::default(), quiet_window_s: 30 }
+        Self {
+            enabled: false,
+            unblock_rfkill: false,
+            adapter: BleAdapterYaml::default(),
+            quiet_window_s: 30,
+        }
     }
 }
 
@@ -324,21 +296,28 @@ pub struct BleAdapterYaml {
 
 impl RidBleYaml {
     pub fn validate(&self) -> Result<(), String> {
-        if !self.enabled { return Ok(()); }
+        if !self.enabled {
+            return Ok(());
+        }
         if self.quiet_window_s == 0 {
             return Err("rid_ble quiet_window_s must be positive".into());
         }
         match (&self.adapter.bd_addr, &self.adapter.usb_id) {
             (Some(addr), None) if valid_hex_identity(addr, 6, 2) => Ok(()),
             (None, Some(id)) if valid_hex_identity(id, 2, 4) => Ok(()),
-            _ => Err("rid_ble needs exactly one adapter identity: BD_ADDR or USB vendor:product".into()),
+            _ => Err(
+                "rid_ble needs exactly one adapter identity: BD_ADDR or USB vendor:product".into(),
+            ),
         }
     }
 }
 
 fn valid_hex_identity(value: &str, count: usize, width: usize) -> bool {
     let parts: Vec<_> = value.split(':').collect();
-    parts.len() == count && parts.iter().all(|p| p.len() == width && p.bytes().all(|b| b.is_ascii_hexdigit()))
+    parts.len() == count
+        && parts
+            .iter()
+            .all(|p| p.len() == width && p.bytes().all(|b| b.is_ascii_hexdigit()))
 }
 
 #[derive(Debug, Deserialize)]
@@ -401,16 +380,35 @@ impl Default for GpsYaml {
 ///
 /// The udev rule that creates this symlink lives at `deploy/udev/99-cybrrd-brrdfeeder.rules`
 /// (harvested from a live feeder, not invented).
-fn default_gps_device() -> String { "/dev/cybrrd_gps".to_string() }
-fn default_gps_baud() -> u32 { 9600 }
-fn default_gps_required() -> bool { true }            // Wave 7.4 trust-tier default
-fn default_gps_startup_grace_secs() -> u64 { 120 }
-fn default_gps_stale_after_secs() -> u64 { 30 }
+fn default_gps_device() -> String {
+    "/dev/cybrrd_gps".to_string()
+}
+fn default_gps_baud() -> u32 {
+    9600
+}
+fn default_gps_required() -> bool {
+    true
+} // Wave 7.4 trust-tier default
+fn default_gps_startup_grace_secs() -> u64 {
+    120
+}
+fn default_gps_stale_after_secs() -> u64 {
+    30
+}
 
 impl EngineConfig {
-    pub fn load_with_fallback(primary: &str, fallback: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load_with_fallback(
+        primary: &str,
+        fallback: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         match Self::load(primary) {
-            Err(error) if error.downcast_ref::<std::io::Error>().is_some_and(|e| e.kind() == std::io::ErrorKind::NotFound) => Self::load(fallback),
+            Err(error)
+                if error
+                    .downcast_ref::<std::io::Error>()
+                    .is_some_and(|e| e.kind() == std::io::ErrorKind::NotFound) =>
+            {
+                Self::load(fallback)
+            }
             result => result,
         }
     }
@@ -424,12 +422,19 @@ impl EngineConfig {
         }
         cfg.sensors.rid_ble.validate()?;
         cfg.sensors.gps.clock.validate()?;
-        if let Some(upward) = &cfg.upward { upward.validate(&cfg.node.id)?; }
-        if let Some(savefile) = &cfg.capture.savefile { savefile.validate()?; }
+        if let Some(upward) = &cfg.upward {
+            upward.validate(&cfg.node.id)?;
+        }
+        if let Some(savefile) = &cfg.capture.savefile {
+            savefile.validate()?;
+        }
         let loc = &cfg.node.location;
-        if !loc.latitude.is_finite() || !(-90.0..=90.0).contains(&loc.latitude)
-            || !loc.longitude.is_finite() || !(-180.0..=180.0).contains(&loc.longitude)
-            || !loc.elevation_meters.is_finite() {
+        if !loc.latitude.is_finite()
+            || !(-90.0..=90.0).contains(&loc.latitude)
+            || !loc.longitude.is_finite()
+            || !(-180.0..=180.0).contains(&loc.longitude)
+            || !loc.elevation_meters.is_finite()
+        {
             return Err("node.location coordinates must be finite and in range".into());
         }
         if !crate::silver::valid_coordinates(loc.latitude, loc.longitude) {
@@ -451,15 +456,23 @@ impl EngineConfig {
                 source: crate::silver::ConfigSource::ConfigStatic,
             },
             config_hash: self.loaded_config_hash.clone(),
-            fresh_for_ms: self.sensors.gps.stale_after_secs.saturating_mul(1000)
+            fresh_for_ms: self
+                .sensors
+                .gps
+                .stale_after_secs
+                .saturating_mul(1000)
                 .clamp(1, i64::MAX as u64) as i64,
         }
     }
 
     fn deprecated_keys(&self) -> Vec<&'static str> {
         let mut keys = Vec::new();
-        if self.node.storage_class.is_some() { keys.push("node.storage_class"); }
-        if self.backhaul.target_subject.is_some() { keys.push("backhaul.target_subject"); }
+        if self.node.storage_class.is_some() {
+            keys.push("node.storage_class");
+        }
+        if self.backhaul.target_subject.is_some() {
+            keys.push("backhaul.target_subject");
+        }
         keys
     }
 
@@ -499,12 +512,22 @@ pub struct SavefileYaml {
     pub max_age_secs: u64,
 }
 impl Default for SavefileYaml {
-    fn default() -> Self { Self { directory: "/var/lib/brrdfeeder/capture".into(), max_bytes: 8 * 1024 * 1024, max_files: 4, max_age_secs: 86400 } }
+    fn default() -> Self {
+        Self {
+            directory: "/var/lib/brrdfeeder/capture".into(),
+            max_bytes: 8 * 1024 * 1024,
+            max_files: 4,
+            max_age_secs: 86400,
+        }
+    }
 }
 impl SavefileYaml {
     pub fn validate(&self) -> Result<(), String> {
-        if !self.directory.is_absolute() || !(65536..=64*1024*1024).contains(&self.max_bytes)
-            || !(1..=16).contains(&self.max_files) || !(1..=7*86400).contains(&self.max_age_secs) {
+        if !self.directory.is_absolute()
+            || !(65536..=64 * 1024 * 1024).contains(&self.max_bytes)
+            || !(1..=16).contains(&self.max_files)
+            || !(1..=7 * 86400).contains(&self.max_age_secs)
+        {
             return Err("capture.savefile requires absolute directory, 64KiB..64MiB/file, 1..16 files, 1s..7d age".into());
         }
         Ok(())
@@ -519,12 +542,22 @@ pub struct ClockYaml {
     pub allow_large_step: bool,
 }
 impl Default for ClockYaml {
-    fn default() -> Self { Self { consistent_fixes: 3, max_step_secs: 7*86400, allow_large_step: false } }
+    fn default() -> Self {
+        Self {
+            consistent_fixes: 3,
+            max_step_secs: 7 * 86400,
+            allow_large_step: false,
+        }
+    }
 }
 impl ClockYaml {
     pub fn validate(&self) -> Result<(), String> {
-        if !(2..=10).contains(&self.consistent_fixes) || !(1..=400*86400).contains(&self.max_step_secs) {
-            return Err("GPS clock requires 2..10 consistent fixes and max_step_secs in 1s..400d".into());
+        if !(2..=10).contains(&self.consistent_fixes)
+            || !(1..=400 * 86400).contains(&self.max_step_secs)
+        {
+            return Err(
+                "GPS clock requires 2..10 consistent fixes and max_step_secs in 1s..400d".into(),
+            );
         }
         Ok(())
     }
@@ -543,28 +576,24 @@ mod tests {
     /// this assertion.
     #[test]
     fn hunter_defaults_give_social_channels_long_dwell_share() {
-        let cfg = HunterYaml::default();
-        assert!(!cfg.channel_set.is_empty(), "default channel set must exist");
-        let dwell_for = |ch: u32| -> u64 {
-            if cfg.priority_channels.contains(&ch) {
-                cfg.dwell_priority_ms
-            } else {
-                cfg.dwell_default_ms
-            }
-        };
-        let total: u64 = cfg.channel_set.iter().map(|c| dwell_for(*c)).sum();
+        let plan = crate::schedule::HunterPlan::from_yaml(&HunterYaml::default());
+        assert!(
+            !plan.channel_set.is_empty(),
+            "default channel set must exist"
+        );
+        let total = plan.cycle_ms();
         assert!(total > 0);
         for social in [6u32, 149] {
             assert!(
-                cfg.channel_set.contains(&social),
+                plan.channel_set.contains(&social),
                 "social channel {social} must be in the default channel set"
             );
-            let share_pct = dwell_for(social) * 100 / total;
+            let share_pct = plan.share_pct(social);
             assert!(
                 share_pct >= 24,
                 "social channel {social} must hold >=24% of scheduled dwell (got {share_pct}%)"
             );
-            let d = dwell_for(social);
+            let d = plan.dwell_for(social);
             assert!(
                 d >= 1000,
                 "social dwell {d} ms must be >=1000 ms (>=1 s Beacon interval)"
@@ -572,7 +601,7 @@ mod tests {
             // One NAN discovery window period is 512 TU = 524.288 ms; the
             // dwell must cover at least one full period plus margin.
             assert!(
-                d as f64 >= 524.288 * 1.15,
+                d as f64 >= crate::schedule::NAN_DW_PERIOD_MS * 1.15,
                 "social dwell {d} ms must cover a NAN discovery window plus margin"
             );
         }
@@ -585,13 +614,13 @@ mod tests {
     /// config assertion and the behavioral hunter-state assertion.
     #[test]
     fn hunter_default_disables_aircraft_following_lock_on() {
-        let cfg = HunterYaml::default();
+        let plan = crate::schedule::HunterPlan::from_yaml(&HunterYaml::default());
         assert_eq!(
-            cfg.lock_on_duration_ms, 0,
+            plan.lock_on_duration_ms, 0,
             "lock-on must default to 0 (opt-in single-target audit tool only)"
         );
         let hs = crate::hunter::HunterState::new();
-        hs.record_drone_observation("ACCEPTANCE-AIR-1", true, cfg.lock_on_duration_ms);
+        hs.record_drone_observation("ACCEPTANCE-AIR-1", true, plan.lock_on_duration_ms);
         assert!(
             !hs.lock_on_active(),
             "a drone observation under the default config must not defer rotation"
@@ -630,7 +659,8 @@ mod tests {
         assert_eq!(node.effective_status_interval_secs(60), 60);
         for requested in [0, 1, 5, 30, 60] {
             let node: NodeYaml =
-                serde_yaml::from_str(&format!("{base}status_interval_secs: {requested}\n")).unwrap();
+                serde_yaml::from_str(&format!("{base}status_interval_secs: {requested}\n"))
+                    .unwrap();
             assert_eq!(node.effective_status_interval_secs(5), requested.max(5));
         }
     }
@@ -642,7 +672,14 @@ mod tests {
             .replace("latitude: 0.0", "latitude: 40.0")
             .replace("longitude: 0.0", "longitude: -95.0");
         for invalid in [
-            "123", "true", "[]", "{}", "relative.json", "'/'", "''", "\"/tmp/a\\0b\"",
+            "123",
+            "true",
+            "[]",
+            "{}",
+            "relative.json",
+            "'/'",
+            "''",
+            "\"/tmp/a\\0b\"",
         ] {
             let yaml = base.replacen("node:", &format!("node:\n  status_file: {invalid}"), 1);
             std::fs::write(&path, yaml).unwrap();
@@ -651,11 +688,16 @@ mod tests {
                 .to_string();
             assert!(err.contains("node.status_file"), "{invalid}: {err}");
         }
-        let yaml = base.replacen("node:", "node:\n  status_file: /var/lib/brrdfeeder/status.json\n  status_interval_secs: 1", 1);
+        let yaml = base.replacen(
+            "node:",
+            "node:\n  status_file: /var/lib/brrdfeeder/status.json\n  status_interval_secs: 1",
+            1,
+        );
         std::fs::write(&path, yaml).unwrap();
         let cfg = EngineConfig::load(path.to_str().unwrap()).unwrap();
         assert_eq!(
-            cfg.node.effective_status_interval_secs(cfg.tuning.heartbeat.interval_secs),
+            cfg.node
+                .effective_status_interval_secs(cfg.tuning.heartbeat.interval_secs),
             5
         );
         std::fs::remove_file(path).unwrap();
@@ -667,13 +709,22 @@ mod tests {
         assert!(!cfg.enabled);
         assert!(!cfg.unblock_rfkill);
         assert!(cfg.validate().is_ok());
-        for yaml in ["enabled: true", "enabled: true\nadapter: {bd_addr: hci0}", "enabled: true\nadapter: {bd_addr: '00:E0:4C:31:5E:C6', usb_id: '0bda:876e'}", "enabled: true\nquiet_window_s: 0\nadapter: {usb_id: '0bda:876e'}"] {
-            assert!(serde_yaml::from_str::<RidBleYaml>(yaml).unwrap().validate().is_err());
+        for yaml in [
+            "enabled: true",
+            "enabled: true\nadapter: {bd_addr: hci0}",
+            "enabled: true\nadapter: {bd_addr: '00:E0:4C:31:5E:C6', usb_id: '0bda:876e'}",
+            "enabled: true\nquiet_window_s: 0\nadapter: {usb_id: '0bda:876e'}",
+        ] {
+            assert!(serde_yaml::from_str::<RidBleYaml>(yaml)
+                .unwrap()
+                .validate()
+                .is_err());
         }
         for yaml in ["mystery: true", "adapter: {hci: 0}"] {
             assert!(serde_yaml::from_str::<RidBleYaml>(yaml).is_err());
         }
-        let cfg: RidBleYaml = serde_yaml::from_str("enabled: true\nadapter: {bd_addr: '00:E0:4C:31:5E:C6'}").unwrap();
+        let cfg: RidBleYaml =
+            serde_yaml::from_str("enabled: true\nadapter: {bd_addr: '00:E0:4C:31:5E:C6'}").unwrap();
         assert!(cfg.validate().is_ok());
     }
 
@@ -707,7 +758,10 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
     fn installer_legacy_keys_warn_and_primary_parse_errors_survive() {
         let raw = include_str!("../../deploy/bootstrap/config.yaml.mobile.template");
         let cfg: EngineConfig = serde_yaml::from_str(raw).unwrap();
-        assert_eq!(cfg.deprecated_keys(), ["node.storage_class", "backhaul.target_subject"]);
+        assert_eq!(
+            cfg.deprecated_keys(),
+            ["node.storage_class", "backhaul.target_subject"]
+        );
         let root = std::env::temp_dir().join(format!("cybrrd-config-test-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
         let primary = root.join("config.yaml");
@@ -715,10 +769,17 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
         // D32: the shipped mobile template still has (0,0) and must now be
         // refused until configured. Do not edit installer assets in this packet.
         std::fs::write(&fallback, raw).unwrap();
-        assert!(EngineConfig::load(fallback.to_str().unwrap()).unwrap_err().to_string().contains("(0,0)"));
-        let valid = raw.replace("latitude: 0.0", "latitude: 40.0").replace("longitude: 0.0", "longitude: -95.0");
+        assert!(EngineConfig::load(fallback.to_str().unwrap())
+            .unwrap_err()
+            .to_string()
+            .contains("(0,0)"));
+        let valid = raw
+            .replace("latitude: 0.0", "latitude: 40.0")
+            .replace("longitude: 0.0", "longitude: -95.0");
         std::fs::write(&fallback, valid).unwrap();
-        let load = || EngineConfig::load_with_fallback(primary.to_str().unwrap(), fallback.to_str().unwrap());
+        let load = || {
+            EngineConfig::load_with_fallback(primary.to_str().unwrap(), fallback.to_str().unwrap())
+        };
         assert!(load().is_ok()); // only NotFound permits fallback
         std::fs::write(&primary, "node: [broken").unwrap();
         assert!(load().is_err()); // valid fallback must not hide malformed primary
@@ -727,7 +788,14 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
         assert!(error.downcast_ref::<serde_yaml::Error>().is_some());
         std::fs::remove_file(&primary).unwrap();
         std::fs::create_dir(&primary).unwrap();
-        assert_ne!(load().unwrap_err().downcast_ref::<std::io::Error>().unwrap().kind(), std::io::ErrorKind::NotFound);
+        assert_ne!(
+            load()
+                .unwrap_err()
+                .downcast_ref::<std::io::Error>()
+                .unwrap()
+                .kind(),
+            std::io::ErrorKind::NotFound
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
 
@@ -747,11 +815,24 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
         let root = std::env::temp_dir().join(format!("d32-config-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
         let path = root.join("fixture.yaml");
-        let yaml = |lat: &str, lon: &str| format!("node:\n  id: fixture\n  location: {{latitude: {lat}, longitude: {lon}, elevation_meters: 0}}\ncapture: {{interface: fixture}}\nbackhaul: {{broker_urls: [], credentials_path: unused}}\n");
-        for (lat, lon) in [("0", "0"), ("-0.0", "0"), ("91", "1"), ("1", "181"), (".nan", "1")] {
+        let yaml = |lat: &str, lon: &str| {
+            format!("node:\n  id: fixture\n  location: {{latitude: {lat}, longitude: {lon}, elevation_meters: 0}}\ncapture: {{interface: fixture}}\nbackhaul: {{broker_urls: [], credentials_path: unused}}\n")
+        };
+        for (lat, lon) in [
+            ("0", "0"),
+            ("-0.0", "0"),
+            ("91", "1"),
+            ("1", "181"),
+            (".nan", "1"),
+        ] {
             std::fs::write(&path, yaml(lat, lon)).unwrap();
-            let err = EngineConfig::load(path.to_str().unwrap()).unwrap_err().to_string();
-            assert!(err.contains("node.location"), "classification must name the invalid config: {err}");
+            let err = EngineConfig::load(path.to_str().unwrap())
+                .unwrap_err()
+                .to_string();
+            assert!(
+                err.contains("node.location"),
+                "classification must name the invalid config: {err}"
+            );
         }
         for (lat, lon) in [("0", "1"), ("1", "0"), ("40", "-95")] {
             std::fs::write(&path, yaml(lat, lon)).unwrap();
@@ -759,13 +840,24 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
         }
         let loaded = EngineConfig::load(path.to_str().unwrap()).unwrap();
         let hash = loaded.loaded_config_hash.clone().unwrap();
-        assert_eq!(hash, format!("sha256:{:x}", Sha256::digest(yaml("40", "-95").as_bytes())));
+        assert_eq!(
+            hash,
+            format!("sha256:{:x}", Sha256::digest(yaml("40", "-95").as_bytes()))
+        );
         std::fs::write(&path, yaml("41", "-96")).unwrap();
-        assert_eq!(loaded.silver_context().config_hash.as_deref(), Some(hash.as_str()), "disk replacement is not a reload");
+        assert_eq!(
+            loaded.silver_context().config_hash.as_deref(),
+            Some(hash.as_str()),
+            "disk replacement is not a reload"
+        );
         let reloaded = EngineConfig::load(path.to_str().unwrap()).unwrap();
-        assert_ne!(reloaded.loaded_config_hash, loaded.loaded_config_hash, "new loaded bytes must change hash");
+        assert_ne!(
+            reloaded.loaded_config_hash, loaded.loaded_config_hash,
+            "new loaded bytes must change hash"
+        );
         assert_eq!(loaded.silver_context().configured_position.latitude, 40.0);
-        std::fs::remove_file(&path).unwrap(); std::fs::remove_dir(root).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        std::fs::remove_dir(root).unwrap();
     }
 
     /// REQ-BRRD-001 golden — the COMPILED default GPS device must be the
@@ -803,8 +895,7 @@ node:
 capture: { interface: "wlan1" }
 backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp/x" }
 "#;
-        let cfg: EngineConfig =
-            serde_yaml::from_str(yaml).expect("minimal config must parse");
+        let cfg: EngineConfig = serde_yaml::from_str(yaml).expect("minimal config must parse");
         assert_eq!(
             cfg.sensors.gps.device, "/dev/cybrrd_gps",
             "REQ-BRRD-001: omitted gps.device must default to the udev symlink"

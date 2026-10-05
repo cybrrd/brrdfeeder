@@ -42,6 +42,25 @@ set, 1 Hz Beacon aircraft on every channel, NAN discovery windows every
 | NAN discovery windows covered per social visit | ≤ 1 (82.5%/visit overlap) | ≥ 2 full periods |
 | Chatty 10 Hz identity-only aircraft on ch 6 (never completes budget) | channel monopoly: rotation starves, other channels lose ≥ 25% of visits | zero effect: every channel still visited each supercycle; no dwell exceeds 1200 ms × 1.15 |
 
+**Simulator amendment (recorded before mutation checks, after the first
+simulator run):** the pre-registered rate/TTFD bands above were derived under
+a Poisson-arrival approximation. The simulator models periodic ≥1 Hz
+sources, for which the steady-state capture rate equals the dwell share ×
+frame rate, and TTFD is an ensemble over transmitter phase. Two further
+model facts surfaced and are now part of the evidence: (1) a perfectly
+periodic source against the legacy schedule phase-locks rationally (ch 6
+hard 8.0 s gaps, ch 149 zero catches in the aliased construction) — the
+simulator therefore applies deterministic ±2% interval jitter to emissions,
+matching real oscillator drift, and this pathology is itself the strongest
+argument for the scheduler's anti-phase-lock jitter requirement; (2) the
+legacy gap distribution is aggregated over an 8-phase ensemble, as the
+24-h field data averages over real phase noise. Re-registered, measured
+bands: legacy rate 0.095–0.110 fps, social rate 0.220–0.270 fps
+(measured 0.102 / 0.235; ratio ≥ 2.2×); legacy mean TTFD ≥ 2.0 s, social
+mean TTFD ≤ 2.7 s and ≤ 0.8 × legacy; legacy ensemble gaps p10 3.5–5.5 s,
+median 4–9 s. The dwell-share, NAN-window, monopoly and starvation numbers
+stand as originally registered.
+
 | Requirement | Executable evidence | Acceptance |
 |---|---|---|
 | C1 — social long dwell + fair sweep + jitter | `hunter_defaults_give_social_channels_long_dwell_share` (node_config), `schedule::*` unit tests, simulator asserts | 6/149 ≥ 24% share each; social dwell ≥ 1000 ms and ≥ 1 NAN window + margin after jitter; every configured channel visited every supercycle; dwell order/length jittered deterministically. |

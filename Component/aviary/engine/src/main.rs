@@ -11,24 +11,26 @@ mod blue_policy; // #185 Phase 3 — E-CNP-001 Blue policy verification (the cry
 mod capabilities;
 mod capture;
 mod clock_discipline; // #183 — GPS clock discipline (no-RTC time correctness)
-mod forensic;
 mod dedup;
+mod forensic;
 mod heartbeat;
-mod release_currency;
-mod identity;
-mod silver;
 mod hunter;
+mod identity;
 mod nats_publisher; // #178 — single multiplexed, supervised NATS connection
 mod nl80211;
 mod node_config;
-mod rid_ble;
+mod release_currency;
 mod rfkill;
-mod sensor;       // Wave 7.2 — Sensor trait (Anastomotic Reticulum scaffold)
-mod sensor_gps;   // Wave 7.2 — NmeaGps impl (first non-Wi-Fi producer)
+mod rid_ble;
+mod route_guard; // C5 — device-boundary default-route gate
+mod schedule; // channel scheduler (C1–C4)
+mod sensor; // Wave 7.2 — Sensor trait (Anastomotic Reticulum scaffold)
+mod sensor_gps; // Wave 7.2 — NmeaGps impl (first non-Wi-Fi producer)
+mod silver;
 mod status;
 mod tick_publisher; // Wave 6.5 — Green Protocol 1 Hz AirspaceState publisher
-mod watchdog;
-mod upward; // D40 — durable operational reports and independent algedonic Red
+mod upward;
+mod watchdog; // D40 — durable operational reports and independent algedonic Red
 
 use std::sync::Arc;
 
@@ -44,22 +46,26 @@ use tokio_util::sync::CancellationToken;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     // Legacy signed-policy cryptographic pre-flight. Run as a
     // throwaway `verify-blue <file>` invocation (no capabilities, no NATS):
     // parse + Ed25519-verify the draft against the compile-pinned key, exit 0
     // if valid. The host updater refuses to pull/restart on a non-zero exit.
     let argv: Vec<String> = std::env::args().collect();
     if argv.get(1).map(String::as_str) == Some("verify-blue") {
-        std::process::exit(blue_policy::verify_blue_file(argv.get(2).map(String::as_str)));
+        std::process::exit(blue_policy::verify_blue_file(
+            argv.get(2).map(String::as_str),
+        ));
     }
     if argv.get(1).map(String::as_str) == Some("update-config") {
         let path = argv.get(2).ok_or("update-config requires a config file")?;
         let cfg = EngineConfig::load_with_fallback(path, path)?;
-        println!("{}", serde_json::json!({"node_id": cfg.node.id,
+        println!(
+            "{}",
+            serde_json::json!({"node_id": cfg.node.id,
             "gps_required": cfg.sensors.gps.required, "status_file": cfg.node.status_file,
             "upward_enabled": cfg.upward.is_some(),
-            "ring": cfg.node.channel.as_deref().unwrap_or("general")}));
+            "ring": cfg.node.channel.as_deref().unwrap_or("general")})
+        );
         return Ok(());
     }
     println!("BRRDfeeder Engine container initializing…");
@@ -89,6 +95,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         node.id, node.version, node.location.lat, node.location.lon
     );
     let interface = cfg.capture.interface.clone();
+    // C5 — device boundary: the engine administers ONLY the designated
+    // capture adapter, and only its channel in this slice. If that
+    // adapter carries the default route it is the host uplink, not a
+    // dedicated capture adapter: fail closed BEFORE any radio
+    // administration. Never the built-in Wi-Fi/BT, routes, DNS, or
+    // firewall.
+    if let Err(e) = route_guard::ensure_capture_interface_is_not_default_route(&interface) {
+        eprintln!("[route-guard] FAILING CLOSED: {e}");
+        return Err(e.into());
+    }
+    // Channel scheduler: resolve the schedule plan once (preset +
+    // explicit overrides) and surface the effective schedule — this is
+    // also the migration notice for pre-scheduler configs.
+    let hunter_plan = schedule::HunterPlan::from_yaml(&cfg.capture.hunter);
+    println!(
+        "[hunter] plan: preset={:?} channels={:?} social={:?} dwell_social={}ms \
+         dwell_other={}ms jitter=±{:.0}% parked={} lock_on={}ms explicit_overrides={:?}",
+        hunter_plan.preset,
+        hunter_plan.channel_set,
+        hunter_plan.social_channels,
+        hunter_plan.dwell_social_ms,
+        hunter_plan.dwell_other_ms,
+        hunter_plan.jitter_fraction * 100.0,
+        hunter_plan.parked,
+        hunter_plan.lock_on_duration_ms,
+        hunter_plan.explicit_fields,
+    );
     let dedup_window_ms = cfg.tuning.edge_processing.deduplication_window_ms;
     let heartbeat_interval = cfg.tuning.heartbeat.interval_secs;
     let broker_urls = cfg.backhaul.broker_urls.clone();
@@ -168,13 +201,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // When Hunter is disabled, the heartbeat emitter receives None
     // and omits the hunter block entirely (pre-Wave-7 compat).
     let hunter_state = hunter::HunterState::new();
-    let (hb_hunter_state, hb_wifi_iface): (
+    let (hb_hunter_state, hb_wifi_iface, hb_hunter_preset): (
         Option<std::sync::Arc<hunter::HunterState>>,
         Option<String>,
+        Option<String>,
     ) = if cfg.capture.hunter.enabled {
-        (Some(hunter_state.clone()), Some(interface.clone()))
+        (
+            Some(hunter_state.clone()),
+            Some(interface.clone()),
+            Some(format!("{:?}", hunter_plan.preset).to_lowercase()),
+        )
     } else {
-        (None, None)
+        (None, None, None)
     };
 
     // Heartbeat emitter spawn is intentionally delayed (Wave 7.3b
@@ -242,14 +280,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // same Arc<HunterState> with the heartbeat emitter declared above,
     // and (Inc 8) the same Arc<CaptureLiveness> so it always targets
     // the live ifindex.
-    let lock_on_duration_ms = cfg.capture.hunter.lock_on_duration_ms;
-    let lock_on_min_ms = cfg.capture.hunter.lock_on_min_ms;
+    let lock_on_duration_ms = hunter_plan.lock_on_duration_ms;
+    let lock_on_min_ms = hunter_plan.lock_on_min_ms;
     if cfg.capture.hunter.enabled {
         let hunter_cfg = hunter::HunterConfig {
-            channel_set: cfg.capture.hunter.channel_set.clone(),
-            dwell_default: std::time::Duration::from_millis(cfg.capture.hunter.dwell_default_ms),
-            dwell_priority: std::time::Duration::from_millis(cfg.capture.hunter.dwell_priority_ms),
-            priority_channels: cfg.capture.hunter.priority_channels.clone(),
+            plan: hunter_plan.clone(),
             lock_on_duration: std::time::Duration::from_millis(lock_on_duration_ms),
             lock_on_min: std::time::Duration::from_millis(lock_on_min_ms),
         };
@@ -318,8 +353,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // window (the gate waits on what this task produces). Wave 7.3a consumer is
     // the capture loop's audit-envelope stamper; Wave 7.3b the heartbeat GPS
     // surface.
-    let gps_latest: Arc<ArcSwap<Option<GpsFix>>> =
-        Arc::new(ArcSwap::from_pointee(None));
+    let gps_latest: Arc<ArcSwap<Option<GpsFix>>> = Arc::new(ArcSwap::from_pointee(None));
     let gps_latest_for_task = Arc::clone(&gps_latest);
     let keeper_time_trust = Arc::clone(&time_trust);
     let clock_policy = cfg.sensors.gps.clock.clone();
@@ -329,7 +363,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // #183 — discipline the system clock from the receiver's UTC
             // (idempotent; no-op once trusted). Releases the publish gate.
             if let Some(gps_utc_ms) = fix.gps_utc_ms {
-                clock_discipline::discipline_from_gps(gps_utc_ms, &keeper_time_trust, &clock_policy);
+                clock_discipline::discipline_from_gps(
+                    gps_utc_ms,
+                    &keeper_time_trust,
+                    &clock_policy,
+                );
             }
             println!(
                 "[gps] fix lat={:.6} lon={:.6} alt_m={:.1} sats={} hdop={:.2} q={}",
@@ -352,13 +390,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // from each other and from the multiplexed best-effort telemetry channel.
     let upward_cancel = CancellationToken::new();
     let upward_task = if let Some(config) = &cfg.upward {
-        match upward::start(config, &node.id, broker_urls.clone(), credentials_path.clone()) {
-            Ok(handle) => Some(tokio::spawn(upward::monitor(handle, running_identity.clone(),
-                radio.clone(), Arc::clone(&gps_handle_health), Arc::clone(&time_trust),
-                cfg.sensors.gps.required, upward_cancel.clone()))),
-            Err(reason) => { eprintln!("[upward] startup refused: {reason}; engine continues without upward delivery"); None }
+        match upward::start(
+            config,
+            &node.id,
+            broker_urls.clone(),
+            credentials_path.clone(),
+        ) {
+            Ok(handle) => Some(tokio::spawn(upward::monitor(
+                handle,
+                running_identity.clone(),
+                radio.clone(),
+                Arc::clone(&gps_handle_health),
+                Arc::clone(&time_trust),
+                cfg.sensors.gps.required,
+                upward_cancel.clone(),
+            ))),
+            Err(reason) => {
+                eprintln!(
+                    "[upward] startup refused: {reason}; engine continues without upward delivery"
+                );
+                None
+            }
         }
-    } else { None };
+    } else {
+        None
+    };
     // D26: no stale environment fallback; Silver names the refusal each heartbeat.
     let hb_fleet = heartbeat::FleetProprioception {
         identity: running_identity,
@@ -371,21 +427,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         time_trust: Arc::clone(&time_trust),
     };
     let ble_inventory = Arc::new(arc_swap::ArcSwapOption::empty());
-    let status_source = cfg
-        .node
-        .status_file
-        .as_ref()
-        .map(|path| {
-            status::StatusSource::new(
-                path.clone(),
-                interface.clone(),
-                cfg.sensors.gps.device.clone(),
-                Arc::clone(&ble_inventory),
-                Arc::clone(&nats.status),
-                Arc::clone(&liveness.frames),
-                cfg.node.effective_status_interval_secs(heartbeat_interval),
-            )
-        });
+    let status_source = cfg.node.status_file.as_ref().map(|path| {
+        status::StatusSource::new(
+            path.clone(),
+            interface.clone(),
+            cfg.sensors.gps.device.clone(),
+            Arc::clone(&ble_inventory),
+            Arc::clone(&nats.status),
+            Arc::clone(&liveness.frames),
+            cfg.node.effective_status_interval_secs(heartbeat_interval),
+        )
+    });
 
     let status_cleanup = status_source.clone();
     let heartbeat_task = tokio::spawn(async move {
@@ -401,6 +453,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             hb_radio,
             hb_hunter_state,
             hb_wifi_iface,
+            // Channel scheduler: preset name for the hunter block.
+            hb_hunter_preset,
             // Wave 7.3b: GPS health + latest-fix surfaces — Self-
             // Diagnostic block in the heartbeat payload.
             Some(hb_gps_health),
@@ -539,11 +593,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&liveness.frames),
         )
         .start(gps_ctx);
-        let mut pipeline = capture::PostParse::new(capture::ForwardContext {
-            tx: tx.clone(), node: node.clone(), counters: counters.clone(),
-            hunter: capture_hunter_state.clone(), lock_on_duration_ms,
-            gps: Arc::clone(&gps_latest), observation_store: observation_store.clone(),
-        }, dedup_window_ms);
+        let mut pipeline = capture::PostParse::new(
+            capture::ForwardContext {
+                tx: tx.clone(),
+                node: node.clone(),
+                counters: counters.clone(),
+                hunter: capture_hunter_state.clone(),
+                lock_on_duration_ms,
+                gps: Arc::clone(&gps_latest),
+                observation_store: observation_store.clone(),
+            },
+            dedup_window_ms,
+        );
         let cancel = gps_cancel.clone();
         let ble_dropped = Arc::clone(&counters.rid_ble_unassociated_dropped);
         Some(tokio::spawn(async move {
@@ -599,12 +660,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     tokio::pin!(capture_future);
 
-    let mut sigterm = tokio::signal::unix::signal(
-        tokio::signal::unix::SignalKind::terminate(),
-    )?;
-    let mut sigint = tokio::signal::unix::signal(
-        tokio::signal::unix::SignalKind::interrupt(),
-    )?;
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
 
     let intentional_stop = tokio::select! {
         _ = &mut capture_future => {
@@ -631,31 +688,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // unexpected capture termination remains a failure. Restart= is unchanged.
     let exit_code = if intentional_stop { 0 } else { 1 };
     let mut cleanup_stage = "upward";
-    match tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        async {
-            eprintln!("[shutdown] waiting for upward reporting");
-            if let Some(task) = upward_task { let _ = task.await; }
-            cleanup_stage = "status";
-            eprintln!("[shutdown] waiting for status unlink");
-            if let Some(source) = status_cleanup {
-                // Shares the writer lock: unlink cannot race a late rename.
-                if let Err(e) = source.shutdown().await {
-                    eprintln!("[status] best-effort shutdown unlink failed: {e}");
-                }
+    match tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        eprintln!("[shutdown] waiting for upward reporting");
+        if let Some(task) = upward_task {
+            let _ = task.await;
+        }
+        cleanup_stage = "status";
+        eprintln!("[shutdown] waiting for status unlink");
+        if let Some(source) = status_cleanup {
+            // Shares the writer lock: unlink cannot race a late rename.
+            if let Err(e) = source.shutdown().await {
+                eprintln!("[status] best-effort shutdown unlink failed: {e}");
             }
-            cleanup_stage = "ble";
-            eprintln!("[shutdown] waiting for BLE keeper");
-            if let Some(keeper) = ble_keeper { let _ = keeper.await; }
-            // Give cancelled tasks a scheduling grace period. process::exit
-            // below does not run stack destructors or await a NATS drain;
-            // kernel process teardown releases any remaining descriptors.
-            eprintln!("[shutdown] scheduler grace before process exit");
-            cleanup_stage = "scheduler grace";
-            tokio::task::yield_now().await;
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        },
-    )
+        }
+        cleanup_stage = "ble";
+        eprintln!("[shutdown] waiting for BLE keeper");
+        if let Some(keeper) = ble_keeper {
+            let _ = keeper.await;
+        }
+        // Give cancelled tasks a scheduling grace period. process::exit
+        // below does not run stack destructors or await a NATS drain;
+        // kernel process teardown releases any remaining descriptors.
+        eprintln!("[shutdown] scheduler grace before process exit");
+        cleanup_stage = "scheduler grace";
+        tokio::task::yield_now().await;
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    })
     .await
     {
         Ok(_) => {

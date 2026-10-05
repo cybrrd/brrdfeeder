@@ -407,6 +407,7 @@ mod tests {
                 &radio,
                 Some(&hunter),
                 Some("d32-fixture-no-device"),
+                None,
                 Some(&health),
                 Some(&latest),
                 Some(&fleet),

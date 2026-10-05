@@ -356,25 +356,7 @@ pub async fn start_capture_loop(
 
                 recorder.write(&packet);
 
-                let raw = packet.data;
-                if raw.len() < 8 {
-                    continue;
-                }
-                let radiotap_len = u16::from_le_bytes([raw[2], raw[3]]) as usize;
-                if raw.len() < radiotap_len {
-                    continue;
-                }
-                let dot11 = &raw[radiotap_len..];
-
-                let rssi_dbm = match radiotap::Radiotap::from_bytes(&raw[..radiotap_len]) {
-                    Ok(rtap) => rtap
-                        .antenna_signal
-                        .map(|s| s.value as i32)
-                        .unwrap_or(-100),
-                    Err(_) => -100,
-                };
-
-                let Some(data) = cybrrd_rid_protocol::router::ingest_frame(dot11, rssi_dbm) else {
+                let Some(data) = ingest_monitor_frame(packet.data) else {
                     // Not a drone-class frame. Still check the restart
                     // flag so a stall during a quiet-DJI / busy-Wi-Fi
                     // window is still responsive.
@@ -447,6 +429,31 @@ pub struct PostParse {
     frames_since_gc: u32,
 }
 
+/// Preserve the existing Beacon radiotap/RSSI behavior, and normalize NAN's
+/// optional capture FCS trailer before its exact-length attribute walk.
+fn ingest_monitor_frame(raw: &[u8]) -> Option<cybrrd_rid_protocol::models::TelemetryData> {
+    if raw.len() < 8 {
+        return None;
+    }
+    let radiotap_len = u16::from_le_bytes([raw[2], raw[3]]) as usize;
+    let radiotap_bytes = raw.get(..radiotap_len)?;
+    let mut dot11 = raw.get(radiotap_len..)?;
+    let rtap = radiotap::Radiotap::from_bytes(radiotap_bytes).ok();
+    let rssi_dbm = rtap.as_ref().and_then(|r| r.antenna_signal)
+        .map(|s| s.value as i32).unwrap_or(-100);
+    if dot11.first() == Some(&0xd0) {
+        if let Some(flags) = rtap.as_ref()?.flags {
+            if flags.bad_fcs {
+                return None;
+            }
+            if flags.fcs {
+                dot11 = dot11.get(..dot11.len().checked_sub(4)?)?;
+            }
+        }
+    }
+    cybrrd_rid_protocol::router::ingest_frame(dot11, rssi_dbm)
+}
+
 impl PostParse {
     pub fn new(context: ForwardContext, window_ms: u64) -> Self {
         Self {
@@ -481,7 +488,7 @@ impl PostParse {
         }
 
         // Dedup gate (Wave 6.0b): suppress duplicates within window.
-        if !self.dedup.should_emit(&data.drone_id, &data.mac_address) {
+        if !self.dedup.should_emit_observation(&data) {
             return true;
         }
 
@@ -637,6 +644,72 @@ mod tests {
                 position_source: Some(PositionSource::ConfigStatic),
             },
         }
+    }
+
+    #[test]
+    fn nan_rotating_mac_deduplicates_by_identity() {
+        use cybrrd_rid_protocol::models::TelemetryData;
+        let mut data: TelemetryData = serde_json::from_str(r#"{"protocol":"ASTM_F3411_22a","transport":"wifi_nan","mac_address":"02:01:02:03:04:05","drone_id":"NAN-TEST-01","hardware_serial":"NAN-TEST-01","signal_rssi_dbm":-49}"#).unwrap();
+        let (tx, mut rx) = mpsc::channel(8);
+        let store = crate::tick_publisher::ObservationStore::new();
+        let mut pipe = PostParse::new(ForwardContext {
+            tx, node: static_node(), counters: DropCounters::new(), hunter: None,
+            lock_on_duration_ms: 0, gps: Arc::new(ArcSwap::from_pointee(None)),
+            observation_store: Some(Arc::clone(&store)),
+        }, 1000);
+        assert!(pipe.forward(data.clone()));
+        assert_eq!(rx.try_recv().unwrap().data.mac_address, data.mac_address);
+        data.mac_address = [2, 9, 8, 7, 6, 5];
+        assert!(pipe.forward(data.clone()));
+        assert!(rx.try_recv().is_err(), "NAN address rotation split one pack identity");
+        assert_eq!(store.len(), 1);
+        data.drone_id = "NAN-TEST-02".into();
+        data.hardware_serial = Some(data.drone_id.clone());
+        assert!(pipe.forward(data.clone()));
+        assert_eq!(rx.try_recv().unwrap().data.drone_id, "NAN-TEST-02");
+        assert_eq!(store.len(), 2);
+        data.drone_id = "UNKNOWN".into();
+        data.hardware_serial = None;
+        for mac in [[2; 6], [4; 6]] {
+            data.mac_address = mac;
+            assert!(pipe.forward(data.clone()));
+            assert_eq!(rx.try_recv().unwrap().data.mac_address, mac);
+        }
+        assert_eq!(store.len(), 2, "identity-less NAN must not create a shared UNKNOWN track");
+    }
+
+    #[test]
+    fn nan_monitor_fcs_and_backhaul_preserve_provenance() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../cybrrd-rid-protocol/tests/fixtures/nan-oracle.json"
+        )).unwrap();
+        let frame = hex::decode(fixture["cases"][8]["frame_hex"].as_str().unwrap()).unwrap();
+        let mut raw = vec![0, 0, 10, 0, 0x22, 0, 0, 0, 0, (-49_i8) as u8];
+        raw.extend_from_slice(&frame);
+        let no_fcs = ingest_monitor_frame(&raw).unwrap();
+        raw[8] = 0x10;
+        raw.extend_from_slice(&[0xaa, 0xbb, 0xcc, 0xdd]);
+        let with_fcs = ingest_monitor_frame(&raw).unwrap();
+        assert_eq!(serde_json::to_value(&no_fcs).unwrap(), serde_json::to_value(&with_fcs).unwrap());
+        raw[8] = 0x50;
+        assert!(ingest_monitor_frame(&raw).is_none(), "driver-reported bad FCS admitted");
+        raw[8] = 0;
+        assert!(ingest_monitor_frame(&raw).is_none(), "unannounced trailer mistaken for attributes");
+
+        let (tx, mut rx) = mpsc::channel(1);
+        let mut pipe = PostParse::new(ForwardContext {
+            tx, node: static_node(), counters: DropCounters::new(), hunter: None,
+            lock_on_duration_ms: 0, gps: Arc::new(ArcSwap::from_pointee(None)),
+            observation_store: None,
+        }, 1000);
+        assert!(pipe.forward(with_fcs));
+        let wire = serde_json::to_value(rx.try_recv().unwrap()).unwrap();
+        assert_eq!(wire["wire_format_version"], 4);
+        assert_eq!(wire["data"]["transport"], "wifi_nan");
+        assert_eq!(wire["data"]["message_counter"], 0);
+        assert_eq!(wire["data"]["mac_address"], "02:01:02:03:04:05");
+        assert_eq!(wire["data"]["wifi_bssid"], "50:6f:9a:01:00:ff");
+        assert_eq!(wire["data"]["signal_rssi_dbm"], -49);
     }
 
     fn fresh_fix(now_ms: i64) -> GpsFix {

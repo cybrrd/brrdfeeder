@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+id: REQ-BRRD-015
+title: Wi-Fi NAN Remote ID admission, strict decoding, and identity provenance
+statement: >-
+  WHEN a complete unprotected management Action frame carries the ODID NAN
+  Service Discovery signature and service ID, the receiver SHALL bound-check
+  its attribute sequence, remove its service-info message counter, and decode
+  only the remaining bytes through the shared strict Message Pack decoder.
+  It SHALL retain the observed source Addr2 and cluster Addr3 as provenance,
+  emit wifi_nan and the counter, and correlate identified NAN aircraft by
+  Message Pack identity rather than source MAC or cluster BSSID. It SHALL
+  reject unrelated services, sync beacons, malformed lengths and invalid packs.
+rationale: >-
+  Randomized NAN source addresses and shared cluster addresses cannot identify
+  an aircraft. Transport admission and counter framing must be explicit; a
+  sync beacon or unrelated public-action payload must not become telemetry.
+  This contract concerns software reception, not field or RF conformance.
+binds:
+  - "cybrrd-rid-protocol/src/router.rs"
+  - "cybrrd-rid-protocol/src/nan.rs"
+  - "cybrrd-rid-protocol/src/astm.rs"
+  - "cybrrd-rid-protocol/src/models.rs"
+  - "engine/src/capture.rs"
+  - "engine/src/dedup.rs"
+  - "engine/src/tick_publisher.rs"
+  - "capabilities.toml::rid_transport.wifi_nan"
+verify:
+  - "wifi_nan::nan_sdf_sets_wire_metadata"
+  - "wifi_nan::nan_all_counters_and_pack_counts"
+  - "wifi_nan::nan_rejects_wrong_service"
+  - "wifi_nan::nan_rejects_sync_beacon"
+  - "wifi_nan::nan_rejects_other_actions"
+  - "wifi_nan::nan_rejects_bad_lengths"
+  - "wifi_nan::nan_rejects_bad_pack"
+  - "wifi_nan::nan_skips_unknown_attributes"
+  - "wifi_nan::nan_negative_controls_have_valid_pairs"
+  - "wifi_nan::nan_truncation_and_byte_mutations_do_not_panic"
+  - "wifi_nan::nan_independent_c_oracle_fields_match"
+  - "capture::tests::nan_rotating_mac_deduplicates_by_identity"
+  - "capture::tests::nan_monitor_fcs_and_backhaul_preserve_provenance"
+status: bound
+provenance:
+  decided: "2026-10-04 — scoped NAN reception implementation"
+  evidence: >-
+    Acceptance-first behavioral red, independent C encoder/decoder fixtures,
+    service-ID and counter-boundary mutations, and Rust 1.88 workspace tests.
+    Public offline contracts execute the workspace tests in hosted CI.
+    No real NAN transmitter or field reception has been demonstrated.
+references:
+  - "F3411 corpus: BWF0010, BWF0020, BWF0030, BWF0034, BWF0036, BWF0040, BWF0050, BWF0060, BWF0100"
+  - "tools/NAN-RECEPTION.md — oracle provenance, identity semantics, and later RF bench"

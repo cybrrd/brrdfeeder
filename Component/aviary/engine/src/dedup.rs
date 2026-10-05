@@ -9,12 +9,14 @@
 //! 1–2 Hz; a 1s window collapses redundant reports without smearing real
 //! drone movement.
 //!
-//! Identity key is `(drone_id, mac_address)` — paired so a spoofing attack
+//! Non-NAN identity key is `(drone_id, mac_address)` — paired so a spoofing attack
 //! that reuses a MAC with a different serial OR vice-versa still emits
 //! both signals downstream.
+//! NAN uses Message Pack identity alone because its source MAC may rotate.
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
+use cybrrd_rid_protocol::models::{RidTransport, TelemetryData};
 
 /// State for one BRRDfeeder node's edge dedup gate.
 ///
@@ -28,9 +30,9 @@ pub struct DedupGate {
 /// Compound identity used as the dedup key. Cloning is cheap because
 /// `drone_id` is short (≤20 chars) and `mac` is a 6-byte array.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct DedupKey {
-    drone_id: String,
-    mac: [u8; 6],
+enum DedupKey {
+    Source { drone_id: String, mac: [u8; 6] },
+    NanIdentity(String),
 }
 
 impl DedupGate {
@@ -47,10 +49,26 @@ impl DedupGate {
     ///
     /// Side effect: stamps the key's last-emit time when returning `true`.
     pub fn should_emit(&mut self, drone_id: &str, mac: &[u8; 6]) -> bool {
-        let key = DedupKey {
+        let key = DedupKey::Source {
             drone_id: drone_id.to_string(),
             mac: *mac,
         };
+        self.should_emit_key(key)
+    }
+
+    pub fn should_emit_observation(&mut self, data: &TelemetryData) -> bool {
+        if data.transport != Some(RidTransport::WifiNan) {
+            return self.should_emit(&data.drone_id, &data.mac_address);
+        }
+        if data.drone_id.is_empty() || data.drone_id == "UNKNOWN" {
+            // No stable identity: retain raw observations without inventing an
+            // aircraft key from Addr2 or the shared cluster BSSID.
+            return true;
+        }
+        self.should_emit_key(DedupKey::NanIdentity(data.drone_id.clone()))
+    }
+
+    fn should_emit_key(&mut self, key: DedupKey) -> bool {
         let now = Instant::now();
         match self.last_emit.get(&key) {
             Some(prev) if now.duration_since(*prev) < self.window => false,

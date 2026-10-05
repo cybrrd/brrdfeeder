@@ -9,8 +9,10 @@
 //! adding the receiver-side metadata (transmitter MAC, RSSI) the core, which
 //! only sees over-the-air bytes, never has.
 
-use crate::models::{AuthInfo, GeoPoint, ProtocolType, SelfIdInfo, TelemetryData};
-use cybrrd_rid_core::{decode_message_pack, GeoPoint as CoreGeoPoint, RidPack};
+use crate::models::{AuthInfo, GeoPoint, ProtocolType, RidTransport, SelfIdInfo, TelemetryData};
+use cybrrd_rid_core::{
+    decode_message_pack, decode_message_pack_strict, GeoPoint as CoreGeoPoint, RidPack,
+};
 
 /// Parse a raw ODID Message Pack payload into the JSON wire [`TelemetryData`].
 ///
@@ -24,6 +26,34 @@ pub fn parse_message_pack(
 ) -> Option<TelemetryData> {
     let pack: RidPack = decode_message_pack(payload).ok()?;
     telemetry_from_pack(pack, mac_address, rssi_dbm)
+}
+
+/// Parse a Message Pack whose transport framing has already been removed.
+///
+/// Unlike [`parse_message_pack`], this requires a Message Pack header at byte zero,
+/// count 1..=9, and an exact declared-length match.
+pub fn parse_message_pack_strict(
+    payload: &[u8],
+    mac_address: [u8; 6],
+    rssi_dbm: i32,
+) -> Option<TelemetryData> {
+    let pack: RidPack = decode_message_pack_strict(payload).ok()?;
+    telemetry_from_pack(pack, mac_address, rssi_dbm)
+}
+
+/// Shared Beacon/NAN service-info boundary. The first byte is always a counter;
+/// only the remaining bytes may enter strict Message Pack decoding.
+pub(crate) fn parse_wifi_service_info(
+    framed: &[u8],
+    mac_address: [u8; 6],
+    rssi_dbm: i32,
+    transport: RidTransport,
+) -> Option<TelemetryData> {
+    let (&counter, pack) = framed.split_first()?;
+    let mut data = parse_message_pack_strict(pack, mac_address, rssi_dbm)?;
+    data.transport = Some(transport);
+    data.message_counter = Some(counter);
+    Some(data)
 }
 
 pub(crate) fn telemetry_from_pack(
@@ -45,6 +75,7 @@ pub(crate) fn telemetry_from_pack(
     Some(TelemetryData {
         transport: None,
         message_counter: None,
+        wifi_bssid: None,
         protocol: ProtocolType::AstmF3411_22a,
         mac_address,
         drone_id,
@@ -247,9 +278,9 @@ mod tests {
         assert_eq!(json, "\"ASTM_F3411_22a\"");
     }
 
-    /// Verbatim real DJI Mini 5 Pro broadcast (test-node-2, 2026-05-07). The
-    /// BASIC_ID byte 1 = 0x12 → IDType 1 (Serial), so it lands in
-    /// `hardware_serial` and resolves `drone_id`.
+    /// Verbatim counter + Message Pack from a real DJI Mini 5 Pro broadcast
+    /// (test-node-2, 2026-05-07). Byte 0 is the Wi-Fi message counter. This
+    /// compatibility entry point preserves the pre-router decoded fields.
     #[test]
     fn parses_real_dji_mini5pro_to_wire() {
         let payload: [u8; 79] = [

@@ -7,6 +7,6 @@
 
 pub mod models;
 pub mod router;
-pub mod parsers;
+mod nan;
 pub mod astm;
 pub mod ble;

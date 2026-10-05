@@ -228,6 +228,13 @@ impl ObservationStore {
     /// vector parser extension is Phase 3a — until then projection
     /// would be stationary anyway).
     pub fn record(&self, payload: &NormalizedTelemetry) {
+        if payload.data.transport == Some(cybrrd_rid_protocol::models::RidTransport::WifiNan)
+            && (payload.data.drone_id.is_empty() || payload.data.drone_id == "UNKNOWN")
+        {
+            // Preserve identity-less NAN in frame output, but never manufacture
+            // a shared UNKNOWN aircraft or correlate its rotating source MAC.
+            return;
+        }
         let Ok(mut g) = self.inner.lock() else {
             return;
         };
@@ -430,6 +437,7 @@ mod tests {
             data: TelemetryData {
                 transport: None,
                 message_counter: None,
+                wifi_bssid: None,
                 protocol: ProtocolType::AstmF3411_22a,
                 mac_address: [0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc],
                 drone_id: drone_id.into(),

@@ -3,7 +3,7 @@
 //! 802.11 frame walker → consolidated ASTM parser.
 //!
 //! Single runtime entry point. Identifies whether a captured frame carries
-//! an ASTM Open Drone ID Vendor Specific IE; if so, delegates to the
+//! an ASTM Open Drone ID vendor IE or NAN Service Discovery Frame; delegates to the
 //! canonical strict ASTM parser for field extraction.
 
 use crate::astm;
@@ -22,13 +22,16 @@ const IE_HEADER_LEN: usize = 2;
 const VENDOR_SPECIFIC_IE: u8 = 0xDD;
 const MIN_VENDOR_IE_LEN: usize = 4; // OUI(3) + OUI-type(1)
 
-/// Process a raw 802.11 management frame payload (Beacon or Probe Response)
+/// Process a raw 802.11 management frame (Beacon, Probe Response, or NAN Action)
 /// and emit per-frame telemetry data if it carries an ASTM Open Drone ID
 /// Message Pack.
 ///
-/// Returns `None` for any frame that isn't a viable beacon/probe-response,
-/// doesn't carry the Wi-Fi Alliance ODID OUI, or has a malformed Message Pack.
+/// Returns `None` for unrelated or malformed frames. NAN input must exclude any
+/// capture-level FCS trailer; the engine removes it using radiotap metadata.
 pub fn ingest_frame(dot11_payload: &[u8], rssi_dbm: i32) -> Option<TelemetryData> {
+    if dot11_payload.first() == Some(&0xd0) {
+        return crate::nan::ingest_sdf(dot11_payload, rssi_dbm);
+    }
     if dot11_payload.len() < MIN_802_11_MGMT_LEN {
         return None;
     }
@@ -63,11 +66,13 @@ pub fn ingest_frame(dot11_payload: &[u8], rssi_dbm: i32) -> Option<TelemetryData
                 // zero and never has to guess about transport framing.
                 let framed_start = offset + IE_HEADER_LEN + MIN_VENDOR_IE_LEN;
                 let framed = &dot11_payload[framed_start..ie_end];
-                let (&counter, pack) = framed.split_first()?;
-                let mut data = astm::parse_message_pack_strict(pack, mac_address, rssi_dbm)?;
-                data.transport = Some(RidTransport::WifiBeacon);
-                data.message_counter = Some(counter);
-                return Some(data);
+                if let Some(data) = astm::parse_wifi_service_info(
+                    framed, mac_address, rssi_dbm, RidTransport::WifiBeacon,
+                ) {
+                    return Some(data);
+                }
+                // This IE has a known outer boundary even when its RID body is
+                // invalid. Keep walking: a later ODID IE may contain valid data.
             }
         }
         offset = ie_end;
@@ -206,6 +211,37 @@ mod tests {
     fn counterless_vendor_payload_is_rejected() {
         let frame = management_frame(FC_BEACON, FA_OUI, ODID_OUI_TYPE, &standard_pack());
         assert!(ingest_frame(&frame, -52).is_none());
+    }
+
+    #[test]
+    fn standard_beacon_skips_bad_odid_ie() {
+        let mut framed = vec![0x21];
+        framed.extend(standard_pack());
+        let mut bad_header = framed.clone();
+        bad_header[1] = 0x12;
+        let mut bad_size = framed.clone();
+        bad_size[2] = 24;
+        let mut bad_count = framed.clone();
+        bad_count[3] = 0;
+        let mut too_many = framed.clone();
+        too_many[3] = 10;
+        let mut trailing = framed;
+        trailing.push(0);
+        let malformed = [
+            vec![], vec![0x21], vec![0x21, 0xf2, 25], standard_pack(),
+            bad_header, bad_size, bad_count, too_many, trailing,
+        ];
+        for (case, bad) in malformed.iter().enumerate() {
+            let mut frame = management_frame(FC_BEACON, FA_OUI, ODID_OUI_TYPE, bad);
+            assert!(ingest_frame(&frame, -52).is_none());
+            frame.extend_from_slice(&standard_beacon(0xf7)[MIN_802_11_MGMT_LEN..]);
+            let result = ingest_frame(&frame, -52);
+            assert!(result.is_some(), "malformed ODID IE case {case} hid a later valid IE");
+            let data = result.unwrap();
+            assert_eq!(data.message_counter, Some(0xf7));
+            assert_eq!(data.transport, Some(RidTransport::WifiBeacon));
+            assert_eq!(data.drone_id, "1581F9DEC261802966XD");
+        }
     }
 
     #[test]

@@ -9,7 +9,7 @@
 //! adding the receiver-side metadata (transmitter MAC, RSSI) the core, which
 //! only sees over-the-air bytes, never has.
 
-use crate::models::{AuthInfo, GeoPoint, ProtocolType, SelfIdInfo, TelemetryData};
+use crate::models::{AuthInfo, GeoPoint, ProtocolType, RidTransport, SelfIdInfo, TelemetryData};
 use cybrrd_rid_core::{
     decode_message_pack, decode_message_pack_strict, GeoPoint as CoreGeoPoint, RidPack,
 };
@@ -41,6 +41,21 @@ pub fn parse_message_pack_strict(
     telemetry_from_pack(pack, mac_address, rssi_dbm)
 }
 
+/// Shared Beacon/NAN service-info boundary. The first byte is always a counter;
+/// only the remaining bytes may enter strict Message Pack decoding.
+pub(crate) fn parse_wifi_service_info(
+    framed: &[u8],
+    mac_address: [u8; 6],
+    rssi_dbm: i32,
+    transport: RidTransport,
+) -> Option<TelemetryData> {
+    let (&counter, pack) = framed.split_first()?;
+    let mut data = parse_message_pack_strict(pack, mac_address, rssi_dbm)?;
+    data.transport = Some(transport);
+    data.message_counter = Some(counter);
+    Some(data)
+}
+
 pub(crate) fn telemetry_from_pack(
     pack: RidPack,
     mac_address: [u8; 6],
@@ -60,6 +75,7 @@ pub(crate) fn telemetry_from_pack(
     Some(TelemetryData {
         transport: None,
         message_counter: None,
+        wifi_bssid: None,
         protocol: ProtocolType::AstmF3411_22a,
         mac_address,
         drone_id,

@@ -184,8 +184,14 @@ pub struct TelemetryData {
     pub transport: Option<RidTransport>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message_counter: Option<u8>,
+    /// Observed NAN Addr3 (cluster BSSID), canonical hex. Provenance only: a
+    /// shared cluster ID must never identify an aircraft. Omitted for other
+    /// transports, preserving their existing JSON. Additive wire-v4 field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wifi_bssid: Option<String>,
     pub protocol: ProtocolType,
-    /// MAC address of the broadcasting drone (canonical hex form: aa:bb:cc:dd:ee:ff).
+    /// Received transmitter Addr2 (canonical hex: aa:bb:cc:dd:ee:ff).
+    /// NAN transmitters may rotate it; correlate aircraft by Message Pack identity.
     #[serde(with = "hex_mac")]
     pub mac_address: [u8; 6],
     /// Primary UAS ID from ASTM Message Type 0 (BASIC_ID), trimmed.

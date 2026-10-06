@@ -65,7 +65,7 @@ with tempfile.TemporaryDirectory(prefix='verbose-proof-') as tmp:
                 files = list(logs.glob('*.log'))
                 log = '\n'.join(p.read_text() for p in files)
                 checks = dict(exit=result.returncode == (1 if failure else 0),
-                    routine_terminal=all((s not in transcript if quiet else s in transcript) for s in ('ROUTINE_SAY','ROUTINE_OK','ROUTINE_COMMAND')),
+                    routine_terminal=all((s not in transcript if quiet or mode=='uninstall' else s in transcript) for s in ('ROUTINE_SAY','ROUTINE_OK','ROUTINE_COMMAND')),
                     routine_log=all(s in log for s in ('ROUTINE_SAY','ROUTINE_OK','ROUTINE_COMMAND')),
                     ack=('Removing BRRDfeeder…' if mode=='uninstall' else 'Installing BRRDfeeder (usually about') in transcript,
                     phases='Fixture phase …' in transcript and ('Fixture phase — failed' if failure else 'Fixture phase — done') in transcript,

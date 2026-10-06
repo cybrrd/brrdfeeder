@@ -6,6 +6,7 @@ import contextlib
 import fnmatch
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
 import pty
@@ -35,6 +36,43 @@ GOOD = sentence('GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,')
 
 
 class Contract(unittest.TestCase):
+    def test_missing_then_plugged_midwait_then_first_fix(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder); config=root/'config.yaml'; startup=root/'startup.json'; device=root/'gps'
+            original={'node': {}, 'sensors': {'gps': {'device': '/dev/cybrrd_gps'}}}
+            raw=yaml.safe_dump(original).encode(); config.write_bytes(raw); info=config.stat()
+            real_open, real_report, real_matches, real_read = gps.open_gps, gps.report, gps.device_matches, os.read
+            reports=[]; masters=[]; clock=[100.0]; waiting=[0]
+            def report(state, message, *observations):
+                real_report(state,message,*observations)
+                reports.append(json.loads(startup.read_text()))
+                if state=='gps-missing':
+                    master,slave=pty.openpty(); masters.append(master)
+                    device.symlink_to(os.ttyname(slave)); os.close(slave)
+                elif state=='gps-waiting':
+                    waiting[0]+=1
+                    os.write(masters[0], sentence('GPGGA,123519,4807.038,N,01131.000,E,0,03,4.2,545.4,M,46.9,M,,') if waiting[0]==1 else GOOD)
+            def read(fd,count):
+                data=real_read(fd,count); clock[0]+=6; return data
+            try:
+                with patch.object(gps,'CONFIG',config), patch.object(gps,'STARTUP',startup), \
+                     patch.object(gps,'prestart_only'), patch.object(gps,'held_elsewhere',return_value=False), \
+                     patch.object(gps,'load_config',return_value=(original,raw,info)), \
+                     patch.object(gps,'open_gps',side_effect=lambda _,baud: real_open(str(device),baud)), \
+                     patch.object(gps,'device_matches',side_effect=lambda fd,_: real_matches(fd,str(device))), \
+                     patch.object(gps,'report',side_effect=report), patch.object(gps,'adapter_ids',return_value=['10c4:ea60']), \
+                     patch.object(gps.time,'sleep'), patch.object(gps.time,'monotonic',side_effect=lambda:clock[0]), \
+                     patch.object(gps.os,'read',side_effect=read), contextlib.redirect_stdout(io.StringIO()):
+                    gps.seed()
+            finally:
+                for fd in masters: os.close(fd)
+            self.assertEqual(reports[0]['state'],'gps-missing')
+            self.assertEqual(reports[0]['usb_adapter_ids'],['10c4:ea60'])
+            self.assertTrue(any(r['state']=='gps-waiting' and r['gps']['satellites_used']==3 and r['gps']['hdop']==4.2 for r in reports))
+            self.assertEqual(reports[-1]['state'],'gps-fix')
+            self.assertTrue(gps.location_valid(yaml.safe_load(config.read_text())['node']['location']))
+            self.assertFalse(startup.exists())
+
     def rules(self):
         block = SOURCE.split('# Verbatim aviary hardened block.', 1)[1].split('\n)\n', 1)[0]+'\n)\n'
         block = block[block.index('\n'):]
@@ -96,12 +134,12 @@ lsusb() {
 
     def test_preflight_names_unknown_and_clone_without_mapping(self):
         samples = []
-        for usb_id in ['1546:01aa', '1a86:7523']:
+        for usb_id in ['1546:01aa', '1a86:7523', '10c4:ea60', '0403:6001']:
             with self.subTest(usb_id=usb_id):
                 output = self.inventory(usb_id)
                 self.assertIn('supported=0', output)
                 self.assertIn(usb_id, output)
-                self.assertIn('not in the supported GPS list', output)
+                self.assertIn('not a supported GPS', output)
                 samples.append(output)
         if os.environ.get('P0_EVIDENCE'):
             (Path(os.environ['P0_EVIDENCE'])/'gps-unsupported-inventory.log').write_text('\n'.join(samples))

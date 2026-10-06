@@ -59,10 +59,10 @@ func (v *view) rateGPS(p gpsPolicy) {
 		if g.SatellitesUsed != nil {
 			sats = int(*g.SatellitesUsed)
 		}
-		v.GPSRating = p.rate(fix, sats, nil) // waiter does not publish HDOP
+		v.GPSRating = p.rate(fix, sats, g.HDOP)
 		v.GPSActivity = "The service is waiting for a measured GPS fix before starting the engine."
 		if fix {
-			v.GPSActivity = "A fix was reported; the service is preparing engine startup. The engine is not yet confirmed running. HDOP is not reported by this waiter version, so reception cannot be rated Good."
+			v.GPSActivity = "A fix was reported; the service is preparing engine startup. The engine is not yet confirmed running."
 		}
 		return
 	}
@@ -79,7 +79,7 @@ func (v *view) rateGPS(p gpsPolicy) {
 		hdop = g.HDOP
 	}
 	v.GPSRating = p.rate(fix, sats, hdop)
-	v.GPSActivity = "The engine is running; GPS has no confirmed current fix."
+	v.GPSActivity = "The engine is running on saved position; position preserved, GPS not live."
 	if fix {
 		v.GPSActivity = "The engine is running with a reported GPS fix. Lower HDOP generally means better satellite geometry; this rating is not a position-accuracy guarantee."
 	}

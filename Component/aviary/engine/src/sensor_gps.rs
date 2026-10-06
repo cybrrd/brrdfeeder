@@ -141,11 +141,7 @@ async fn run_ublox_gps(
                     break p;
                 }
                 Err(e) => {
-                    bump_error(&health, format!("serial open: {}", e));
-                    eprintln!(
-                        "[gps] serial open failed ({}); retrying in 2s",
-                        e
-                    );
+                    serial_fault(&health, format!("serial open: {}", e));
                     tokio::select! {
                         _ = ctx.cancel.cancelled() => {
                             set_state(&health, SensorState::Failed, Some("canceled".into()));
@@ -188,14 +184,12 @@ async fn run_ublox_gps(
                         Ok(None) => {
                             // EOF on the serial stream — the kernel
                             // dropped the cdc_acm endpoint. Re-open.
-                            bump_error(&health, "serial EOF; will reopen".into());
-                            eprintln!("[gps] serial EOF; reopening in 2s");
+                            serial_fault(&health, "serial EOF; will reopen".into());
                             tokio::time::sleep(Duration::from_secs(2)).await;
                             continue 'outer;
                         }
                         Err(e) => {
-                            bump_error(&health, format!("serial read: {}", e));
-                            eprintln!("[gps] serial read error: {}; reopening in 2s", e);
+                            serial_fault(&health, format!("serial read: {}", e));
                             tokio::time::sleep(Duration::from_secs(2)).await;
                             continue 'outer;
                         }
@@ -362,6 +356,20 @@ fn bump_error(health: &Arc<ArcSwap<SensorHealth>>, detail: String) {
     health.store(Arc::new(h));
 }
 
+fn serial_fault(health: &Arc<ArcSwap<SensorHealth>>, detail: String) {
+    let prev = health.load();
+    let mut h = (**prev).clone();
+    h.state = SensorState::Failed;
+    h.error_count = h.error_count.saturating_add(1);
+    // A retry every two seconds is useful; an identical log every two seconds
+    // is not. Log transitions, then at most one reminder per 30 failures.
+    if prev.state != SensorState::Failed || h.error_count % 30 == 0 {
+        eprintln!("[gps] GPS not live: {}; retrying without exiting", detail);
+    }
+    h.detail = Some(detail);
+    health.store(Arc::new(h));
+}
+
 async fn fire_state_change(ctx: &SensorContext, event_type: &str, success: bool) {
     let ev = SubstrateAuditEvent {
         node_id: ctx.node_id.to_string(),
@@ -384,6 +392,50 @@ async fn fire_state_change(ctx: &SensorContext, event_type: &str, success: bool)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn unplug_revokes_health_and_replug_recovers() {
+        use std::io::Write;
+        use std::os::fd::FromRawFd;
+        fn pty() -> (std::fs::File, std::fs::File, String) {
+            let (mut master, mut slave) = (0, 0);
+            let mut name = [0i8; 128];
+            assert_eq!(unsafe { libc::openpty(&mut master, &mut slave, name.as_mut_ptr(), std::ptr::null(), std::ptr::null()) }, 0);
+            let path = unsafe { std::ffi::CStr::from_ptr(name.as_ptr()) }.to_str().unwrap().to_owned();
+            unsafe { (std::fs::File::from_raw_fd(master), std::fs::File::from_raw_fd(slave), path) }
+        }
+        let dir = std::env::temp_dir().join(format!("gps-runtime-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let device = dir.join("gps");
+        let (mut master, slave, path) = pty();
+        std::os::unix::fs::symlink(path, &device).unwrap();
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let (audit, _events) = mpsc::channel(16);
+        let mut handle = NmeaGps::new(device.to_str().unwrap()).start(SensorContext {
+            node_id: Arc::from("gps-test"), cancel: cancel.clone(), substrate_audit: audit,
+        });
+        let sentence = nmea_with_checksum("GPGGA,123519,4052.9554,N,09541.4552,W,1,08,0.9,320.0,M,46.9,M,,")+"\r\n";
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        master.write_all(sentence.as_bytes()).unwrap();
+        tokio::time::timeout(Duration::from_secs(3), handle.readings.recv()).await.unwrap().unwrap();
+        assert_eq!(handle.health.load().state, SensorState::Healthy);
+        drop(master);
+        drop(slave);
+        std::fs::remove_file(&device).unwrap();
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let disconnected = handle.health.load().state;
+        // Save the assertion until cleanup, so a red test leaves no fixture.
+        let (mut master, _slave, path) = pty();
+        std::os::unix::fs::symlink(path, &device).unwrap();
+        tokio::time::sleep(Duration::from_millis(2300)).await;
+        master.write_all(sentence.as_bytes()).unwrap();
+        let recovered = tokio::time::timeout(Duration::from_secs(3), handle.readings.recv()).await;
+        cancel.cancel();
+        std::fs::remove_file(&device).unwrap();
+        std::fs::remove_dir(dir).unwrap();
+        assert_eq!(disconnected, SensorState::Failed, "unplug must immediately revoke live GPS health");
+        assert!(recovered.unwrap().is_some());
+    }
 
     /// Build a checksum-correct NMEA sentence from its body. NMEA
     /// checksum = XOR of all bytes between `$` and `*` exclusive,

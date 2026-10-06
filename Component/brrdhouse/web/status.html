@@ -10,7 +10,7 @@
 <dt>Satellites used</dt><dd>{{if .SatellitesUsed}}{{.SatellitesUsed}}{{else}}Unknown{{end}}</dd>
 <dt>Satellites in view</dt><dd>{{if .SatellitesView}}{{.SatellitesView}}{{else}}Unknown{{end}}</dd>
 <dt>Fix quality</dt><dd>{{if .Quality}}{{.Quality}}{{else}}Unknown{{end}}</dd>
-<dt>HDOP</dt><dd>Not reported by this waiter version</dd>
+<dt>HDOP</dt><dd>{{if .HDOP}}{{.HDOP}}{{else}}Not reported or invalid{{end}}</dd>
 <dt>Fix mode</dt><dd>{{if .Mode}}{{.Mode}}{{else}}Unknown{{end}}</dd>
 <dt>Maximum SNR</dt><dd>{{if .MaxSNR}}{{.MaxSNR}} dB-Hz{{else}}Unknown{{end}}</dd>
 <dt>Average SNR</dt><dd>{{if .AvgSNR}}{{.AvgSNR}} dB-Hz{{else}}Unknown{{end}}</dd>

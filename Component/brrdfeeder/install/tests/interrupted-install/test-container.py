@@ -72,6 +72,32 @@ class Recovery(unittest.TestCase):
         temporary.write_text('partial'); temporary.chmod(0o600)
         self.clean_uninstall()
         self.assertFalse(temporary.exists())
+    def residue(self):
+        home=Path('/var/lib/brrdfeeder')
+        for relative in ('', '.config', '.config/systemd', '.config/systemd/user',
+                         '.local', '.local/share', '.local/share/containers', '.cache'):
+            path=home/relative
+            path.mkdir(mode=0o700, exist_ok=True)
+            os.chown(path,999,985)
+        return home
+    def test_empty_service_home_residue_upgrade_uninstalls(self):
+        home=self.residue()
+        self.clean_uninstall()
+        self.assertFalse(home.exists())
+    def test_unknown_residue_file_refuses_actionably_without_deleting(self):
+        home=self.residue()
+        unknown=home/'.config/operator-data'
+        unknown.write_text('keep me')
+        result=self.uninstall()
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('regular',result.stdout+result.stderr)
+        self.assertIn('owner=',result.stdout+result.stderr)
+        self.assertIn('emptiness=',result.stdout+result.stderr)
+        self.assertIn('sudo stat --',result.stdout+result.stderr)
+        self.assertIn('sudo brrdfeeder uninstall',result.stdout+result.stderr)
+        self.assertEqual(unknown.read_text(),'keep me')
+        unknown.unlink()
+        self.clean_uninstall()
     def test_negative_controls(self):
         for bad in ('foreign-command','human-shell','human-home','unlocked','privileged','mismatched-receipt'):
             with self.subTest(bad=bad):

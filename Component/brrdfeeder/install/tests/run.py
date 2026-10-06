@@ -22,6 +22,7 @@ ROOT = HERE.parents[3]
 INSTALL = ROOT/'Component/brrdfeeder/install'
 RELEASE = ROOT/'Component/aviary/release-system'
 BASELINES = [
+    'gps-runtime/test-contract.py',
     'directory-modes/test-contract.py',
     'lock-on/test-contract.py',
     'role-language/test-contract.py',
@@ -139,6 +140,7 @@ for group in groups:
         for name in ('run-go-proofs','run-rework-proofs','run-rust-proofs'):
             run(name,[sys.executable,RELEASE/'tests'/(name+'.py')],timeout=3600)
     elif group == 'containers':
+        run('gps-runtime-start',[sys.executable,HERE/'gps-runtime/test-container.py'])
         run('ownership-image-packaging',[sys.executable,HERE/'ownership/check-images.py'])
         image = os.environ.get('TEST_OS_IMAGE')
         if not image:

@@ -32,14 +32,17 @@ func (commands) Run(bin string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, args...)
-	b, e := cmd.CombinedOutput()
+	w := &boundedOutput{cancel: cancel}
+	cmd.Stdout, cmd.Stderr = w, w
+	cmd.WaitDelay = time.Second
+	e := cmd.Run()
+	if w.overflow {
+		return nil, errOutputBound
+	}
 	if e != nil {
 		return nil, fmt.Errorf("%s failed: %w", bin, e)
 	}
-	if len(b) > 1<<20 {
-		return nil, errors.New("command output too large")
-	}
-	return b, nil
+	return w.buf.Bytes(), nil
 }
 
 type Updater struct {
@@ -52,7 +55,11 @@ type Updater struct {
 	sleep         func(time.Duration)
 	healthTimeout time.Duration
 	watch         *restartWatch
-	checkpoint    func(string) // Test-only process-kill boundary; nil in production.
+	checkpoint    func(string)                            // Test-only process-kill boundary; nil in production.
+	space         func(string) (uint64, uint64, error)    // Fault injection; production uses statfs.
+	write         func(string, []byte, os.FileMode) error // Fault injection; production uses atomicFile.
+	stageFile     func(string, []byte) error              // Fault injection; production uses stage.
+	attempt       *Attempt
 }
 
 func (u *Updater) point(name string) {
@@ -64,7 +71,7 @@ func (u *Updater) point(name string) {
 func newUpdater(c Config) *Updater {
 	return &Updater{cfg: c, keys: pinnedKeys, run: commands{}, client: &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("release redirects refused") }}, now: time.Now, sleep: time.Sleep, healthTimeout: 180 * time.Second}
 }
-func (u *Updater) execute(mode string) error {
+func (u *Updater) execute(mode string) (result error) {
 	unlock, e := u.lock()
 	if e != nil {
 		return e
@@ -72,6 +79,10 @@ func (u *Updater) execute(mode string) error {
 	defer unlock()
 	if e = u.load(); e != nil {
 		return e
+	}
+	if mode == "poll" || mode == "apply" {
+		u.attempt = &Attempt{Schema: 1, Mode: mode, Started: u.now().UTC(), Phase: "prepare", HelperBuild: updaterBuild}
+		defer func() { result = errors.Join(result, u.finishAttempt(result)) }()
 	}
 	if u.state.Active != nil {
 		if e = u.recoverBoot(); e != nil {
@@ -206,6 +217,7 @@ func (u *Updater) releaseRequest(raw []byte) (Request, error) {
 	if e := u.trustedClock(); e != nil {
 		return Request{}, e
 	}
+	u.phase("manifest")
 	m, e := verifyRelease(raw, u.keys, u.now())
 	if e != nil {
 		return Request{}, e
@@ -220,6 +232,7 @@ func (u *Updater) releaseRequest(raw []byte) (Request, error) {
 	return Request{Target: m.Repository + "@" + m.Digest, Version: m.Version, Build: m.BuildSeq, Hash: contentHash(raw), Release: &m}, nil
 }
 func (u *Updater) poll() error {
+	started := u.now().UTC()
 	if e := u.trustedClock(); e != nil {
 		return e
 	}
@@ -238,11 +251,18 @@ func (u *Updater) poll() error {
 	if e != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
 		return errors.New("credential-free HTTPS release URL required")
 	}
+	u.phase("http")
+	if u.attempt != nil {
+		u.attempt.NetworkAttempted = true
+	}
 	res, e := u.client.Get(endpoint.String())
 	if e != nil {
 		return e
 	}
 	defer res.Body.Close()
+	if u.attempt != nil {
+		u.attempt.HTTPStatus = res.StatusCode
+	}
 	if res.StatusCode != 200 {
 		return fmt.Errorf("release HTTP %d", res.StatusCode)
 	}
@@ -250,6 +270,13 @@ func (u *Updater) poll() error {
 	if e != nil {
 		return e
 	}
+	if e = u.trustedClock(); e != nil {
+		return e
+	}
+	if u.now().UTC().Before(started) {
+		return errors.New("release clock moved backward during fetch")
+	}
+	u.phase("manifest")
 	m, e := verifyRelease(raw, u.keys, u.now())
 	if e != nil {
 		return e
@@ -298,7 +325,12 @@ func (u *Updater) poll() error {
 	} else if !os.IsNotExist(e) {
 		return e
 	}
-	if e = stage(u.pending(), raw); e != nil {
+	u.phase("stage")
+	stagePending := u.stageFile
+	if stagePending == nil {
+		stagePending = stage
+	}
+	if e = stagePending(u.pending(), raw); e != nil {
 		return e
 	}
 	u.point("staged")
@@ -308,6 +340,7 @@ func (u *Updater) poll() error {
 // No expiry-sensitive decision is allowed without an explicit fresh clock-trust
 // report. Recovery deliberately does not call this: old pins restore offline.
 func (u *Updater) trustedClock() error {
+	u.phase("clock")
 	s, e := u.status()
 	if e != nil || s.Heartbeat.Trusted == nil || !*s.Heartbeat.Trusted {
 		return errors.New("release clock untrusted: require fresh explicit os_clock_trusted=true")

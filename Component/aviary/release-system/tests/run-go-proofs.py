@@ -50,6 +50,15 @@ mutations = [
     ("host-artifact-hash", "host_update.go", 'if contentHash(b) != m.SHA256 {', 'if false && contentHash(b) != m.SHA256 {', "TestSignedHostPollDownloadsAndFallsBack"),
     ("poll-floor", "updater.go", 'if u.now().Before(u.state.NextPoll) {', 'if false && u.now().Before(u.state.NextPoll) {', "TestNoPathExistsAndFailedFetchFloor"),
     ("boot-recovery", "updater.go", 'if u.state.Active != nil {', 'if false && u.state.Active != nil {', "TestSIGKILLBootRecoveryOffline"),
+    ("download-clock", "package.go", 'if _, e = u.releaseRequest(raw); e != nil {', 'if _, e = u.releaseRequest(raw); false {', "TestDownloadsRecheckClockBeforeAnySwitch"),
+    ("backward-clock", "package.go", 'if u.now().UTC().Before(started) {', 'if false && u.now().UTC().Before(started) {', "TestDownloadsRecheckClockBeforeAnySwitch"),
+    ("console-tuple", "package.go", 'if e = u.verifyImageTuple(true, nc, m.ConsoleDigest, m.ConsoleVersion, m.ConsoleBuild); e != nil {', 'if e = u.verifyImageTuple(true, nc, m.ConsoleDigest, m.ConsoleVersion, m.ConsoleBuild); false {', "TestConsoleTupleBoundBeforeSwitch"),
+    ("resource-reserve", "resources.go", 'if bytes < metadataReserve || inodes < inodeReserve {', 'if false && (bytes < metadataReserve || inodes < inodeReserve) {', "TestResourceReserveAtBothDownloadBoundaries"),
+    ("actual-stores", "resources.go", 'paths = append(paths, path)', '_ = path', "TestBothActualStoresAndOwnedCommandBoundary"),
+    ("receipt-http", "updater.go", 'u.attempt.HTTPStatus = res.StatusCode', 'u.attempt.HTTPStatus = 0', "TestAttemptReceiptSeparatesHTTPFailureFromValidCheck"),
+    ("receipt-identity", "package.go", 'm.ConsoleDigest, m.ConsoleVersion, m.ConsoleBuild', 'm.ConsoleDigest, m.ConsoleVersion, uint64(99)', "TestBothActualStoresAndOwnedCommandBoundary"),
+    ("pin-disk-quarantine", "package.go", 'return errors.Join(e, u.recoverBoot())', 'u.state.Attempts[target]++; return errors.Join(e, u.recoverBoot())', "TestWriteENOSPCKeepsFloorsAndDoesNotQuarantine"),
+    ("output-stream-bound", "command_output.go", 'len(p) > (1<<20)-w.buf.Len()', 'false && len(p) > (1<<20)-w.buf.Len()', "TestCommandOutputBoundCancelsWhileStreaming"),
 ]
 receipts = []
 for name, filename, before, after, test in mutations:

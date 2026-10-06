@@ -64,6 +64,31 @@ symlinks/FIFOs are never followed. No engine-writable mailbox is consumed.
 Expiry-sensitive package and host-update decisions require a fresh explicit
 os_clock_trusted=true report. An untrusted clock leaves a staged release intact.
 
+After downloading, both local images (including an unchanged console) must bind
+the signed digest, OCI revision and component build label. Fresh clock trust and
+manifest expiry are rechecked after downloads and again before journaling;
+backward wall-clock movement defers the update. A slow manifest fetch must also
+finish with trusted time before it can advance `last_release_check_at`.
+
+Before downloads and before the transaction, read-only filesystem checks require
+16 MiB and 64 free inodes on the private state, public projection, Quadlet and
+actual rootful/rootless Podman graph stores. This is a metadata reserve, **not**
+a promise the images will fit. Failed uncached pulls leave the old pair running.
+Pin-write failures attempt paired local recovery without consuming a bad-image
+attempt; failed recovery writes retain the journal for a later retry. Command
+output is capped at 1 MiB while streaming; overflow cancels the command.
+
+Each completed `poll`/`apply` invocation under the host lock writes a bounded
+private `attempt.json` and support-visible `release_attempt.json`. Fields include
+attempt times, mode/phase/error code, HTTP status, whether network was attempted,
+compiled helper build and a verified console tuple when available. They contain
+no URLs, response bodies or raw error text. These receipts do not alter the
+existing currency/journal schema, and are not a new Silver/Red delivery claim.
+`last_release_check_at` still means a valid signed check, not an attempted fetch.
+A crash before completion can leave the previous attempt receipt; the durable
+transaction journal is recovery authority. Receipt-write failures are reported,
+never treated as durable evidence, and never gate local rollback.
+
 Running zero-capability, networkless hold containers reference outgoing images
 in the rootful engine/rootless console stores. They bind the static HOST binary
 at /hold; scratch images need no utilities. Running anchors prevent image/system

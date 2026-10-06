@@ -834,7 +834,9 @@ def _supervise(script, args, display_fd, tty_fd, progress):
     if args == ['--support-bundle']:
         return bundle(run_id, redactor)
     mode = 'dryrun' if '--dry-run' in args else 'uninstall' if '--uninstall' in args else 'verify' if '--verify' in args or '--status' in args else 'install'
-    quiet = '--no-verbose' in args and (mode == 'install' or '--uninstall' in args)
+    # Ordinary removal is compact even when invoked through the local command
+    # without bootstrap flags. Dry-run still displays its full validated plan.
+    quiet = mode == 'uninstall' or ('--no-verbose' in args and mode == 'install')
     progress.start('Installing BRRDfeeder (usually about 2–5 min; downloads can take longer)' if mode == 'install'
                    else 'Preparing '+('removal' if '--uninstall' in args else mode)+' and collecting diagnostics')
     override = next((a.split('=', 1)[1] for a in args if a.startswith('--audit-log=')), '')
@@ -2019,6 +2021,16 @@ stop_unit() {
     log "$unit: generated; removal of Quadlet + daemon-reload revokes WantedBy"
   else manager "$scope" disable "$unit" || die "cannot disable $unit"; fi
 }
+reset_failed_unit() {
+  local scope=$1 unit=$2
+  if (( dry )); then log "WOULD reset-failed $scope unit $unit if failed"; return; fi
+  if [[ $scope == user && ( -z ${uid[brrdhouse]:-} || ! -S /run/user/${uid[brrdhouse]}/bus ) ]]; then return; fi
+  # A removed unit can remain not-found/failed. Query failure state rather than
+  # LoadState; never reset unrelated units or treat an absent healthy unit as an error.
+  if manager "$scope" is-failed --quiet "$unit"; then
+    act manager "$scope" reset-failed "$unit" || die "cannot clear failed state for $unit"
+  fi
+}
 confirm_removal
 progress_phase 'Stopping services'
 stop_unit system brrdfeeder-release-poll.timer
@@ -2056,11 +2068,14 @@ remove_file() {
 progress_phase 'Removing service definitions'
 for file in /etc/systemd/system/brrdfeeder-updater.path /etc/systemd/system/brrdfeeder-updater.service /etc/containers/systemd/brrdfeeder-engine.container /etc/systemd/system/brrdfeeder-release-poll.timer /etc/systemd/system/brrdfeeder-release-poll.service /etc/systemd/system/brrdfeeder-release-recover.service /etc/systemd/system/brrdfeeder-host-update.service /etc/systemd/system/brrdfeeder-host-update.timer; do remove_file "$file"; done
 for file in "${console_links[@]}"; do remove_file "$file"; done
+for file in /etc/systemd/system/brrdfeeder-gps-runtime.timer /etc/systemd/system/brrdfeeder-gps-runtime.service; do remove_file "$file"; done
 [[ ${#console_links[@]} -gt 0 ]] || absent '/etc/containers/systemd/users/<console-uid>/brrdhouse.container'
 remove_file /etc/brrdfeeder/brrdhouse.container
 act systemctl daemon-reload
 if [[ -n ${uid[brrdhouse]:-} && -S /run/user/${uid[brrdhouse]}/bus ]]; then act user_command systemctl --user daemon-reload;
 else log 'nothing to do: no active console user manager to reload; teardown order requires Quadlet removal before account deletion'; fi
+for unit in brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.timer brrdfeeder-host-update.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-engine.service brrdfeeder-gps-runtime.timer brrdfeeder-gps-runtime.service; do reset_failed_unit system "$unit"; done
+reset_failed_unit user brrdhouse.service
 
 # Only package containers and exclusive package image IDs. Never force rmi/prune.
 pod() {
@@ -2173,11 +2188,14 @@ for file in "${files[@]}"; do
   remove_file "$file"
 done
 if (( had_udev )); then
+  # Remove old names BEFORE triggering remaining rules. Local rules may own the
+  # same aliases; let udev reassert them and never delete them after that point.
+  for device in /dev/cybrrd_gps /dev/cybrrd_ble; do remove_file "$device"; done
   act udevadm control --reload-rules
   act udevadm trigger --subsystem-match=tty --action=change
   act udevadm trigger --subsystem-match=misc --sysname-match=rfkill --action=change
+  act udevadm settle --timeout=10
 else absent 'package udev rule; no reload required'; fi
-for device in /dev/cybrrd_gps /dev/cybrrd_ble; do remove_file "$device"; done
 (( ! had_chrony )) || act systemctl try-restart chrony.service
 (( ! had_journal )) || act systemctl try-restart systemd-journald.service
 

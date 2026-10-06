@@ -41,7 +41,9 @@ class Contract(unittest.TestCase):
         self.assertIn('No terminal',helper)
         self.assertIn('--yes',helper)
         self.assertIn("kind == 'NOTICE'",logger)
-        self.assertIn("quiet = '--no-verbose' in args and (mode == 'install' or '--uninstall' in args)",logger)
+        self.assertIn("quiet = mode == 'uninstall' or ('--no-verbose' in args and mode == 'install')",logger)
+        self.assertIn('do reset_failed_unit system "$unit"; done',helper)
+        self.assertIn('reset_failed_unit user brrdhouse.service',helper)
     def test_auto_adoption_and_named_profile_refusals(self):
         helper=(INSTALL/'uninstall.sh').read_text()
         self.assertIn('recognised $user as a BRRDfeeder service account',helper)

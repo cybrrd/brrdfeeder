@@ -704,7 +704,9 @@ def _supervise(script, args, display_fd, tty_fd, progress):
     if args == ['--support-bundle']:
         return bundle(run_id, redactor)
     mode = 'dryrun' if '--dry-run' in args else 'uninstall' if '--uninstall' in args else 'verify' if '--verify' in args or '--status' in args else 'install'
-    quiet = '--no-verbose' in args and (mode == 'install' or '--uninstall' in args)
+    # Ordinary removal is compact even when invoked through the local command
+    # without bootstrap flags. Dry-run still displays its full validated plan.
+    quiet = mode == 'uninstall' or ('--no-verbose' in args and mode == 'install')
     progress.start('Installing BRRDfeeder (usually about 2–5 min; downloads can take longer)' if mode == 'install'
                    else 'Preparing '+('removal' if '--uninstall' in args else mode)+' and collecting diagnostics')
     override = next((a.split('=', 1)[1] for a in args if a.startswith('--audit-log=')), '')

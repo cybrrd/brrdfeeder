@@ -29,7 +29,7 @@ class Contract(unittest.TestCase):
         manager=HELPER.split('act systemctl daemon-reload\n',1)[1].split('\n\n# Only package containers',1)[0]
         accounts=HELPER.split('for user in brrdhouse brrdfeeder; do\n',1)[1].split('\nremove_tree /etc/brrdfeeder',1)[0]
         script='set -euo pipefail\ndry=1\ndeclare -A visited_files=()\n'
-        script+='\n'.join(function(n) for n in ['log','act','absent','exists','remove_file','remove_tree','stop_unit','remove_images'])
+        script+='\n'.join(function(n) for n in ['log','act','absent','exists','remove_file','remove_tree','stop_unit','reset_failed_unit','remove_images'])
         script+='\nsafe_tree() { :; }\ngetent() { return 2; }\n'
         script+='declare -A uid=([brrdfeeder]=600001 [brrdhouse]=600002) gid=([brrdfeeder]=600001 [brrdhouse]=600002)\n'
         script+='user=brrdfeeder; id=600001; group=600001\n'+adoption+'\n'+policy+'\n'+manager+'\n'

@@ -2090,6 +2090,18 @@ run() {
   fi
 }
 
+# Explicit operands matter: uutils install applies umask to implicit parents.
+# Callers list each possibly absent public parent, in parent-first order.
+public_directories() {
+  local directory
+  for directory in "$@"; do
+    run install -d -m 0755 -o root -g root "$directory"
+    if [[ $DRY_RUN -ne 1 && $(stat -c '%a' "$directory") != 755 ]]; then
+      fatal "Directory $directory must be 0755 so services can traverse it."
+    fi
+  done
+}
+
 # Parse node.storage_class from config.yaml (defaults to "persistent" if
 # absent). Used by Step 4 to decide whether to apply BRRDfeeder-tier hardening.
 get_storage_class() {
@@ -2913,7 +2925,7 @@ LISTEN_PY
   CONSOLE_REPO_DIGESTS=$(console_run podman image inspect "$CONSOLE_IMAGE" --format '{{range .RepoDigests}}{{println .}}{{end}}') \
     || fatal "Cannot inspect pinned console image."
   printf '%s\n' "$CONSOLE_REPO_DIGESTS" | grep -qxF "$CONSOLE_IMAGE" || fatal "Console RepoDigests mismatch; deployment not changed."
-  run install -d -m 0755 -o root -g root /usr/local/libexec
+  public_directories /usr/local /usr/local/libexec
   # Exact shipped deploy/provision-status.sh; equality-checked by package tests.
   atomic_install 0755 root root "$STATUS_PROVISIONER" <<'STATUS_PROVISIONER_EOF'
 #!/bin/bash
@@ -3006,7 +3018,7 @@ fi
 # ----------------------------------------------------------------------
 gate clock "Step 2 — clock hardening (chrony makestep)"
 
-run install -d -m 0755 "$(dirname "$CHRONY_DROPIN")"
+public_directories /etc/chrony "$(dirname "$CHRONY_DROPIN")"
 if [[ -e "$CHRONY_DROPIN" || -L "$CHRONY_DROPIN" ]]; then
   [[ -f $CHRONY_DROPIN && ! -L $CHRONY_DROPIN && $(stat -c %u "$CHRONY_DROPIN") == 0 ]] \
     && grep -qF '# BRRDfeeder clock correction' "$CHRONY_DROPIN" \
@@ -3117,7 +3129,7 @@ say "config-declared node.storage_class=$STORAGE_CLASS"
 
 if [[ "$STORAGE_CLASS" == "ephemeral" ]]; then
   JOURNALD_DROPIN_DIR="$(dirname "$JOURNALD_DROPIN")"
-  run install -d -m 0755 "$JOURNALD_DROPIN_DIR"
+  public_directories /etc/systemd "$JOURNALD_DROPIN_DIR"
 
   NEW_JOURNALD=$(cat <<'JEOF'
 # BRRDfeeder — protect MicroSD card from journald write wear.
@@ -3180,7 +3192,7 @@ fi
 if [[ $DRY_RUN -eq 1 ]]; then
   say "[dry-run] would install $IDENTITY_INSTALL"
 else
-  run install -d -m 0755 -o root -g root /usr/local/libexec
+  public_directories /usr/local /usr/local/libexec
   atomic_install 0755 root root "$IDENTITY_INSTALL" <<'IDENTITY_SH_EOF'
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -3680,7 +3692,7 @@ GPS_SEED_EOF
 fi
 
 QUADLET_DIR="$(dirname "$QUADLET_FILE")"
-[[ -d "$QUADLET_DIR" ]] || run install -d -m 0755 "$QUADLET_DIR"
+public_directories /etc/containers "$QUADLET_DIR"
 
 NEW_QUADLET=$(cat <<EOF
 # /etc/containers/systemd/brrdfeeder-engine.container
@@ -3828,7 +3840,8 @@ WantedBy=default.target
 CONSOLE_QUADLET_EOF
   run chmod 0644 "$CONSOLE_QUADLET_FILE"
   run chown root:root "$CONSOLE_QUADLET_FILE"
-  run install -d -m 0755 -o root -g root "/etc/containers/systemd/users/$CONSOLE_UID"
+  public_directories /etc/containers /etc/containers/systemd /etc/containers/systemd/users \
+    "/etc/containers/systemd/users/$CONSOLE_UID"
   run ln -sfn "$CONSOLE_QUADLET_FILE" "/etc/containers/systemd/users/$CONSOLE_UID/brrdhouse.container"
 fi
 
@@ -3855,7 +3868,7 @@ else
   else
     run curl --fail --silent --show-error --proto '=https' --tlsv1.2 --connect-timeout 10 --max-time 120 --max-filesize 33554432 --output "$UPDATE_STAGE/brrdfeeder-release" "$RELEASE_HELPER_URL"
     [[ $(sha256sum "$UPDATE_STAGE/brrdfeeder-release" | cut -d' ' -f1) == "$RELEASE_HELPER_SHA256" ]] || fatal 'Standalone updater SHA256 mismatch; refusing execution'
-    install -d -m 0755 /usr/local/libexec
+    public_directories /usr/local /usr/local/libexec
     # Receipt first: a crash can leave the verified hash without the executable,
     # but never an executable lacking provenance. Retry requires the same hash.
     if [[ -e /etc/brrdfeeder/.updater-helper.sha256 ]]; then

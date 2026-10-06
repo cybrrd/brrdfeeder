@@ -22,6 +22,7 @@ ROOT = HERE.parents[3]
 INSTALL = ROOT/'Component/brrdfeeder/install'
 RELEASE = ROOT/'Component/aviary/release-system'
 BASELINES = [
+    'directory-modes/test-contract.py',
     'lock-on/test-contract.py',
     'role-language/test-contract.py',
     'ownership/test-contract.py',

@@ -9,7 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 pcap = "2.5" # Used for capturing packets
-async-nats = "0.47" # First release compatible with patched rustls-webpki 0.103.13.
+async-nats = "0.50" # First release compatible with patched rustls-webpki 0.103.13.
 bytes = "1" # #178: opaque pre-serialized payloads in the multiplexed NATS supervisor
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

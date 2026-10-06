@@ -7,6 +7,7 @@ Real installer, accounts, files and logger; synthetic hardware, OAuth, registry,
 systemd and updater. This is a transcript fixture, NOT a live-node acceptance.
 """
 import errno
+import grp
 import importlib.util
 import os
 from pathlib import Path
@@ -31,6 +32,12 @@ class Transcript(unittest.TestCase):
     def test_full_install_and_redacted_diagnostics(self):
         fixture = naming.InstallerRerun('test_rerun_keeps_current_new_dropin')
         fixture.setUp(); self.addCleanup(fixture.tearDown)
+        if not BASELINE:
+            # Ubuntu's system log layout, in this disposable OS only.
+            if not any(group.gr_name == 'syslog' for group in grp.getgrall()):
+                subprocess.run(['groupadd', '--system', 'syslog'], check=True)
+            os.chown('/var/log', 0, grp.getgrnam('syslog').gr_gid)
+            os.chmod('/var/log', 0o775)
         fixture.seed_installed_node()
         # Start enrollment with an existing template and inert installed helper.
         # The fixture must never download or execute a real update helper.
@@ -91,6 +98,9 @@ else: sys.exit(99)
             for hidden in ['Zitadel', 'NOT signature verified', 'storage_class', 'console_memory_limit=',
                            'cgroup=', 'console has no memory cap', 'Next: follow README', 'checks signed updates automatically']:
                 self.assertNotIn(hidden, transcript)
+            metadata = Path('/var/log/brrdfeeder').stat()
+            self.assertEqual((metadata.st_uid, metadata.st_gid, metadata.st_mode & 0o7777), (0, 0, 0o750))
+            self.assertNotIn('logging degraded', transcript)
             for diagnostic in ['Zitadel', 'NOT signature verified', 'storage_class',
                                'console_memory_limit=', 'device-flow outcome=approved']:
                 self.assertIn(diagnostic, log)

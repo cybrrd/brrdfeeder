@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 """No privileges/network: redaction and supervisor contract with bounded stubs."""
 import contextlib
+import grp
 import importlib.util
 import io
 import os
@@ -13,6 +14,7 @@ import tempfile
 import tarfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 ROOT=Path(__file__).resolve().parents[5]
 INSTALL=ROOT/'Component/brrdfeeder/install'
@@ -21,6 +23,25 @@ log=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(log)
 
 class Contract(unittest.TestCase):
+    def test_ubuntu_syslog_parent_is_accepted_without_relaxing_other_paths(self):
+        original_stat = Path.stat
+        def check(mode, uid=0, gid=104, path='/var/log'):
+            def info(item, *args, **kwargs):
+                if str(item) == path:
+                    return SimpleNamespace(st_mode=mode, st_uid=uid, st_gid=gid)
+                if str(item) in ('/', '/var', '/var/log'):
+                    return SimpleNamespace(st_mode=0o40755, st_uid=0, st_gid=0)
+                return original_stat(item, *args, **kwargs)
+            with patch.object(Path, 'stat', info), patch.object(Path, 'mkdir'), \
+                 patch.object(os, 'geteuid', return_value=0), \
+                 patch.object(grp, 'getgrnam', return_value=SimpleNamespace(gr_gid=104)):
+                log.Log.safe_parent(Path(path)/'fixture-log-parent')
+        check(0o40775)
+        for kwargs in ({'mode':0o40777}, {'mode':0o40775, 'uid':1000},
+                       {'mode':0o40775, 'gid':1000}, {'mode':0o40775, 'path':'/var'}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(OSError):
+                check(**kwargs)
+
     def test_embedded(self):
         source=(INSTALL/'brrdfeeder-install.sh').read_text()
         embedded=source.split("<<'INSTALL_LOG_PY'\n",1)[1].split('\nINSTALL_LOG_PY\n',1)[0]+'\n'
@@ -129,7 +150,9 @@ class Contract(unittest.TestCase):
             item.write('redacted diagnostic\n'); os.close(item.fd)
             self.assertTrue(str(item.path).startswith('/tmp/brrdfeeder-verify-11223344-'))
             self.assertEqual(output.getvalue().count('logging degraded'),1)
-            self.assertEqual(item.path.read_text(),'redacted diagnostic\n')
+            self.assertIn('read-only filesystem', output.getvalue())
+            self.assertIn('read-only filesystem', item.path.read_text())
+            self.assertTrue(item.path.read_text().endswith('redacted diagnostic\n'))
         finally:
             item.path.unlink()
 

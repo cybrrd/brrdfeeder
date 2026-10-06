@@ -13,6 +13,7 @@ import contextlib
 from collections import deque
 import datetime as dt
 import functools
+import grp
 import hashlib
 import io
 import json
@@ -213,8 +214,8 @@ class Log:
             self.safe_parent(self.path.parent)
             self.fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o640)
             os.fchmod(self.fd, 0o640)
-        except OSError:
-            self.fallback()
+        except OSError as exc:
+            self.fallback(exc)
         if mode != 'dryrun' and self.path.parent == LOG_DIR:
             try:
                 latest = LOG_DIR/'install-latest.log'
@@ -234,11 +235,26 @@ class Log:
             if part.exists():
                 info = part.stat()
                 sticky_root = info.st_uid == 0 and info.st_mode & stat.S_ISVTX
-                if info.st_uid not in (0, os.geteuid()) or (info.st_mode & 0o022 and not sticky_root):
-                    raise OSError('unsafe log parent')
+                # Ubuntu uses root:syslog 0775 for /var/log. Trust only that
+                # named system logging group, at this exact system ancestor;
+                # never extend the exception to the product dir or overrides.
+                system_log_parent = False
+                if part == Path('/var/log') and os.geteuid() == 0 and info.st_uid == 0 and info.st_mode & 0o7777 == 0o775:
+                    try:
+                        system_log_parent = info.st_gid == grp.getgrnam('syslog').gr_gid
+                    except KeyError:
+                        pass
+                if info.st_uid not in (0, os.geteuid()) or (info.st_mode & 0o022 and not sticky_root and not system_log_parent):
+                    raise OSError(f'unsafe log parent {part} (mode {info.st_mode & 0o7777:04o}, uid {info.st_uid}, gid {info.st_gid})')
         parent.mkdir(mode=0o750, parents=True, exist_ok=True)
+        if parent == LOG_DIR and os.geteuid() == 0:
+            os.chown(parent, 0, 0, follow_symlinks=False)
+            parent.chmod(0o750)
+            info = parent.stat()
+            if (info.st_uid, info.st_gid, info.st_mode & 0o7777) != (0, 0, 0o750):
+                raise OSError('product log directory must be 0750 root:root')
 
-    def fallback(self):
+    def fallback(self, reason):
         try:
             self.fd, path = tempfile.mkstemp(prefix=f'brrdfeeder-{self.mode}-{self.run_id}-', suffix='.log', dir='/tmp')
             self.path = Path(path)
@@ -247,8 +263,15 @@ class Log:
             self.fd = None
             self.path = Path('/tmp/LOG-UNAVAILABLE')
         if not self.warned:
-            print(f'[brrdfeeder-install] logging degraded to {self.path}' +
-                  (' (no writable log file; retain terminal output)' if self.fd is None else ''), flush=True)
+            detail = Redactor().text(str(reason)).replace('\n', ' ')[:500]
+            message = f'[brrdfeeder-install] logging degraded to {self.path}: {detail}' + \
+                      (' (no writable log file; retain terminal output)' if self.fd is None else '')
+            print(message, flush=True)
+            if self.fd is not None:
+                try:
+                    os.write(self.fd, (message+'\n').encode())
+                except OSError:
+                    pass
             self.warned = True
 
     def write(self, safe):
@@ -259,9 +282,9 @@ class Log:
             data = safe.encode('utf-8', 'replace')
             while data:
                 data = data[os.write(self.fd, data):]
-        except OSError:
+        except OSError as exc:
             os.close(self.fd)
-            self.fallback()
+            self.fallback(exc)
             if self.fd is not None:
                 try:
                     os.write(self.fd, ''.join(self.history).encode())

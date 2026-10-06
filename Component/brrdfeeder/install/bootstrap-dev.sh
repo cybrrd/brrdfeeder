@@ -42,7 +42,7 @@ CONSOLE_IMAGE="ghcr.io/cybrrd/brrdhouse@sha256:fffd150942cde14c3474536562c844bad
 
 # The installer this bootstrap fetches, and the hash it must have.
 INSTALLER_URL="${BRRDFEEDER_INSTALLER_URL:-https://get.cybrrd.com/dev/brrdfeeder-install.sh}"
-INSTALLER_SHA256="f53966d298c0fe4cd0668139f9f8aed4c8d11e62ab3e6b39926698fed0f35c14"
+INSTALLER_SHA256="6192d93ab7a664de8c290199493201b07498c9a3ebeb504c6eb4fd80a64889ab"
 
 # ── RELEASE CHECKLIST — do these IN THIS ORDER when cutting a release ───────
 #  1. Publish both images to ghcr and verify each resolves BY DIGEST anonymously,
@@ -123,7 +123,7 @@ fi
 
 # As the invoking user, open the log. Never fail the install because a log could not be
 # opened; never silently run without one either — say where it went.
-if [[ $EUID == 0 && ! -L /var/log/brrdfeeder ]] && mkdir -p /var/log/brrdfeeder 2>/dev/null && [ -w /var/log/brrdfeeder ]; then
+if [[ $EUID == 0 && ! -L /var/log/brrdfeeder ]] && install -d -m 0750 -o root -g root /var/log/brrdfeeder 2>/dev/null && [[ $(stat -c '%u:%g:%a' /var/log/brrdfeeder) == 0:0:750 ]]; then
   BLOG="/var/log/brrdfeeder/bootstrap-$(date -u +%Y%m%dT%H%M%SZ)-$RUN_ID.log"
 else
   BLOG="$(mktemp "/tmp/brrdfeeder-bootstrap-$RUN_ID.XXXXXXXX.log")"

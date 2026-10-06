@@ -16,7 +16,8 @@ class Integration(unittest.TestCase):
         self.assertIn('SELF_UPDATE_STATUS',ending)
         self.assertIn('Self-Update is installed but not yet active',text)
         self.assertIn('this version does not update itself.',text)
-        self.assertIn('run sudo brrdfeeder uninstall, then run the install command again.',text)
+        self.assertIn('To move to a newer release today: sudo brrdfeeder uninstall, then run the install command again',text)
+        self.assertIn('(you will link the sensor to your account again).',text)
         self.assertNotRegex(ending,r'checks signed updates automatically|restores the previous')
         self.assertNotRegex(ending,r'\b(?:D44|D40|Pack|Drop|effector|NotValidYet)\b')
 

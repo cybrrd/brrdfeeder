@@ -12,6 +12,7 @@ import subprocess
 import unittest
 import io
 import importlib.util
+import json
 import stat
 from unittest.mock import patch
 
@@ -168,6 +169,10 @@ class RerunPins(unittest.TestCase):
         console='ghcr.io/cybrrd/brrdhouse@sha256:'
         quadlet=Path('/tmp/installed-engine'); quadlet.write_text('Image='+engine+'b'*64+'\n')
         console_quadlet=Path('/tmp/installed-console'); console_quadlet.write_text('Image='+console+'d'*64+'\n')
+        status=Path('/var/lib/brrdfeeder-status/status.json')
+        status.parent.mkdir(exist_ok=True)
+        status.write_text(json.dumps({'schema_version':1,'heartbeat':{'product_version':'0.8.22','image_digest':'sha256:'+'b'*64}}))
+        self.addCleanup(lambda: status.unlink(missing_ok=True))
         script='''set -euo pipefail
 fatal() { echo "$*"; exit 1; }; say() { echo "$*"; }
 INSTALL_INTERFACE=; INSTALL_LATITUDE=; INSTALL_LONGITUDE=
@@ -187,7 +192,21 @@ printf 'RETAINED %s %s\\n' "$CONTAINER_IMAGE" "$CONSOLE_IMAGE"
         for bootstrap,expected in [('1',0),('0',1)]:
             result=run('bash','-c',script,'pins',bootstrap)
             self.assertEqual(result.returncode,expected,result.stdout+result.stderr)
-            if bootstrap=='1': self.assertIn('RETAINED '+engine+'b'*64+' '+console+'d'*64,result.stdout)
+            if bootstrap=='1':
+                self.assertIn('RETAINED '+engine+'b'*64+' '+console+'d'*64,result.stdout)
+                self.assertIn('Engine was NOT updated; version 0.8.22 remains installed',result.stdout)
+        for payload in [
+            {'schema_version':1,'heartbeat':{'product_version':'0.8.22','image_digest':'sha256:'+'e'*64}},
+            {'schema_version':1,'heartbeat':{'product_version':'UNTRUSTED-VERSION','image_digest':'sha256:'+'b'*64}},
+            {},
+        ]:
+            status.write_text(json.dumps(payload))
+            result=run('bash','-c',script,'pins','1')
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertIn('Engine was NOT updated',result.stdout)
+            self.assertIn('version is unavailable',result.stdout)
+            self.assertNotIn('0.8.22 remains',result.stdout)
+            self.assertNotIn('UNTRUSTED-VERSION',result.stdout)
 
 class Upgrade(unittest.TestCase):
     def test_full_one_liner_host_repair_from_0822_a728(self):

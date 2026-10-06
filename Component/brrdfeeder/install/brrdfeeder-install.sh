@@ -164,6 +164,7 @@ import time
 
 LOG_DIR = Path('/var/log/brrdfeeder')
 CREDS = Path('/etc/brrdfeeder/secrets/brrdfeeder.creds')
+SYS_NET = Path('/sys/class/net')
 ENDPOINTS = [('ingest.cybrrd.com', 4222), ('hospitality.cybrrd.com', 443),
              ('ghcr.io', 443), ('globe.cybrrd.com', 443)]
 ANSI = re.compile(r'\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\x1b[@-_]')
@@ -177,6 +178,7 @@ class Redactor:
     def __init__(self):
         self.known = {}
         self.nats = False
+        self.legacy_network = False
 
     def remember(self, kind, value):
         if value:
@@ -193,6 +195,22 @@ class Redactor:
             value = value.replace(secret, self.known[secret])
         lines = []
         for line in value.split('\n'):
+            # Old installer logs contained whole-host iw/ip inventories. Drop
+            # those sections when exporting a bundle, including SSID/channel/MAC.
+            if re.match(r'^(?:net|route|phys|wireless_devices)=', line):
+                self.legacy_network = True
+                lines.append('[REDACTED:unscoped-network-inventory]')
+                continue
+            if self.legacy_network:
+                if re.match(r'^(?:[a-z_]+=|====|\d{4}-\d\d-\d\dT)', line):
+                    self.legacy_network = False
+                else:
+                    continue
+            # Also cover a truncated old inventory or an incidental tool error.
+            if re.search(r'(?i)\b(?:ssid|essid|bssid)\b\s*[:= ]', line):
+                lines.append('[REDACTED:wireless-network-name]')
+                continue
+            line = re.sub(r'(?i)\b[0-9a-f]{2}(?::[0-9a-f]{2}){5}\b', '[REDACTED:mac-address]', line)
             if re.search(r'-+BEGIN (?:NATS USER JWT|USER NKEY SEED)-+', line):
                 self.nats = True
             if self.nats:
@@ -304,14 +322,53 @@ def reachability():
     return '\n'.join(lines)
 
 
+def designated_capture():
+    """Fail-closed stdlib projection of the installer's literal interface key.
+
+    No YAML evaluator/dependency during bootstrap. Complex/duplicate mappings
+    omit wireless diagnostics. A config entry alone cannot claim built-in Wi-Fi:
+    the sysfs device ancestry must also establish a USB adapter.
+    """
+    try:
+        source = read_text('/etc/brrdfeeder/config.yaml')
+        in_capture, interfaces = False, []
+        for line in source.splitlines():
+            if line and not line[0].isspace() and not line.startswith('#'):
+                in_capture = bool(re.fullmatch(r'capture:\s*(?:#.*)?', line))
+            elif in_capture:
+                match = re.fullmatch(r'''  interface:\s*(["']?)([A-Za-z0-9_][A-Za-z0-9_.:-]{0,14})\1\s*(?:#.*)?''', line)
+                if match:
+                    interfaces.append(match[2])
+        if len(interfaces) != 1:
+            return None
+        iface = interfaces[0]
+        device = (SYS_NET/iface/'device').resolve(strict=True)
+        for parent in [device, *device.parents]:
+            try:
+                vendor = read_text(parent/'idVendor', 32).strip()
+                product = read_text(parent/'idProduct', 32).strip()
+            except OSError:
+                continue
+            if re.fullmatch(r'[0-9a-fA-F]{4}', vendor) and re.fullmatch(r'[0-9a-fA-F]{4}', product):
+                return iface
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def environment(probe=False):
     result = [f'collected={now()}', f'host={os.uname().nodename}', f'uid={os.geteuid()}']
     commands = [('uname', ['uname', '-a']), ('kernel', ['uname', '-r']), ('arch', ['uname', '-m']),
                 ('memory', ['free', '-m']), ('disk', ['df', '-h']),
                 ('podman', ['podman', '--version']),
-                ('clock', ['timedatectl']), ('usb', ['lsusb']),
-                ('net', ['ip', '-brief', 'address']), ('route', ['ip', 'route']),
-                ('phys', ['iw', 'phy']), ('wireless_devices', ['iw', 'dev'])]
+                ('clock', ['timedatectl']), ('usb', ['lsusb'])]
+    iface = designated_capture()
+    if iface:
+        commands += [('capture_address', ['ip', '-brief', 'address', 'show', 'dev', iface]),
+                     ('capture_route', ['ip', 'route', 'show', 'dev', iface]),
+                     ('capture_wireless', ['iw', 'dev', iface, 'info'])]
+    else:
+        result.append('capture_wireless=omitted (no verified configured USB capture adapter)')
     for label, path in [('os', '/etc/os-release'), ('uptime_s', '/proc/uptime'),
                         ('board', '/proc/device-tree/model'), ('cpu', '/proc/cpuinfo'),
                         ('dns_resolver', '/etc/resolv.conf')]:
@@ -432,6 +489,7 @@ def bundle(run_id, redactor):
                 'caps=newest 10 install logs; 500 journal/container lines; 48 KiB per member']
     def add(name, raw):
         redactor.nats = False
+        redactor.legacy_network = False
         safe = redactor.text(raw).encode('utf-8')
         if len(safe) > 49152:
             safe = safe[-49000:]
@@ -669,7 +727,8 @@ def wait_engine(context, progress, timeout=60):
 
 # Canonical user-facing update status. Switch only when automatic updates ship.
 SELF_UPDATE_STATUS = ('Self-Update is installed but not yet active — this version does not update itself. '
-                      'To install a newer release, run sudo brrdfeeder uninstall, then run the install command again.')
+                      'To move to a newer release today: sudo brrdfeeder uninstall, then run the install command again '
+                      '(you will link the sensor to your account again).')
 
 
 def final_install_screen(context, readiness, log_path, run_id):
@@ -2351,6 +2410,30 @@ if [[ $DRY_RUN -eq 0 && $VERIFY_ONLY -eq 0 ]]; then
 fi
 
 # Never resolve a registry tag here, and never use re-install as an update path.
+retained_engine_version() {
+  command -v python3 >/dev/null || return 0
+  python3 - "$1" <<'RETAINED_ENGINE_VERSION_PY'
+import json, os, re, stat, sys
+try:
+    fd = os.open('/var/lib/brrdfeeder-status/status.json', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'r') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 1048576:
+            raise ValueError('invalid status file')
+        record = json.load(stream)
+    heartbeat = record.get('heartbeat', {})
+    version = heartbeat.get('product_version', '')
+    # Last-reported version is useful only for the exact image being retained.
+    # No registry query, guessed version, or workload invocation.
+    if (record.get('schema_version') == 1 and heartbeat.get('image_digest') == sys.argv[1].split('@')[-1]
+            and isinstance(version, str) and len(version) <= 64
+            and re.fullmatch(r'\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', version)):
+        print(version)
+except (OSError, ValueError, TypeError, AttributeError):
+    pass
+RETAINED_ENGINE_VERSION_PY
+}
+
 valid_image_pin() {
   local repository=${2:-$IMAGE_REPOSITORY}
   [[ $1 == "$repository"@sha256:* && ${1#"$repository"@sha256:} =~ ^[a-f0-9]{64}$ ]]
@@ -2362,7 +2445,14 @@ if [[ -f "$QUADLET_FILE" ]]; then
   # A newer one-liner repairs host setup with the installed workload pins.
   # Explicit direct-installer digest changes still belong to the signed updater.
   [[ -z "$REQUESTED_IMAGE" || "$REQUESTED_IMAGE" == "$INSTALLED_IMAGE" || $BOOT_PREPARE -eq 1 ]] || fatal "Refusing to replace the installed digest: updates belong to the signed release poller. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
-  if [[ $BOOT_PREPARE -eq 1 && "$REQUESTED_IMAGE" != "$INSTALLED_IMAGE" ]]; then say 'Repairing host setup; retaining the installed engine digest for signed Self-Update.'; fi
+  if [[ ${VERIFY_ONLY:-0} -eq 0 ]]; then
+    RETAINED_ENGINE_VERSION=$(retained_engine_version "$INSTALLED_IMAGE")
+    if [[ -n "$RETAINED_ENGINE_VERSION" ]]; then
+      say "Engine was NOT updated; version $RETAINED_ENGINE_VERSION remains installed (last reported by this image). This run repairs host setup only."
+    else
+      say 'Engine was NOT updated; the installed image is unchanged. Its version is unavailable from matching local status; check the console when it is reporting.'
+    fi
+  fi
   CONTAINER_IMAGE=$INSTALLED_IMAGE
 fi
 valid_image_pin "$CONTAINER_IMAGE" || fatal "Fresh install requires --image ${IMAGE_REPOSITORY}@sha256:<approved-release-digest>; tags are not accepted."

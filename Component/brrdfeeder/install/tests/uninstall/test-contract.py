@@ -175,6 +175,14 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
 ''','')
             text=text.replace(' || $BOOT_PREPARE -eq 1 ]]',' ]]')
             text=text.replace("  if [[ $BOOT_PREPARE -eq 1 && \"$REQUESTED_IMAGE\" != \"$INSTALLED_IMAGE\" ]]; then say 'Repairing host setup; retaining the installed engine digest for signed Self-Update.'; fi\n",'')
+            # PR B's message-only retained-version projection is exercised by
+            # RerunPins against matching, mismatched and absent status records.
+            if 'retained_engine_version() {' in text:
+                a=text.index('retained_engine_version() {'); b=text.index('valid_image_pin() {',a)
+                text=text[:a]+text[b:]
+                a=text.index('  if [[ ${VERIFY_ONLY:-0} -eq 0 ]]; then\n    RETAINED_ENGINE_VERSION=')
+                b=text.index('  CONTAINER_IMAGE=$INSTALLED_IMAGE',a)
+                text=text[:a]+text[b:]
             text=text.replace(' To install this release: sudo brrdfeeder uninstall, then run the one-liner again.','')
             text=text.replace('updates belong to the signed release poller.', 'updates belong to the Blue/updater path.')
             text=text.replace('# Step 5.5 — Install independent signed-release convergence and recovery (D44)', '# Step 5.5 — Install the host-updater self-care effector (#185 Drop 2)')

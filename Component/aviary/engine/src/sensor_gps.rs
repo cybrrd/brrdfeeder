@@ -399,7 +399,8 @@ mod tests {
         use std::os::fd::FromRawFd;
         fn pty() -> (std::fs::File, std::fs::File, String) {
             let (mut master, mut slave) = (0, 0);
-            let mut name = [0i8; 128];
+            // C char is unsigned on ARM64 and signed on x86_64.
+            let mut name = [0 as libc::c_char; 128];
             assert_eq!(unsafe { libc::openpty(&mut master, &mut slave, name.as_mut_ptr(), std::ptr::null(), std::ptr::null()) }, 0);
             let path = unsafe { std::ffi::CStr::from_ptr(name.as_ptr()) }.to_str().unwrap().to_owned();
             unsafe { (std::fs::File::from_raw_fd(master), std::fs::File::from_raw_fd(slave), path) }

@@ -5,7 +5,12 @@
 # These are action-level commands. Read-only predicates/captured queries remain
 # ordinary shell code; their visible output is still captured by the supervisor.
 LOG_PHASE=pre-flight
-log_event() { printf '\036%s\t%s\t%s\n' "$BRRDFEEDER_LOG_TOKEN" "$1" "$2"; }
+log_event() {
+  local payload=$2
+  # A diagnostic may contain newlines. Keep the entire record log-only.
+  if [[ $1 == DETAIL ]]; then payload=$(printf '%s' "$payload" | base64 -w0); fi
+  printf '\036%s\t%s\t%s\n' "$BRRDFEEDER_LOG_TOKEN" "$1" "$payload"
+}
 log_secret() {
   local encoded
   encoded=$(printf '%s' "$2" | base64 -w0)

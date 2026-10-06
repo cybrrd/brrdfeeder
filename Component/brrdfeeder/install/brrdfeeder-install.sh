@@ -857,7 +857,8 @@ def _supervise(script, args, display_fd, tty_fd, progress):
                 progress.notice(safe)
                 log.write(f'{now()} [INFO]  {safe}\n')
             elif kind == 'DETAIL':
-                log.write(f'{now()} [DETAIL] {redactor.text(payload)}\n')
+                detail = base64.b64decode(payload).decode('utf-8', 'replace')
+                log.write(f'{now()} [DETAIL] {redactor.text(detail)}\n')
             elif kind == 'UPDATE_STATUS':
                 progress.notice(SELF_UPDATE_STATUS)
                 log.write(f'{now()} [INFO]  {SELF_UPDATE_STATUS}\n')
@@ -986,7 +987,12 @@ fi
 # These are action-level commands. Read-only predicates/captured queries remain
 # ordinary shell code; their visible output is still captured by the supervisor.
 LOG_PHASE=pre-flight
-log_event() { printf '\036%s\t%s\t%s\n' "$BRRDFEEDER_LOG_TOKEN" "$1" "$2"; }
+log_event() {
+  local payload=$2
+  # A diagnostic may contain newlines. Keep the entire record log-only.
+  if [[ $1 == DETAIL ]]; then payload=$(printf '%s' "$payload" | base64 -w0); fi
+  printf '\036%s\t%s\t%s\n' "$BRRDFEEDER_LOG_TOKEN" "$1" "$payload"
+}
 log_secret() {
   local encoded
   encoded=$(printf '%s' "$2" | base64 -w0)
@@ -4231,7 +4237,7 @@ RELEASE_CONFIG_PY
   rm -f "$UPDATE_STAGE/brrdfeeder-release" "$UPDATE_STAGE/config.json"
   rmdir "$UPDATE_STAGE"
   log_event UPDATE_STATUS ''
-  warn "Update notifications require server-side permissions and streams; this installer does not provision them."
+  log_event DETAIL "Update notifications require server-side permissions and streams; this installer does not provision them."
 fi
 
 # ----------------------------------------------------------------------

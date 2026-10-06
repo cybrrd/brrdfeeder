@@ -730,7 +730,8 @@ def _supervise(script, args, display_fd, tty_fd, progress):
                 progress.notice(safe)
                 log.write(f'{now()} [INFO]  {safe}\n')
             elif kind == 'DETAIL':
-                log.write(f'{now()} [DETAIL] {redactor.text(payload)}\n')
+                detail = base64.b64decode(payload).decode('utf-8', 'replace')
+                log.write(f'{now()} [DETAIL] {redactor.text(detail)}\n')
             elif kind == 'UPDATE_STATUS':
                 progress.notice(SELF_UPDATE_STATUS)
                 log.write(f'{now()} [INFO]  {SELF_UPDATE_STATUS}\n')

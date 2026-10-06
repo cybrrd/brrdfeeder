@@ -89,7 +89,7 @@ else: sys.exit(99)
             self.assertNotIn(secret, log)
         if not BASELINE:
             for hidden in ['Zitadel', 'NOT signature verified', 'storage_class', 'console_memory_limit=',
-                           'cgroup=', 'Next: follow README', 'checks signed updates automatically']:
+                           'cgroup=', 'console has no memory cap', 'Next: follow README', 'checks signed updates automatically']:
                 self.assertNotIn(hidden, transcript)
             for diagnostic in ['Zitadel', 'NOT signature verified', 'storage_class',
                                'console_memory_limit=', 'device-flow outcome=approved']:

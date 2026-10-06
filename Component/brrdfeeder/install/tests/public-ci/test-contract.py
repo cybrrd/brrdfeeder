@@ -210,7 +210,8 @@ runpy.run_path(sys.argv[0], run_name='__main__')
                if isinstance(n,ast.Assign) and isinstance(n.targets[0],ast.Name)
                and n.targets[0].id in ('BASELINES','MUTATIONS')}
         registered=set(lists['BASELINES']+lists['MUTATIONS']+['uninstall-wtmpdb/test-history.py',
-            'interrupted-install/test-container.py', 'gps-runtime/test-container.py'])
+            'interrupted-install/test-container.py', 'gps-runtime/test-container.py', 'installer-ux/test-sudoers.py',
+            'installer-ux/test-full-install.py'])
         found={p.relative_to(TESTS).as_posix() for p in TESTS.rglob('test-*.py')}
         self.assertEqual(found,{name for name in registered if name.split('/')[-1].startswith('test-')})
     def test_public_gate_runs_all_groups_and_no_private_paths(self):

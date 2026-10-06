@@ -42,6 +42,21 @@ class Contract(unittest.TestCase):
         self.assertIn('[REDACTED:token]',r.text('Authorization: Bearer token-value'))
         self.assertNotIn('a'*40,r.text('password: '+ 'a'*40))
 
+    def test_multiline_detail_is_log_only_and_redacted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script=Path(directory)/'fixture.sh'
+            script.write_text('set -eu\nsource '+str(INSTALL/'log-events.sh')+'\n'
+                              'log_secret device-code FIXTURE-CODE\n'
+                              "log_event DETAIL $'first\\nsecond FIXTURE-CODE'\n")
+            output=io.StringIO()
+            with patch.object(log,'LOG_DIR',Path(directory)/'logs'), patch.object(log,'environment',return_value='fixture=true'), contextlib.redirect_stdout(output):
+                self.assertEqual(log.supervise(str(script),[]),0)
+            text=next((Path(directory)/'logs').glob('install-*.log')).read_text()
+            self.assertIn('first\nsecond [REDACTED:device-code]',text)
+            self.assertNotIn('first',output.getvalue())
+            self.assertNotIn('second',output.getvalue())
+            self.assertNotIn('FIXTURE-CODE',text)
+
     def test_forced_failure_last_40_and_terminal(self):
         with tempfile.TemporaryDirectory() as directory:
             script=Path(directory)/'fixture.sh'

@@ -8,18 +8,24 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
 
 func hostManifest(u *Updater) HostRelease {
-	return HostRelease{Schema: hostSchema, UpdaterOnly: true, Ring: u.cfg.Ring, Audience: audienceFor(u.cfg.Ring), SHA256: strings.Repeat("a", 64), Architecture: runtime.GOARCH, Build: 2, Sequence: 1, Rollout: 100, Salt: "host-test", Published: u.now().Add(-time.Hour).Format(time.RFC3339), Expires: u.now().Add(time.Hour).Format(time.RFC3339)}
+	compiled, err := strconv.ParseUint(updaterBuild, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	return HostRelease{Schema: hostSchema, UpdaterOnly: true, Ring: u.cfg.Ring, Audience: audienceFor(u.cfg.Ring), SHA256: strings.Repeat("a", 64), Architecture: runtime.GOARCH, Build: compiled + 1, Sequence: 1, Rollout: 100, Salt: "host-test", Published: u.now().Add(-time.Hour).Format(time.RFC3339), Expires: u.now().Add(time.Hour).Format(time.RFC3339)}
 }
 func hostSign(m HostRelease, key ed25519.PrivateKey) []byte {
 	m.Signature = hex.EncodeToString(ed25519.Sign(key, m.canonical()))
@@ -160,14 +166,15 @@ func TestSignedHostPollDownloadsAndFallsBack(t *testing.T) {
 			if e := atomicFile(binary, old, 0755); e != nil {
 				t.Fatal(e)
 			}
-			candidate := []byte("#!/bin/sh\ncase \"$1\" in self-test) printf 'brrdfeeder-release self-test v1\\n';; build-seq) printf '2\\n';; *) exit 2;; esac\n")
+			m := hostManifest(u)
+			candidateBuild := m.Build
+			if mode == "wrong-build" {
+				candidateBuild++
+			}
+			candidate := []byte(fmt.Sprintf("#!/bin/sh\ncase \"$1\" in self-test) printf 'brrdfeeder-release self-test v1\\n';; build-seq) printf '%d\\n';; *) exit 2;; esac\n", candidateBuild))
 			if mode == "broken" {
 				candidate = []byte("cannot execute")
 			}
-			if mode == "wrong-build" {
-				candidate = []byte(strings.Replace(string(candidate), "printf '2", "printf '9", 1))
-			}
-			m := hostManifest(u)
 			m.SHA256 = contentHash(candidate)
 			if mode == "excluded" {
 				m.Rollout = 0

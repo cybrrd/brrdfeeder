@@ -13,7 +13,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 build() {
   go build -a -mod=readonly -trimpath -buildvcs=false \
-    -ldflags='-s -w -buildid= -X main.updaterBuild=1' -o "$1" .
+    -ldflags='-s -w -buildid= -X main.updaterBuild=2' -o "$1" .
 }
 (cd "$source_dir" && build "$out/brrdfeeder-release-arm64")
 cp -R "$source_dir" "$tmp/source"

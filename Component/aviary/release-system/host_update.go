@@ -28,7 +28,7 @@ const maxHostBinary = 32 << 20
 
 // Build/release pipeline sets -X main.updaterBuild; the initial reviewed host
 // artifact is build 1. A blank journal never removes this embedded floor.
-var updaterBuild = "1"
+var updaterBuild = "2"
 
 // A different signed domain AND explicit boolean prevent a package release
 // from smuggling a host executable into an engine/console transaction.

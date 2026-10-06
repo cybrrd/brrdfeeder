@@ -177,6 +177,9 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
             a = text.index(marker); b = text.index('  exit 0\n', a)
             text = text[:a]+text[b:]
             regions=[('if [[ -n "$INSTALL_INTERFACE$INSTALL_LATITUDE$INSTALL_LONGITUDE" ]]', '# Service identity'),
+                     # Lock-on migration is independently exercised against
+                     # exact-byte/custom-value fixtures in lock-on/test-contract.py.
+                     ('# Remove only the exact old template pair;', '# Step 1b — immutable image pull'),
                      # D44 revival replaces only this explicitly registered
                      # updater region; package tests execute its replacement.
                      ('# Step 5.5 — Install ', '# Step 6 — image already verified'),

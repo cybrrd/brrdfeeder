@@ -2401,8 +2401,6 @@ capture:
   interface: "EDIT-ME-wlanX"       # monitor-mode-capable Wi-Fi iface (ip link show)
   hunter:
     enabled: true
-    lock_on_duration_ms: 2000
-    lock_on_min_ms: 500
 
 backhaul:
   broker_urls:
@@ -2756,6 +2754,63 @@ else
   run apt-get install -y --no-install-recommends podman jq curl ca-certificates chrony usbutils \
     uidmap dbus-user-session fuse-overlayfs python3 python3-yaml
   ok "host packages installed"
+fi
+
+# Remove only the exact old template pair; never serialize/reformat YAML.
+# Run after python3-yaml is installed and after verify-only has returned.
+migrate_template_lock_on() {
+  local migration result mode owner group
+  migration=$(cat <<'LOCK_ON_MIGRATION_PY'
+import pathlib, re, sys, yaml
+raw = pathlib.Path(sys.argv[2]).read_bytes()
+changed = raw
+try:
+    text = raw.decode('utf-8')
+    # Aliases/anchors and duplicate keys make ownership ambiguous: preserve.
+    if any(isinstance(t, (yaml.tokens.AnchorToken, yaml.tokens.AliasToken))
+           for t in yaml.scan(text)):
+        raise ValueError('references')
+    def mapping(node):
+        if not isinstance(node, yaml.MappingNode) or node.flow_style:
+            raise ValueError('not a block mapping')
+        result = {}
+        for key, value in node.value:
+            if not isinstance(key, yaml.ScalarNode) or key.value in result:
+                raise ValueError('ambiguous key')
+            result[key.value] = (key, value)
+        return result
+    root = mapping(yaml.compose(text))
+    capture = mapping(root['capture'][1])
+    hunter = mapping(capture['hunter'][1])
+    lines = text.splitlines(keepends=True)
+    remove = set()
+    for name, expected in [('lock_on_duration_ms', '2000'), ('lock_on_min_ms', '500')]:
+        key, value = hunter[name]
+        line = lines[key.start_mark.line]
+        if not re.fullmatch(r' +' + name + ': ' + expected + '\n', line):
+            raise ValueError('not byte-equal to the template')
+        if value.tag != 'tag:yaml.org,2002:int' or value.value != expected:
+            raise ValueError('not the template scalar')
+        remove.add(key.start_mark.line)
+    changed = ''.join(line for n, line in enumerate(lines) if n not in remove).encode('utf-8')
+except (ValueError, KeyError, UnicodeError, yaml.YAMLError):
+    pass
+if sys.argv[1] == 'check':
+    sys.exit(0 if changed != raw else 3)
+sys.stdout.buffer.write(changed)
+LOCK_ON_MIGRATION_PY
+)
+  if python3 -c "$migration" check "$CONFIG_PATH"; then
+    read -r mode owner group < <(stat -c '%a %u %g' "$CONFIG_PATH")
+    atomic_install "$mode" "$owner" "$group" "$CONFIG_PATH" "$CONFIG_PATH" python3 -c "$migration" render
+    ok 'Removed old installer lock-on settings; channel preset defaults now apply.'
+  else
+    result=$?
+    [[ $result -eq 3 ]] || fatal 'Could not check old installer lock-on settings; config unchanged.'
+  fi
+}
+if [[ $DRY_RUN -eq 0 ]]; then
+  migrate_template_lock_on
 fi
 
 # ----------------------------------------------------------------------

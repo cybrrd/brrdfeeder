@@ -22,6 +22,7 @@ ROOT = HERE.parents[3]
 INSTALL = ROOT/'Component/brrdfeeder/install'
 RELEASE = ROOT/'Component/aviary/release-system'
 BASELINES = [
+    'lock-on/test-contract.py',
     'role-language/test-contract.py',
     'ownership/test-contract.py',
     'github-scaffold/test-contract.py',
@@ -47,6 +48,7 @@ BASELINES = [
     'self-update-2026-09-29/test-integration.py',
 ]
 MUTATIONS = [
+    'lock-on/test-mutations.py',
     'github-scaffold/test-mutations.py',
     'source-date/test-mutations.py',
     'simple-uninstall/test-mutations.py',

@@ -103,10 +103,14 @@ impl RadioState {
     }
 
     pub fn get(&self) -> RadioStatus {
-        if self.forensic_failed.load(Ordering::Relaxed) { return RadioStatus::Error; }
+        if self.forensic_failed.load(Ordering::Relaxed) {
+            return RadioStatus::Error;
+        }
         RadioStatus::from(self.inner.load(Ordering::Relaxed))
     }
-    pub fn set_forensic_failed(&self, failed:bool) { self.forensic_failed.store(failed,Ordering::Relaxed); }
+    pub fn set_forensic_failed(&self, failed: bool) {
+        self.forensic_failed.store(failed, Ordering::Relaxed);
+    }
 }
 
 /// Heartbeat payload published every `interval_secs` to
@@ -289,6 +293,13 @@ pub struct HunterVitals {
     /// min/max defaults under real-world load.
     #[serde(default)]
     pub lock_on_budget_releases_total: u64,
+    /// Channel scheduler — the active preset name (social | park6 |
+    /// sweep), so field data can group nodes by schedule family.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset: Option<String>,
+    /// Channel scheduler S2 — measured set_channel round-trip stats.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retune: Option<RetuneVitals>,
 }
 
 /// Per-radio empirical capability attestation (Wave 7.1 Inc 5.5).
@@ -346,7 +357,11 @@ pub struct TelemetryFeatures {
 }
 
 /// One channel's noise floor + busy-percent + staleness, as observed
-/// at the most recent end-of-dwell survey sample.
+/// at the most recent end-of-dwell survey sample, plus the channel
+/// scheduler's dwell accounting (C4): accumulated actual dwell
+/// milliseconds, decoded RID observations received on the channel, and
+/// the dwell share of total recorded dwell (so field data can prove the
+/// schedule improvement and expose any lock-on inflation).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ChannelVitals {
     pub channel: u32,
@@ -366,6 +381,30 @@ pub struct ChannelVitals {
     /// substrate-truth about how fresh this data is — downstream
     /// consumers should weight stale samples accordingly.
     pub sample_age_ms: u64,
+    /// Accumulated actual dwell milliseconds on this channel
+    /// (lock-on extensions included — substrate truth).
+    #[serde(default)]
+    pub dwell_ms_total: u64,
+    /// Decoded RID observations received while dwelling on this channel.
+    #[serde(default)]
+    pub rid_hits_total: u64,
+    /// Dwell share of total recorded dwell across all channels, in
+    /// percent. None until any dwell has been recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dwell_share_pct: Option<u8>,
+}
+
+/// Measured `set_channel` round-trip statistics (S2): the modelled
+/// retune dead time starts as a cited same-silicon proxy and is
+/// replaced by these fleet-measured counters.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq)]
+pub struct RetuneVitals {
+    #[serde(default)]
+    pub last_ms: u64,
+    #[serde(default)]
+    pub max_ms: u64,
+    #[serde(default)]
+    pub count: u64,
 }
 
 /// Pure-function loadavg parser, separated from the filesystem read
@@ -375,7 +414,11 @@ pub fn parse_loadavg(s: &str) -> Option<(f64, f64, f64)> {
     if parts.len() < 3 {
         return None;
     }
-    Some((parts[0].parse().ok()?, parts[1].parse().ok()?, parts[2].parse().ok()?))
+    Some((
+        parts[0].parse().ok()?,
+        parts[1].parse().ok()?,
+        parts[2].parse().ok()?,
+    ))
 }
 
 /// Read /proc/loadavg. Returns None on any read or parse error so the
@@ -417,6 +460,9 @@ pub fn build_payload(
     radio: &RadioState,
     hunter_state: Option<&Arc<HunterState>>,
     wifi_iface: Option<&str>,
+    // Channel scheduler: the active preset name (social | park6 | sweep),
+    // surfaced in the hunter block so field data groups nodes by family.
+    hunter_preset: Option<String>,
     // Wave 7.3b: GPS health + latest-fix surfaces. Both Optional so
     // pre-Wave-7.2 deployments without a UbloxGps sensor still
     // produce heartbeats unchanged.
@@ -430,6 +476,7 @@ pub fn build_payload(
     let hunter = hunter_state.map(|state| {
         let (current_channel, channel_entries) = state.snapshot();
         let coverage_class = state.coverage_class();
+        let total_dwell: u64 = channel_entries.iter().map(|(_, s)| s.dwell_ms_total).sum();
         let radios = if let Some(iface) = wifi_iface {
             vec![RadioCapability {
                 role: "wifi_monitor".to_string(),
@@ -445,12 +492,19 @@ pub fn build_payload(
             current_channel,
             lineage: KITTLER_LINEAGE.to_string(),
             channels: channel_entries
-                .into_iter()
+                .iter()
                 .map(|(channel, snap)| ChannelVitals {
-                    channel,
+                    channel: *channel,
                     noise_dbm: snap.noise_dbm,
                     busy_pct: snap.busy_pct,
                     sample_age_ms: now.saturating_sub(snap.last_sample_unix_ms),
+                    dwell_ms_total: snap.dwell_ms_total,
+                    rid_hits_total: snap.rid_hits_total,
+                    dwell_share_pct: if total_dwell > 0 {
+                        Some((snap.dwell_ms_total * 100 / total_dwell).min(100) as u8)
+                    } else {
+                        None
+                    },
                 })
                 .collect(),
             radios,
@@ -461,6 +515,18 @@ pub fn build_payload(
             lock_on_budget_releases_total: state
                 .lock_on_budget_releases
                 .load(std::sync::atomic::Ordering::Relaxed),
+            preset: hunter_preset.clone(),
+            retune: Some(RetuneVitals {
+                last_ms: state
+                    .retune_last_ms
+                    .load(std::sync::atomic::Ordering::Relaxed),
+                max_ms: state
+                    .retune_max_ms
+                    .load(std::sync::atomic::Ordering::Relaxed),
+                count: state
+                    .retune_count
+                    .load(std::sync::atomic::Ordering::Relaxed),
+            }),
         }
     });
     let mut gps = build_gps_vitals(gps_health, gps_latest);
@@ -476,29 +542,43 @@ pub fn build_payload(
     let trusted = fleet.is_some_and(|f| f.time_trust.is_trusted());
     let context = fleet.and_then(|f| f.silver.as_ref());
     let (current_position, position_status) = crate::silver::position(
-        fix, gps.as_ref().map(|g| g.state), trusted, now as i64,
-        context.map_or(HEARTBEAT_GPS_FRESH_THRESHOLD_MS, |c| c.fresh_for_ms));
+        fix,
+        gps.as_ref().map(|g| g.state),
+        trusted,
+        now as i64,
+        context.map_or(HEARTBEAT_GPS_FRESH_THRESHOLD_MS, |c| c.fresh_for_ms),
+    );
     let node_position_source = current_position.as_ref().map(|_| PositionSource::GpsLive);
-    let blocked_reason = fleet.and_then(|f| f.identity.blocked_reason()).map(str::to_owned);
-    let management_status = context.map(|_| crate::silver::management(
-        blocked_reason.as_deref(), position_status.state, radio.get() == RadioStatus::Up, trusted));
-    let (engine_version, image_digest, build_seq, channel, os_clock_trusted, policy_ack) = match fleet
-    {
-        Some(f) => (
-            f.identity.engine_version.clone(),
-            f.identity.image_digest.clone(),
-            f.identity.build_seq,
-            Some(f.channel.clone()),
-            Some(f.time_trust.is_trusted()),
-            // Version equality is not a policy-application receipt (PRV 5.4).
-            None,
-        ),
-        None => (None, None, None, None, None, None),
-    };
+    let blocked_reason = fleet
+        .and_then(|f| f.identity.blocked_reason())
+        .map(str::to_owned);
+    let management_status = context.map(|_| {
+        crate::silver::management(
+            blocked_reason.as_deref(),
+            position_status.state,
+            radio.get() == RadioStatus::Up,
+            trusted,
+        )
+    });
+    let (engine_version, image_digest, build_seq, channel, os_clock_trusted, policy_ack) =
+        match fleet {
+            Some(f) => (
+                f.identity.engine_version.clone(),
+                f.identity.image_digest.clone(),
+                f.identity.build_seq,
+                Some(f.channel.clone()),
+                Some(f.time_trust.is_trusted()),
+                // Version equality is not a policy-application receipt (PRV 5.4).
+                None,
+            ),
+            None => (None, None, None, None, None, None),
+        };
     HeartbeatPayload {
         release_currency: crate::release_currency::ReleaseCurrency::read(
-            std::path::Path::new("/var/lib/brrdfeeder/release_currency.json"), node_id,
-            image_digest.as_deref()),
+            std::path::Path::new("/var/lib/brrdfeeder/release_currency.json"),
+            node_id,
+            image_digest.as_deref(),
+        ),
         node_id: node_id.to_string(),
         timestamp_utc: now,
         uptime_seconds: start.elapsed().as_secs(),
@@ -611,6 +691,8 @@ pub async fn run_heartbeat_emitter<P, Fut>(
     radio: RadioState,
     hunter_state: Option<Arc<HunterState>>,
     wifi_iface: Option<String>,
+    // Channel scheduler: active preset name (social | park6 | sweep).
+    hunter_preset: Option<String>,
     // Wave 7.3b: GPS surfaces — health swap + latest-fix swap. None
     // when no UbloxGps sensor was spawned (pre-Wave-7.2 deployments).
     gps_health: Option<Arc<ArcSwap<SensorHealth>>>,
@@ -646,6 +728,7 @@ pub async fn run_heartbeat_emitter<P, Fut>(
             &radio,
             hunter_state.as_ref(),
             wifi_iface.as_deref(),
+            hunter_preset.clone(),
             gps_health.as_ref(),
             gps_latest.as_ref(),
             Some(&fleet),
@@ -666,6 +749,33 @@ pub async fn run_heartbeat_emitter<P, Fut>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Channel-scheduler acceptance C4 (red on the pre-scheduler heartbeat):
+    /// the hunter block's per-channel vitals must report dwell accounting
+    /// (accumulated dwell milliseconds and RID frames heard) so field data
+    /// can prove the schedule improvement. The pre-scheduler ChannelVitals
+    /// carries neither field and fails this assertion.
+    #[test]
+    fn channel_vitals_report_dwell_and_hits() {
+        let v = ChannelVitals {
+            channel: 6,
+            noise_dbm: None,
+            busy_pct: None,
+            sample_age_ms: 42,
+            dwell_ms_total: 0,
+            rid_hits_total: 0,
+            dwell_share_pct: None,
+        };
+        let json = serde_json::to_value(&v).unwrap();
+        assert!(
+            json.get("dwell_ms_total").is_some(),
+            "ChannelVitals must carry dwell_ms_total (accumulated dwell)"
+        );
+        assert!(
+            json.get("rid_hits_total").is_some(),
+            "ChannelVitals must carry rid_hits_total (frames heard on channel)"
+        );
+    }
 
     #[test]
     fn parses_canonical_proc_loadavg_line() {
@@ -709,7 +819,11 @@ mod tests {
             (RadioStatus::Recovering, "\"recovering\""),
         ] {
             let json = serde_json::to_string(&status).unwrap();
-            assert_eq!(json, expected, "{:?} should serialize to {}", status, expected);
+            assert_eq!(
+                json, expected,
+                "{:?} should serialize to {}",
+                status, expected
+            );
         }
     }
 
@@ -828,7 +942,11 @@ mod tests {
             update_blocked_reason: None,
         };
         let json = serde_json::to_string(&payload).unwrap();
-        assert!(!json.contains("hunter"), "hunter field should be absent: {}", json);
+        assert!(
+            !json.contains("hunter"),
+            "hunter field should be absent: {}",
+            json
+        );
     }
 
     #[test]
@@ -855,12 +973,18 @@ mod tests {
                         noise_dbm: Some(-91),
                         busy_pct: Some(23),
                         sample_age_ms: 2400,
+                        dwell_ms_total: 0,
+                        rid_hits_total: 0,
+                        dwell_share_pct: None,
                     },
                     ChannelVitals {
                         channel: 149,
                         noise_dbm: Some(-97),
                         busy_pct: Some(4),
                         sample_age_ms: 80,
+                        dwell_ms_total: 0,
+                        rid_hits_total: 0,
+                        dwell_share_pct: None,
                     },
                 ],
                 radios: vec![RadioCapability {
@@ -877,6 +1001,8 @@ mod tests {
                 lock_on_active: false,
                 lock_on_triggers_total: 0,
                 lock_on_budget_releases_total: 0,
+                preset: None,
+                retune: None,
             }),
             gps: None,
             node_position_source: None,
@@ -979,7 +1105,9 @@ mod tests {
         // Wave 7.2 sensor spawned but no fix yet (cold start) — health
         // is Initializing, latest-fix swap holds None. Wire payload
         // should carry state + error_count but omit fix_quality/sats/hdop.
-        let health = Arc::new(ArcSwap::from_pointee(SensorHealth::initializing("gps:u-blox-7")));
+        let health = Arc::new(ArcSwap::from_pointee(SensorHealth::initializing(
+            "gps:u-blox-7",
+        )));
         let latest: Arc<ArcSwap<Option<GpsFix>>> = Arc::new(ArcSwap::from_pointee(None));
         let v = build_gps_vitals(Some(&health), Some(&latest)).expect("expected Some");
         assert_eq!(v.state, SensorState::Initializing);
@@ -1066,7 +1194,7 @@ mod tests {
         // Substrate-truth contract checks (locked):
         for field in &[
             "\"gps\":",
-            "\"state\":\"healthy\"",        // snake_case via SensorState rename
+            "\"state\":\"healthy\"", // snake_case via SensorState rename
             "\"last_reading_ms\":1714342395000",
             "\"fix_quality\":1",
             "\"sat_count\":6",
@@ -1076,7 +1204,10 @@ mod tests {
             assert!(json.contains(field), "missing {} in {}", field, json);
         }
         // Optional `detail` was None — must be absent from wire.
-        assert!(!json.contains("\"detail\""), "detail should be skipped when None");
+        assert!(
+            !json.contains("\"detail\""),
+            "detail should be skipped when None"
+        );
     }
 
     /// Backward compatibility: payload with gps=None must NOT carry
@@ -1114,7 +1245,10 @@ mod tests {
             update_blocked_reason: None,
         };
         let json = serde_json::to_string(&payload).unwrap();
-        assert!(!json.contains("\"gps\""), "gps field must be absent when None");
+        assert!(
+            !json.contains("\"gps\""),
+            "gps field must be absent when None"
+        );
     }
 }
 
@@ -1131,9 +1265,13 @@ mod wave_7_4_tests {
             node_id: "bf-00000003".into(),
             timestamp_utc: 1714342400000,
             uptime_seconds: 60,
-            load_avg_1m: 0.0, load_avg_5m: 0.0, load_avg_15m: 0.0,
+            load_avg_1m: 0.0,
+            load_avg_5m: 0.0,
+            load_avg_15m: 0.0,
             radio_status: RadioStatus::Up,
-            cpu_temp_c: None, hunter: None, gps: None,
+            cpu_temp_c: None,
+            hunter: None,
+            gps: None,
             node_position_source: Some(PositionSource::GpsLive),
             silver_schema_version: None,
             current_position: None,
@@ -1151,8 +1289,11 @@ mod wave_7_4_tests {
             update_blocked_reason: None,
         };
         let json = serde_json::to_string(&payload).unwrap();
-        assert!(json.contains("\"node_position_source\":\"gps_live\""),
-                "expected node_position_source=\"gps_live\" in {}", json);
+        assert!(
+            json.contains("\"node_position_source\":\"gps_live\""),
+            "expected node_position_source=\"gps_live\" in {}",
+            json
+        );
 
         let payload2 = HeartbeatPayload {
             release_currency: Default::default(),
@@ -1160,8 +1301,11 @@ mod wave_7_4_tests {
             ..payload
         };
         let json2 = serde_json::to_string(&payload2).unwrap();
-        assert!(json2.contains("\"node_position_source\":\"config_static\""),
-                "expected node_position_source=\"config_static\" in {}", json2);
+        assert!(
+            json2.contains("\"node_position_source\":\"config_static\""),
+            "expected node_position_source=\"config_static\" in {}",
+            json2
+        );
     }
 
     /// #185 — lock the Silver fleet-proprioception wire-format. The
@@ -1184,6 +1328,7 @@ mod wave_7_4_tests {
             None,
             None,
             None,
+            None,
             Some(&fleet),
         );
         let json = serde_json::to_string(&payload).expect("serialize");
@@ -1197,9 +1342,11 @@ mod wave_7_4_tests {
         for key in ["engine_version", "image_digest", "build_seq", "policy_ack"] {
             assert!(!json.contains(key), "unverified field published: {json}");
         }
-        assert!(json.contains("\"update_blocked_reason\":\"running_identity_unverified\""), "Silver refusal missing: {json}");
+        assert!(
+            json.contains("\"update_blocked_reason\":\"running_identity_unverified\""),
+            "Silver refusal missing: {json}"
+        );
         assert!(json.contains("\"channel\":\"rc\""), "got: {}", json);
         assert!(json.contains("\"os_clock_trusted\":false"), "got: {}", json);
-
     }
 }

@@ -506,12 +506,15 @@ mod tests {
             "load_avg_15m": 0.3, "radio_status": "up", "cpu_temp_c": 42.5,
             "hunter": {
                 "current_channel": 6, "lineage": "kittler-substrate-defense-v1",
-                "channels": [{"channel":6,"noise_dbm":-90,"busy_pct":5,"sample_age_ms":10}], "radios": [{
+                "channels": [{"channel":6,"noise_dbm":-90,"busy_pct":5,"sample_age_ms":10,
+                    "dwell_ms_total":1200,"rid_hits_total":3,"dwell_share_pct":26}], "radios": [{
                     "role": "wifi_monitor", "device_alias": "wlan1",
                     "coverage_class": "logic_only", "driver_name": "fixture-driver",
                     "telemetry_features": {"channel_rotation":true,"noise_floor":true,"channel_busy_pct":true}
                 }], "lock_on_active": false, "lock_on_triggers_total": 0,
-                "lock_on_budget_releases_total": 0
+                "lock_on_budget_releases_total": 0,
+                "preset": "social",
+                "retune": {"last_ms": 8, "max_ms": 11, "count": 24}
             },
             "gps": { "state": "healthy", "last_reading_ms": 1789776000000i64,
                 "fix_quality": 1, "sat_count": 8, "hdop": 1.2, "error_count": 0, "detail":"fixture health note" },
@@ -596,6 +599,14 @@ mod tests {
             "heartbeat.hunter.channels[].noise_dbm",
             "heartbeat.hunter.channels[].busy_pct",
             "heartbeat.hunter.channels[].sample_age_ms",
+            "heartbeat.hunter.channels[].dwell_ms_total",
+            "heartbeat.hunter.channels[].rid_hits_total",
+            "heartbeat.hunter.channels[].dwell_share_pct",
+            "heartbeat.hunter.preset",
+            "heartbeat.hunter.retune",
+            "heartbeat.hunter.retune.last_ms",
+            "heartbeat.hunter.retune.max_ms",
+            "heartbeat.hunter.retune.count",
             "heartbeat.hunter.radios",
             "heartbeat.hunter.radios[].role",
             "heartbeat.hunter.radios[].device_alias",
@@ -1271,6 +1282,7 @@ mod tests {
         let task = tokio::spawn(crate::heartbeat::run_heartbeat_emitter(
             "test-node".into(),
             radio,
+            None,
             None,
             None,
             None,

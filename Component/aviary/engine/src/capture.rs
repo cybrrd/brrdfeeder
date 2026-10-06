@@ -289,7 +289,13 @@ pub async fn start_capture_loop(
             interface, radio_init_ms
         );
 
-        let mut recorder = crate::forensic::Recorder::new(forensic_config.clone(), cap.get_datalink().0 as u32, node.id.clone(), radio.clone(), forensic_audit.clone());
+        let mut recorder = crate::forensic::Recorder::new(
+            forensic_config.clone(),
+            cap.get_datalink().0 as u32,
+            node.id.clone(),
+            radio.clone(),
+            forensic_audit.clone(),
+        );
 
         // Opening is not packet evidence. This also covers autonomous reopens
         // after a hard error, when the watchdog never entered its waiter.
@@ -311,6 +317,9 @@ pub async fn start_capture_loop(
         let inner_counters = counters.clone();
         let inner_node = node.clone();
         let inner_hunter = hunter_state.clone();
+        // C4 — the rx-channel stamper reads the hunter's live current
+        // channel when radiotap omits it; clone its own Arc reference.
+        let stamp_hunter = hunter_state.clone();
         let inner_liveness = Arc::clone(&liveness);
         let inner_radio = radio.clone();
         let inner_observation_store = observation_store.as_ref().map(Arc::clone);
@@ -322,11 +331,18 @@ pub async fn start_capture_loop(
         // ── INNER loop: the hot capture path ──
         let handle = tokio::task::spawn_blocking(move || -> InnerExit {
             let mut cap = cap;
-            let mut pipeline = PostParse::new(ForwardContext {
-                tx: inner_tx, node: inner_node, counters: inner_counters,
-                hunter: inner_hunter, lock_on_duration_ms, gps: inner_gps,
-                observation_store: inner_observation_store,
-            }, dedup_window_ms);
+            let mut pipeline = PostParse::new(
+                ForwardContext {
+                    tx: inner_tx,
+                    node: inner_node,
+                    counters: inner_counters,
+                    hunter: inner_hunter,
+                    lock_on_duration_ms,
+                    gps: inner_gps,
+                    observation_store: inner_observation_store,
+                },
+                dedup_window_ms,
+            );
 
             loop {
                 let packet = match cap.next_packet() {
@@ -356,7 +372,7 @@ pub async fn start_capture_loop(
 
                 recorder.write(&packet);
 
-                let Some(data) = ingest_monitor_frame(packet.data) else {
+                let Some((mut data, freq_mhz)) = ingest_monitor_frame(packet.data) else {
                     // Not a drone-class frame. Still check the restart
                     // flag so a stall during a quiet-DJI / busy-Wi-Fi
                     // window is still responsive.
@@ -365,6 +381,19 @@ pub async fn start_capture_loop(
                     }
                     continue;
                 };
+
+                // C4 — stamp the receive channel on every Wi-Fi
+                // observation: radiotap-measured when the driver reports
+                // it (truth), else the hunter's configured channel
+                // (declared, never invented — a zero hunter channel
+                // means "unknown" and the field stays absent).
+                stamp_rx_channel(
+                    &mut data,
+                    freq_mhz,
+                    stamp_hunter
+                        .as_ref()
+                        .map(|h| h.current_channel.load(Ordering::Relaxed)),
+                );
 
                 if !pipeline.forward(data) {
                     return InnerExit::ChannelClosed;
@@ -379,9 +408,7 @@ pub async fn start_capture_loop(
         // Wait for the inner loop to exit and decide what to do next.
         match handle.await {
             Ok(InnerExit::RestartRequested) => {
-                println!(
-                    "[capture] watchdog requested restart — re-establishing capture path"
-                );
+                println!("[capture] watchdog requested restart — re-establishing capture path");
                 // Outer loop iterates: re-resolve ifindex, re-establish
                 // monitor mode, re-open libpcap.
             }
@@ -409,7 +436,6 @@ pub async fn start_capture_loop(
     }
 }
 
-
 /// Shared post-decode path for Wi-Fi and BLE. State stays local to each reader;
 /// processing order and non-blocking backhaul semantics are identical.
 pub struct ForwardContext {
@@ -431,7 +457,11 @@ pub struct PostParse {
 
 /// Preserve the existing Beacon radiotap/RSSI behavior, and normalize NAN's
 /// optional capture FCS trailer before its exact-length attribute walk.
-fn ingest_monitor_frame(raw: &[u8]) -> Option<cybrrd_rid_protocol::models::TelemetryData> {
+/// Returns the decoded observation plus the radiotap-reported receive
+/// frequency in MHz (None when the driver omits the channel field).
+fn ingest_monitor_frame(
+    raw: &[u8],
+) -> Option<(cybrrd_rid_protocol::models::TelemetryData, Option<u16>)> {
     if raw.len() < 8 {
         return None;
     }
@@ -439,8 +469,15 @@ fn ingest_monitor_frame(raw: &[u8]) -> Option<cybrrd_rid_protocol::models::Telem
     let radiotap_bytes = raw.get(..radiotap_len)?;
     let mut dot11 = raw.get(radiotap_len..)?;
     let rtap = radiotap::Radiotap::from_bytes(radiotap_bytes).ok();
-    let rssi_dbm = rtap.as_ref().and_then(|r| r.antenna_signal)
-        .map(|s| s.value as i32).unwrap_or(-100);
+    let rssi_dbm = rtap
+        .as_ref()
+        .and_then(|r| r.antenna_signal)
+        .map(|s| s.value as i32)
+        .unwrap_or(-100);
+    let freq_mhz = rtap
+        .as_ref()
+        .and_then(|r| r.channel.as_ref())
+        .map(|c| c.freq);
     if dot11.first() == Some(&0xd0) {
         if let Some(flags) = rtap.as_ref()?.flags {
             if flags.bad_fcs {
@@ -451,7 +488,33 @@ fn ingest_monitor_frame(raw: &[u8]) -> Option<cybrrd_rid_protocol::models::Telem
             }
         }
     }
-    cybrrd_rid_protocol::router::ingest_frame(dot11, rssi_dbm)
+    let data = cybrrd_rid_protocol::router::ingest_frame(dot11, rssi_dbm)?;
+    Some((data, freq_mhz))
+}
+
+/// C4 — stamp `rx_channel` + `rx_channel_source` on a Wi-Fi observation.
+/// Radiotap frequency wins (measured truth); otherwise the hunter's
+/// configured channel is declared as `configured`; when neither is known
+/// the fields stay absent — the channel is never invented.
+fn stamp_rx_channel(
+    data: &mut cybrrd_rid_protocol::models::TelemetryData,
+    freq_mhz: Option<u16>,
+    configured_channel: Option<u32>,
+) {
+    use cybrrd_rid_protocol::models::RxChannelSource;
+    if let Some(freq) = freq_mhz {
+        if let Some(ch) = crate::nl80211::freq_mhz_to_channel(freq as u32) {
+            data.rx_channel = Some(ch);
+            data.rx_channel_source = Some(RxChannelSource::Radiotap);
+            return;
+        }
+    }
+    if let Some(ch) = configured_channel {
+        if ch != 0 {
+            data.rx_channel = Some(ch);
+            data.rx_channel_source = Some(RxChannelSource::Configured);
+        }
+    }
 }
 
 impl PostParse {
@@ -466,25 +529,32 @@ impl PostParse {
 
     /// False means the backhaul receiver is closed; caller must stop.
     pub fn forward(&mut self, data: cybrrd_rid_protocol::models::TelemetryData) -> bool {
-        // Wave 7.1 Inc 6 + 7.1b — protocol-neutral lock-on
-        // signal with capture-budget tracking. ANY frame that
-        // parses as a valid drone RID broadcast (vendor-blind:
-        // DJI, Skydio, Autel, ELRS, custom builds — all
-        // converge on the cybrrd_rid_protocol detector) tells
-        // the Hunter to glue the radio for at MOST
-        // self.context.lock_on_duration_ms, releasing earlier (after
-        // lock_on_min_ms minimum) once we've observed both
-        // drone_id + known position. The dedup gate is
-        // intentionally downstream of this signal: duplicate
-        // frames within the dedup window still refresh the
-        // lock window because they're evidence the drone is
-        // still broadcasting on this channel.
+        // Channel scheduler C4 — per-channel RID hit accounting runs
+        // BEFORE dedup (every decoded observation is evidence about the
+        // channel, duplicate or not) and is never aircraft-keyed: it
+        // counts traffic on the receive channel only.
         if let Some(hs) = self.context.hunter.as_ref() {
-            hs.record_drone_observation(
-                &data.drone_id,
-                data.pos.is_some(),
-                self.context.lock_on_duration_ms,
-            );
+            if let Some(ch) = data.rx_channel {
+                hs.record_rid_hit(ch);
+            }
+        }
+
+        // Opt-in single-target audit lock-on (C2: OFF by default —
+        // `lock_on_duration_ms` is 0 in every preset). A frame parsing
+        // as a valid drone RID broadcast (vendor-blind) defers rotation
+        // for at MOST `lock_on_duration_ms`, releasing early (after the
+        // `lock_on_min_ms` floor) once drone_id + position are observed.
+        // The dedup gate is intentionally downstream of this signal:
+        // duplicate frames within the window still refresh the lock
+        // because they are evidence the aircraft is still there.
+        if self.context.lock_on_duration_ms > 0 {
+            if let Some(hs) = self.context.hunter.as_ref() {
+                hs.record_drone_observation(
+                    &data.drone_id,
+                    data.pos.is_some(),
+                    self.context.lock_on_duration_ms,
+                );
+            }
         }
 
         // Dedup gate (Wave 6.0b): suppress duplicates within window.
@@ -546,7 +616,10 @@ impl PostParse {
         match self.context.tx.try_send(payload) {
             Ok(()) => {}
             Err(TrySendError::Full(_)) => {
-                self.context.counters.buffer_full.fetch_add(1, Ordering::Relaxed);
+                self.context
+                    .counters
+                    .buffer_full
+                    .fetch_add(1, Ordering::Relaxed);
             }
             Err(TrySendError::Closed(_)) => {
                 eprintln!("[-] Backhaul channel closed; halting capture.");
@@ -569,6 +642,68 @@ mod tests {
     use super::*;
     use cybrrd_rid_protocol::models::NodeLocation;
 
+    /// Channel-scheduler acceptance C4 (red on the pre-scheduler wire):
+    /// every Wi-Fi observation on the NATS wire must carry the receive
+    /// channel as an additive optional field, with its provenance
+    /// (radiotap-measured vs hunter-configured). The pre-scheduler wire
+    /// omits the field entirely and fails this assertion.
+    #[test]
+    fn wire_carries_rx_channel() {
+        // Real DJI Mini 5 Pro pack (counter + F3411 Message Pack), the same
+        // bytes used by the cybrrd-rid-protocol golden fixture.
+        let pack: [u8; 79] = [
+            0x01, 0xf2, 0x19, 0x03, 0x02, 0x12, b'1', b'5', b'8', b'1', b'F', b'9', b'D', b'E',
+            b'C', b'2', b'6', b'1', b'8', b'0', b'2', b'9', b'6', b'6', b'X', b'D', 0x00, 0x00,
+            0x00, 0x12, 0x16, 0xb5, 0x00, 0x00, 0x12, 0x30, 0x5e, 0x18, 0x6a, 0xba, 0xf6, 0xc6,
+            0x00, 0x00, 0x46, 0x0a, 0xd0, 0x07, 0x2c, 0x04, 0xa6, 0x48, 0x0a, 0x00, 0x42, 0x01,
+            0x26, 0x31, 0x5e, 0x18, 0xdb, 0xb9, 0xf6, 0xc6, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x4b, 0x0a, 0xe3, 0x2c, 0xd2, 0x0d, 0x00,
+        ];
+        // 802.11 Beacon: 36-byte management header (FC 0x80; transmitter MAC
+        // at Address 2, offset 10) + vendor-specific IE 221 carrying the
+        // ASD-STAN OUI, ODID type 0x0D, and the Message Pack.
+        let mut beacon = vec![0u8; 36];
+        beacon[0] = 0x80;
+        beacon[10..16].copy_from_slice(&[0x8c, 0x1e, 0xd9, 0x56, 0xe5, 0x81]);
+        beacon.push(221);
+        beacon.push((4 + pack.len()) as u8);
+        beacon.extend_from_slice(&[0xFA, 0x0B, 0xBC, 0x0D]);
+        beacon.extend_from_slice(&pack);
+        // Minimal radiotap header (present flags: flags + antenna signal),
+        // same shape as the NAN fixture uses.
+        let mut raw = vec![0u8, 0, 10, 0, 0x22, 0, 0, 0, 0, 200u8.wrapping_neg()];
+        raw.extend_from_slice(&beacon);
+
+        let (mut data, freq_mhz) = ingest_monitor_frame(&raw).expect("beacon fixture must decode");
+        assert_eq!(data.drone_id, "1581F9DEC261802966XD");
+        // The capture loop stamps the receive channel exactly this way
+        // after ingest; exercise both provenance paths.
+        stamp_rx_channel(&mut data, freq_mhz, Some(6));
+        let value = serde_json::to_value(&data).unwrap();
+        assert!(
+            value.get("rx_channel").is_some(),
+            "every Wi-Fi observation must carry rx_channel on the wire"
+        );
+        assert!(
+            value.get("rx_channel_source").is_some(),
+            "rx_channel must carry its provenance (radiotap vs configured)"
+        );
+        // No radiotap channel in the minimal fixture header: the stamp
+        // must have fallen back to the hunter-configured channel — and
+        // never invent one when neither source knows.
+        assert_eq!(value["rx_channel"], 6);
+        assert_eq!(value["rx_channel_source"], "configured");
+        let mut unknown = data.clone();
+        unknown.rx_channel = None;
+        unknown.rx_channel_source = None;
+        stamp_rx_channel(&mut unknown, None, None);
+        assert_eq!(
+            serde_json::to_value(&unknown).unwrap().get("rx_channel"),
+            None,
+            "the channel must never be invented"
+        );
+    }
+
     #[test]
     fn unknown_position_reaches_backhaul_and_tick_store_without_fabrication() {
         let mut bytes = [0_u8; 53];
@@ -581,13 +716,22 @@ mod tests {
         let (tx, mut rx) = mpsc::channel(1);
         let counters = DropCounters::new();
         let store = crate::tick_publisher::ObservationStore::new();
-        let mut pipe = PostParse::new(ForwardContext {
-            tx, node: static_node(), counters: counters.clone(), hunter: None,
-            lock_on_duration_ms: 0, gps: Arc::new(ArcSwap::from_pointee(None)),
-            observation_store: Some(Arc::clone(&store)),
-        }, 1000);
+        let mut pipe = PostParse::new(
+            ForwardContext {
+                tx,
+                node: static_node(),
+                counters: counters.clone(),
+                hunter: None,
+                lock_on_duration_ms: 0,
+                gps: Arc::new(ArcSwap::from_pointee(None)),
+                observation_store: Some(Arc::clone(&store)),
+            },
+            1000,
+        );
         assert!(pipe.forward(data));
-        let frame = rx.try_recv().expect("unknown entity must enter the backhaul queue");
+        let frame = rx
+            .try_recv()
+            .expect("unknown entity must enter the backhaul queue");
         let value = serde_json::to_value(frame).unwrap();
         assert_eq!(value["wire_format_version"], 4);
         assert_eq!(value["data"]["drone_id"], "D27E");
@@ -601,7 +745,11 @@ mod tests {
     #[test]
     fn verify_req_brrd_014_shared_pipeline_gps_dedup_store_backpressure() {
         use cybrrd_rid_protocol::models::{RidTransport, TelemetryData};
-        for transport in [None, Some(RidTransport::Bt4Legacy), Some(RidTransport::Bt5LongRange)] {
+        for transport in [
+            None,
+            Some(RidTransport::Bt4Legacy),
+            Some(RidTransport::Bt5LongRange),
+        ] {
             let mut data: TelemetryData = serde_json::from_str(r#"{"protocol":"ASTM_F3411_22a","mac_address":"01:02:03:04:05:06","drone_id":"TEST-LOOP-20260915","pos":{"lat":40.8817,"lon":-95.6901,"alt_m":120},"signal_rssi_dbm":-45}"#).unwrap();
             data.transport = transport;
             let (tx, mut rx) = mpsc::channel(1);
@@ -609,17 +757,27 @@ mod tests {
             let hunter = HunterState::new();
             let store = crate::tick_publisher::ObservationStore::new();
             let gps = fresh_fix(now_unix_ms() as i64);
-            let mut pipe = PostParse::new(ForwardContext {
-                tx, node: static_node(), counters: counters.clone(), hunter: Some(Arc::clone(&hunter)),
-                lock_on_duration_ms: 2000, gps: Arc::new(ArcSwap::from_pointee(Some(gps.clone()))),
-                observation_store: Some(Arc::clone(&store)),
-            }, 1000);
+            let mut pipe = PostParse::new(
+                ForwardContext {
+                    tx,
+                    node: static_node(),
+                    counters: counters.clone(),
+                    hunter: Some(Arc::clone(&hunter)),
+                    lock_on_duration_ms: 2000,
+                    gps: Arc::new(ArcSwap::from_pointee(Some(gps.clone()))),
+                    observation_store: Some(Arc::clone(&store)),
+                },
+                1000,
+            );
             assert!(pipe.forward(data.clone()));
             assert!(hunter.lock_on_active());
             assert_eq!(store.len(), 1);
             let frame = rx.try_recv().unwrap();
             assert_eq!(frame.node.location.lat, gps.lat);
-            assert_eq!(frame.node.location.position_source, Some(PositionSource::GpsLive));
+            assert_eq!(
+                frame.node.location.position_source,
+                Some(PositionSource::GpsLive)
+            );
             assert_eq!(frame.data.transport, transport);
             assert!(pipe.forward(data.clone()));
             assert!(rx.try_recv().is_err());
@@ -640,7 +798,9 @@ mod tests {
             id: "brrdfeeder-test-001".into(),
             version: "0.2.0-test".into(),
             location: NodeLocation {
-                lat: 40.882590, lon: -95.690920, alt_m: 320.0,
+                lat: 40.882590,
+                lon: -95.690920,
+                alt_m: 320.0,
                 position_source: Some(PositionSource::ConfigStatic),
             },
         }
@@ -652,16 +812,26 @@ mod tests {
         let mut data: TelemetryData = serde_json::from_str(r#"{"protocol":"ASTM_F3411_22a","transport":"wifi_nan","mac_address":"02:01:02:03:04:05","drone_id":"NAN-TEST-01","hardware_serial":"NAN-TEST-01","signal_rssi_dbm":-49}"#).unwrap();
         let (tx, mut rx) = mpsc::channel(8);
         let store = crate::tick_publisher::ObservationStore::new();
-        let mut pipe = PostParse::new(ForwardContext {
-            tx, node: static_node(), counters: DropCounters::new(), hunter: None,
-            lock_on_duration_ms: 0, gps: Arc::new(ArcSwap::from_pointee(None)),
-            observation_store: Some(Arc::clone(&store)),
-        }, 1000);
+        let mut pipe = PostParse::new(
+            ForwardContext {
+                tx,
+                node: static_node(),
+                counters: DropCounters::new(),
+                hunter: None,
+                lock_on_duration_ms: 0,
+                gps: Arc::new(ArcSwap::from_pointee(None)),
+                observation_store: Some(Arc::clone(&store)),
+            },
+            1000,
+        );
         assert!(pipe.forward(data.clone()));
         assert_eq!(rx.try_recv().unwrap().data.mac_address, data.mac_address);
         data.mac_address = [2, 9, 8, 7, 6, 5];
         assert!(pipe.forward(data.clone()));
-        assert!(rx.try_recv().is_err(), "NAN address rotation split one pack identity");
+        assert!(
+            rx.try_recv().is_err(),
+            "NAN address rotation split one pack identity"
+        );
         assert_eq!(store.len(), 1);
         data.drone_id = "NAN-TEST-02".into();
         data.hardware_serial = Some(data.drone_id.clone());
@@ -675,33 +845,54 @@ mod tests {
             assert!(pipe.forward(data.clone()));
             assert_eq!(rx.try_recv().unwrap().data.mac_address, mac);
         }
-        assert_eq!(store.len(), 2, "identity-less NAN must not create a shared UNKNOWN track");
+        assert_eq!(
+            store.len(),
+            2,
+            "identity-less NAN must not create a shared UNKNOWN track"
+        );
     }
 
     #[test]
     fn nan_monitor_fcs_and_backhaul_preserve_provenance() {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
             "../../cybrrd-rid-protocol/tests/fixtures/nan-oracle.json"
-        )).unwrap();
+        ))
+        .unwrap();
         let frame = hex::decode(fixture["cases"][8]["frame_hex"].as_str().unwrap()).unwrap();
         let mut raw = vec![0, 0, 10, 0, 0x22, 0, 0, 0, 0, (-49_i8) as u8];
         raw.extend_from_slice(&frame);
-        let no_fcs = ingest_monitor_frame(&raw).unwrap();
+        let no_fcs = ingest_monitor_frame(&raw).unwrap().0;
         raw[8] = 0x10;
         raw.extend_from_slice(&[0xaa, 0xbb, 0xcc, 0xdd]);
-        let with_fcs = ingest_monitor_frame(&raw).unwrap();
-        assert_eq!(serde_json::to_value(&no_fcs).unwrap(), serde_json::to_value(&with_fcs).unwrap());
+        let with_fcs = ingest_monitor_frame(&raw).unwrap().0;
+        assert_eq!(
+            serde_json::to_value(&no_fcs).unwrap(),
+            serde_json::to_value(&with_fcs).unwrap()
+        );
         raw[8] = 0x50;
-        assert!(ingest_monitor_frame(&raw).is_none(), "driver-reported bad FCS admitted");
+        assert!(
+            ingest_monitor_frame(&raw).is_none(),
+            "driver-reported bad FCS admitted"
+        );
         raw[8] = 0;
-        assert!(ingest_monitor_frame(&raw).is_none(), "unannounced trailer mistaken for attributes");
+        assert!(
+            ingest_monitor_frame(&raw).is_none(),
+            "unannounced trailer mistaken for attributes"
+        );
 
         let (tx, mut rx) = mpsc::channel(1);
-        let mut pipe = PostParse::new(ForwardContext {
-            tx, node: static_node(), counters: DropCounters::new(), hunter: None,
-            lock_on_duration_ms: 0, gps: Arc::new(ArcSwap::from_pointee(None)),
-            observation_store: None,
-        }, 1000);
+        let mut pipe = PostParse::new(
+            ForwardContext {
+                tx,
+                node: static_node(),
+                counters: DropCounters::new(),
+                hunter: None,
+                lock_on_duration_ms: 0,
+                gps: Arc::new(ArcSwap::from_pointee(None)),
+                observation_store: None,
+            },
+            1000,
+        );
         assert!(pipe.forward(with_fcs));
         let wire = serde_json::to_value(rx.try_recv().unwrap()).unwrap();
         assert_eq!(wire["wire_format_version"], 4);

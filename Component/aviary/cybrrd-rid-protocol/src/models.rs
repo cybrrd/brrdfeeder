@@ -178,6 +178,17 @@ pub enum RidTransport {
     Bt5LongRange,
 }
 
+/// Provenance of `rx_channel`: measured from the frame's radiotap header
+/// (`radiotap`) or declared from the hunter's configured channel
+/// (`configured`). An absent `rx_channel` means unknown — the receive
+/// channel is never invented. Additive wire-v4 fields.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RxChannelSource {
+    Radiotap,
+    Configured,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TelemetryData {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -189,6 +200,13 @@ pub struct TelemetryData {
     /// transports, preserving their existing JSON. Additive wire-v4 field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wifi_bssid: Option<String>,
+    /// Wi-Fi receive channel (2412-style center number) for this
+    /// observation, with `rx_channel_source` carrying its provenance.
+    /// BLE observations omit both (no channel concept on the HCI path).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rx_channel: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rx_channel_source: Option<RxChannelSource>,
     pub protocol: ProtocolType,
     /// Received transmitter Addr2 (canonical hex: aa:bb:cc:dd:ee:ff).
     /// NAN transmitters may rotate it; correlate aircraft by Message Pack identity.

@@ -113,7 +113,16 @@ pub enum CoverageClass {
 /// at end of each dwell when get_survey returns. `busy_pct` is computed
 /// at record-time as a delta against the previous sample on this
 /// channel; the raw counters are retained for the next cycle's delta.
-#[derive(Clone, Debug)]
+///
+/// Channel-scheduler additions (C4): `dwell_ms_total` accumulates the
+/// ACTUAL time spent dwelling on the channel (lock-on extensions
+/// included — substrate truth, so an opted-in audit mode visibly
+/// inflates its channel's share) and `rid_hits_total` counts decoded
+/// RID observations received while on it. Entries are created by
+/// dwell/hit recording even when the driver returns empty surveys
+/// (rtw88_8812au `logic_only`), so share accounting never depends on
+/// survey support.
+#[derive(Clone, Debug, Default)]
 pub struct ChannelSnapshot {
     pub noise_dbm: Option<i8>,
     pub busy_pct: Option<u8>,
@@ -122,23 +131,26 @@ pub struct ChannelSnapshot {
     /// compute (active_delta, busy_delta) over a defined window.
     pub last_time_active_ms: u64,
     pub last_time_busy_ms: u64,
+    /// Accumulated actual dwell milliseconds on this channel.
+    pub dwell_ms_total: u64,
+    /// Decoded RID observations received while dwelling on this channel.
+    pub rid_hits_total: u64,
 }
 
 #[derive(Clone, Debug)]
 pub struct HunterConfig {
-    pub channel_set: Vec<u32>,
-    pub dwell_default: Duration,
-    pub dwell_priority: Duration,
-    pub priority_channels: Vec<u32>,
+    /// Channel-schedule plan (preset, channels, dwells, jitter, park).
+    pub plan: crate::schedule::HunterPlan,
     /// Wave 7.1 Inc 6 — hard cap on lock-on duration. When the capture
     /// loop sees any drone-class RID frame, the Hunter defers channel
     /// rotation for at MOST this long (vendor-neutral; riding
-    /// ingest_frame). Set to Duration::ZERO to disable lock-on.
+    /// ingest_frame). ZERO in every preset default (C2): lock-on is an
+    /// opt-in single-target audit tool, never a network-receiver mode.
     pub lock_on_duration: Duration,
     /// Wave 7.1b — minimum lock-on duration. After the capture-budget
     /// is satisfied (drone_id + position observed), the Hunter still
     /// holds the lock for at least this long to catch follow-on
-    /// frames before resuming rotation.
+    /// frames before resuming rotation. Audit mode only.
     pub lock_on_min: Duration,
 }
 
@@ -192,6 +204,14 @@ pub struct HunterState {
     /// the capture-budget completed inside the window. Telemetry
     /// signal: how often is the budget-release saving us cycles?
     pub lock_on_budget_releases: std::sync::atomic::AtomicU64,
+    /// Channel-scheduler S2 — measured `set_channel` round-trip time.
+    /// The modelled retune dead time is a cited 8.5 ms same-silicon
+    /// MT7921e PCIe proxy; these counters replace the proxy with the
+    /// fleet's own measured value (last / max / count), reported in
+    /// the heartbeat hunter block.
+    pub retune_last_ms: std::sync::atomic::AtomicU64,
+    pub retune_max_ms: std::sync::atomic::AtomicU64,
+    pub retune_count: std::sync::atomic::AtomicU64,
 }
 
 impl HunterState {
@@ -207,7 +227,39 @@ impl HunterState {
             lock_on_budget_position_seen: std::sync::atomic::AtomicBool::new(false),
             lock_on_started_unix_ms: std::sync::atomic::AtomicU64::new(0),
             lock_on_budget_releases: std::sync::atomic::AtomicU64::new(0),
+            retune_last_ms: std::sync::atomic::AtomicU64::new(0),
+            retune_max_ms: std::sync::atomic::AtomicU64::new(0),
+            retune_count: std::sync::atomic::AtomicU64::new(0),
         })
+    }
+
+    /// C4 — accumulate actual dwell time on a channel (lock-on
+    /// extensions included). Creates the entry when surveys are empty
+    /// so share accounting never depends on driver survey support.
+    pub fn record_dwell(&self, channel: u32, ms: u64) {
+        let mut map = match self.channels.write() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let snap = map.entry(channel).or_default();
+        snap.dwell_ms_total = snap.dwell_ms_total.saturating_add(ms);
+    }
+
+    /// C4 — count a decoded RID observation received on a channel.
+    pub fn record_rid_hit(&self, channel: u32) {
+        let mut map = match self.channels.write() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let snap = map.entry(channel).or_default();
+        snap.rid_hits_total = snap.rid_hits_total.saturating_add(1);
+    }
+
+    /// S2 — record a measured set_channel round-trip.
+    pub fn record_retune(&self, ms: u64) {
+        self.retune_last_ms.store(ms, Ordering::Relaxed);
+        self.retune_max_ms.fetch_max(ms, Ordering::Relaxed);
+        self.retune_count.fetch_add(1, Ordering::Relaxed);
     }
 
     /// Capture loop calls this whenever `ingest_frame` returns
@@ -238,7 +290,8 @@ impl HunterState {
         let now = now_unix_ms();
         let was_inactive = !self.lock_on_active();
         let deadline = now.saturating_add(lock_on_max_ms);
-        self.lock_on_until_unix_ms.store(deadline, Ordering::Relaxed);
+        self.lock_on_until_unix_ms
+            .store(deadline, Ordering::Relaxed);
         self.lock_on_triggers.fetch_add(1, Ordering::Relaxed);
 
         if was_inactive {
@@ -280,9 +333,7 @@ impl HunterState {
         if raw_remaining == 0 {
             return 0;
         }
-        let budget_complete = self
-            .lock_on_budget_drone_id_seen
-            .load(Ordering::Relaxed)
+        let budget_complete = self.lock_on_budget_drone_id_seen.load(Ordering::Relaxed)
             && self.lock_on_budget_position_seen.load(Ordering::Relaxed);
         if !budget_complete {
             return raw_remaining;
@@ -292,8 +343,7 @@ impl HunterState {
         if elapsed >= min_lock_ms {
             // Budget complete + minimum floor met → release immediately.
             // Count this as a budget-driven release for telemetry.
-            self.lock_on_budget_releases
-                .fetch_add(1, Ordering::Relaxed);
+            self.lock_on_budget_releases.fetch_add(1, Ordering::Relaxed);
             // Clear the lock_on_until so subsequent reads return 0
             // until next observation fires it again.
             self.lock_on_until_unix_ms.store(0, Ordering::Relaxed);
@@ -354,12 +404,7 @@ impl HunterState {
     /// busy_pct is computed as a delta against the previous stored
     /// sample on the same channel. Initial sample (no prior) leaves
     /// busy_pct = None.
-    pub fn record_survey(
-        &self,
-        sample_unix_ms: u64,
-        entries: &[SurveyEntry],
-        channel_set: &[u32],
-    ) {
+    pub fn record_survey(&self, sample_unix_ms: u64, entries: &[SurveyEntry], channel_set: &[u32]) {
         let mut map = match self.channels.write() {
             Ok(g) => g,
             Err(poisoned) => poisoned.into_inner(),
@@ -386,6 +431,15 @@ impl HunterState {
                 }
             });
 
+            // Preserve the scheduler's dwell/hit accumulators when the
+            // survey sample replaces the RF-facing fields.
+            let (dwell_ms_total, rid_hits_total) = {
+                let prev = map.get(&ch);
+                (
+                    prev.map(|p| p.dwell_ms_total).unwrap_or(0),
+                    prev.map(|p| p.rid_hits_total).unwrap_or(0),
+                )
+            };
             map.insert(
                 ch,
                 ChannelSnapshot {
@@ -394,6 +448,8 @@ impl HunterState {
                     last_sample_unix_ms: sample_unix_ms,
                     last_time_active_ms: active_now,
                     last_time_busy_ms: busy_now,
+                    dwell_ms_total,
+                    rid_hits_total,
                 },
             );
         }
@@ -572,7 +628,10 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(60));
         // With min_lock_ms = 50, after 60ms elapsed budget-release fires.
         let effective = state.effective_lock_remaining_ms(50);
-        assert_eq!(effective, 0, "expected 0 after budget complete + min elapsed");
+        assert_eq!(
+            effective, 0,
+            "expected 0 after budget complete + min elapsed"
+        );
         // Counter should have incremented.
         assert_eq!(
             state
@@ -655,110 +714,140 @@ pub async fn run_hunter(
     audit_tx: Option<tokio::sync::mpsc::Sender<SubstrateAuditEvent>>,
     liveness: Arc<CaptureLiveness>,
 ) {
-    if cfg.channel_set.is_empty() {
-        eprintln!("[hunter] empty channel_set — Hunter will not start");
+    let plan = &cfg.plan;
+    if plan.channel_set.is_empty() {
+        eprintln!("[hunter] empty channel set — Hunter will not start");
         return;
     }
 
+    let mut scheduler = crate::schedule::Scheduler::new(plan);
+
     println!(
-        "[hunter] starting (Kittler Substrate Defense): iface={} initial_ifindex={} channels={:?} \
-         dwell_default={}ms dwell_priority={}ms priority_channels={:?} \
+        "[hunter] starting (Kittler Substrate Defense): iface={} initial_ifindex={} \
+         preset={:?} channels={:?} social={:?} dwell_social={}ms dwell_other={}ms \
+         jitter=±{:.0}% parked={} lock_on={}ms \
          (ifindex re-read from CaptureLiveness every dwell — Inc 8)",
         iface,
         liveness.current_ifindex.load(Ordering::Relaxed),
-        cfg.channel_set,
-        cfg.dwell_default.as_millis(),
-        cfg.dwell_priority.as_millis(),
-        cfg.priority_channels,
+        plan.preset,
+        plan.channel_set,
+        plan.social_channels,
+        plan.dwell_social_ms,
+        plan.dwell_other_ms,
+        plan.jitter_fraction * 100.0,
+        plan.parked,
+        plan.lock_on_duration_ms,
     );
+    if !plan.explicit_fields.is_empty() {
+        println!(
+            "[hunter] explicit config fields {:?} override preset defaults (back-compat)",
+            plan.explicit_fields
+        );
+    }
 
-    let mut idx: usize = 0;
+    // Parked plans set the channel once; rotation plans re-set every visit.
+    let mut parked_set = false;
     loop {
         // Inc 8: never cache the ifindex. Read it fresh every dwell so
         // a watchdog-driven re-resolution after re-enumeration is
         // picked up on the very next channel set.
         let ifindex = liveness.current_ifindex.load(Ordering::Relaxed);
-        let channel = cfg.channel_set[idx];
-        let dwell = if cfg.priority_channels.contains(&channel) {
-            cfg.dwell_priority
-        } else {
-            cfg.dwell_default
-        };
+        let visit = scheduler.next_visit();
+        let channel = visit.channel;
+        let dwell_ms = visit.dwell_ms;
 
-        // Primary channel-set attempt.
-        let primary = tokio::task::spawn_blocking(move || nl80211::set_channel(ifindex, channel))
+        if !(plan.parked && parked_set) {
+            // Primary channel-set attempt, timed for the S2 retune
+            // telemetry (cited proxy 8.5 ms; this replaces it with the
+            // fleet's own measured value).
+            let primary = tokio::task::spawn_blocking(move || {
+                let t0 = Instant::now();
+                let r = nl80211::set_channel(ifindex, channel);
+                (r, t0.elapsed().as_millis() as u64)
+            })
             .await;
 
-        match primary {
-            Ok(Ok(())) => {
-                state.current_channel.store(channel, Ordering::Relaxed);
-            }
-            Ok(Err(e)) => {
-                // Tier-A soft self-heal: re-issue once. If it sticks,
-                // fine; if not, audit-log and move on (next rotation
-                // iteration will try this channel again, which is its
-                // own form of recovery).
-                // Wave 7.1 Inc 7: publish the recovery attempt with
-                // provenance — every Tier-A becomes auditable in the
-                // §6.3 patent-claim sense.
-                let original_err = e.to_string();
-                eprintln!(
-                    "[hunter] set_channel(ch{}) failed: {} — attempting tier-A self-heal",
-                    channel, original_err
-                );
-                let healing_start = Instant::now();
-                let healing =
-                    tokio::task::spawn_blocking(move || nl80211::set_channel(ifindex, channel))
-                        .await;
-                let elapsed_ms = healing_start.elapsed().as_millis() as u64;
-                let (success, combined_err) = match healing {
-                    Ok(Ok(())) => {
-                        eprintln!("[hunter] tier-A self-heal ok for ch{}", channel);
-                        state.current_channel.store(channel, Ordering::Relaxed);
-                        (true, Some(original_err))
-                    }
-                    Ok(Err(e2)) => {
-                        eprintln!(
-                            "[hunter] tier-A self-heal failed for ch{}: {} — \
-                             remaining on previous channel until next rotation",
-                            channel, e2
-                        );
-                        (false, Some(format!("{} | retry: {}", original_err, e2)))
-                    }
-                    Err(join_err) => {
-                        eprintln!("[hunter] self-heal spawn_blocking join error: {}", join_err);
-                        (false, Some(format!("{} | join: {}", original_err, join_err)))
-                    }
-                };
-                if let Some(tx) = audit_tx.as_ref() {
-                    let event = SubstrateAuditEvent::tier_a_recovery(
-                        node_id.clone(),
-                        channel,
-                        success,
-                        combined_err,
-                        elapsed_ms,
+            match primary {
+                Ok((Ok(()), ms)) => {
+                    state.record_retune(ms);
+                    state.current_channel.store(channel, Ordering::Relaxed);
+                }
+                Ok((Err(e), _)) => {
+                    // Tier-A soft self-heal: re-issue once. If it sticks,
+                    // fine; if not, audit-log and move on (next rotation
+                    // iteration will try this channel again, which is its
+                    // own form of recovery).
+                    // Wave 7.1 Inc 7: publish the recovery attempt with
+                    // provenance — every Tier-A becomes auditable in the
+                    // §6.3 patent-claim sense.
+                    let original_err = e.to_string();
+                    eprintln!(
+                        "[hunter] set_channel(ch{}) failed: {} — attempting tier-A self-heal",
+                        channel, original_err
                     );
-                    let _ = tx.try_send(event); // best-effort; never block the hunt
+                    let healing_start = Instant::now();
+                    let healing = tokio::task::spawn_blocking(move || {
+                        let t0 = Instant::now();
+                        let r = nl80211::set_channel(ifindex, channel);
+                        (r, t0.elapsed().as_millis() as u64)
+                    })
+                    .await;
+                    let elapsed_ms = healing_start.elapsed().as_millis() as u64;
+                    let (success, combined_err) = match healing {
+                        Ok((Ok(()), ms)) => {
+                            state.record_retune(ms);
+                            eprintln!("[hunter] tier-A self-heal ok for ch{}", channel);
+                            state.current_channel.store(channel, Ordering::Relaxed);
+                            (true, Some(original_err))
+                        }
+                        Ok((Err(e2), _)) => {
+                            eprintln!(
+                                "[hunter] tier-A self-heal failed for ch{}: {} — \
+                                 remaining on previous channel until next rotation",
+                                channel, e2
+                            );
+                            (false, Some(format!("{} | retry: {}", original_err, e2)))
+                        }
+                        Err(join_err) => {
+                            eprintln!("[hunter] self-heal spawn_blocking join error: {}", join_err);
+                            (
+                                false,
+                                Some(format!("{} | join: {}", original_err, join_err)),
+                            )
+                        }
+                    };
+                    if let Some(tx) = audit_tx.as_ref() {
+                        let event = SubstrateAuditEvent::tier_a_recovery(
+                            node_id.clone(),
+                            channel,
+                            success,
+                            combined_err,
+                            elapsed_ms,
+                        );
+                        let _ = tx.try_send(event); // best-effort; never block the hunt
+                    }
+                }
+                Err(join_err) => {
+                    eprintln!("[hunter] spawn_blocking join error: {}", join_err);
                 }
             }
-            Err(join_err) => {
-                eprintln!("[hunter] spawn_blocking join error: {}", join_err);
+            if plan.parked {
+                // Only mark a parked plan as set after at least one
+                // attempt outcome; a failed park keeps retrying here.
+                parked_set = state.current_channel.load(Ordering::Relaxed) == channel;
             }
         }
 
         // Wave 7.1 Inc 6 + 7.1b — dwell with capture-budget-aware
-        // lock-on respect. The Hunter no longer naively waits the
-        // full lock window: it consults effective_lock_remaining_ms,
-        // which releases as soon as we have observed enough
-        // substrate-evidence (drone identity + position) AND have
-        // held the channel at least min_lock to catch follow-on
-        // frames. This closes the 25-drone-different-channels
-        // starvation gap.
-        let dwell_end = now_unix_ms() + dwell.as_millis() as u64;
+        // lock-on respect (audit mode only; ZERO by default — C2). The
+        // lock loop consults effective_lock_remaining_ms, which releases
+        // as soon as the capture budget (identity + position) is met AND
+        // the min-lock floor has elapsed.
+        let dwell_start = Instant::now();
+        let dwell_end = now_unix_ms() + dwell_ms;
         let min_lock_ms = cfg.lock_on_min.as_millis() as u64;
         loop {
-            let lock_remaining =
-                state.effective_lock_remaining_ms(min_lock_ms);
+            let lock_remaining = state.effective_lock_remaining_ms(min_lock_ms);
             let lock_deadline = if lock_remaining > 0 {
                 now_unix_ms() + lock_remaining
             } else {
@@ -770,6 +859,14 @@ pub async fn run_hunter(
                 break;
             }
             tokio::time::sleep(Duration::from_millis(remaining.min(50))).await;
+        }
+
+        // C4 — record the ACTUAL dwell (lock-on extensions included) on
+        // the channel we actually listened to. Substrate truth: if a
+        // set_channel failed we dwelled on the previous channel.
+        let actual_channel = state.current_channel.load(Ordering::Relaxed);
+        if actual_channel != 0 {
+            state.record_dwell(actual_channel, dwell_start.elapsed().as_millis() as u64);
         }
 
         // Substrate-truth sample: take a survey snapshot at end of
@@ -789,12 +886,15 @@ pub async fn run_hunter(
             Ok(Ok(entries)) => {
                 let any_entries = !entries.is_empty();
                 state.record_survey_attempt(any_entries);
-                state.record_survey(now_unix_ms(), &entries, &cfg.channel_set);
+                state.record_survey(now_unix_ms(), &entries, &plan.channel_set);
             }
             Ok(Err(e)) => {
                 state.record_survey_attempt(false);
                 let err_msg = e.to_string();
-                eprintln!("[hunter] get_survey failed: {} — heartbeat will see stale data", err_msg);
+                eprintln!(
+                    "[hunter] get_survey failed: {} — heartbeat will see stale data",
+                    err_msg
+                );
                 // Wave 7.1 Inc 7: lift kernel-level survey errors onto
                 // the substrate-audit channel. NOTE: this only fires
                 // for actual Err returns, NOT for the rtw88_8812au
@@ -802,10 +902,7 @@ pub async fn run_hunter(
                 // coverage_class: logic_only in heartbeat, not as
                 // a per-attempt failure).
                 if let Some(tx) = audit_tx.as_ref() {
-                    let event = SubstrateAuditEvent::survey_failure(
-                        node_id.clone(),
-                        err_msg,
-                    );
+                    let event = SubstrateAuditEvent::survey_failure(node_id.clone(), err_msg);
                     let _ = tx.try_send(event);
                 }
             }
@@ -814,7 +911,5 @@ pub async fn run_hunter(
                 eprintln!("[hunter] survey spawn_blocking join error: {}", join_err);
             }
         }
-
-        idx = (idx + 1) % cfg.channel_set.len();
     }
 }

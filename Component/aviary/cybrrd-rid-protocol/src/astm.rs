@@ -61,10 +61,15 @@ pub(crate) fn telemetry_from_pack(
     mac_address: [u8; 6],
     rssi_dbm: i32,
 ) -> Option<TelemetryData> {
-    if !pack.has_observation() { return None; }
+    if !pack.has_observation() {
+        return None;
+    }
 
     let hardware_serial = pack.hardware_serial.as_ref().map(|s| s.as_str().to_owned());
-    let caa_registration = pack.caa_registration.as_ref().map(|s| s.as_str().to_owned());
+    let caa_registration = pack
+        .caa_registration
+        .as_ref()
+        .map(|s| s.as_str().to_owned());
 
     // Back-compat primary id: hardware serial, else CAA registration, else UNKNOWN.
     let drone_id = hardware_serial
@@ -76,6 +81,8 @@ pub(crate) fn telemetry_from_pack(
         transport: None,
         message_counter: None,
         wifi_bssid: None,
+        rx_channel: None,
+        rx_channel_source: None,
         protocol: ProtocolType::AstmF3411_22a,
         mac_address,
         drone_id,
@@ -85,7 +92,9 @@ pub(crate) fn telemetry_from_pack(
         position_unknown_reason: pack.position_unknown_reason.map(Into::into).or_else(|| {
             if pack.operational_status.is_none() && pack.drone_pos.is_none() {
                 Some(crate::models::PositionUnknownReason::NoLocation)
-            } else { None }
+            } else {
+                None
+            }
         }),
         operator_position_unknown_reason: pack.operator_position_unknown_reason.map(Into::into),
         pos: pack.drone_pos.map(conv_geo),

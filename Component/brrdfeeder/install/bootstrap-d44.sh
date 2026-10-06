@@ -42,7 +42,7 @@ CONSOLE_IMAGE="ghcr.io/cybrrd/brrdhouse@sha256:fffd150942cde14c3474536562c844bad
 
 # The installer this bootstrap fetches, and the hash it must have.
 INSTALLER_URL="${BRRDFEEDER_INSTALLER_URL:-https://get.cybrrd.com/dev/brrdfeeder-install.sh}"
-INSTALLER_SHA256="3a4bbbfcfbd770f837fdb91ecfa02beaeda37e38b51824024a9105524e586336"
+INSTALLER_SHA256="2e93f6d1536a7f97fb30b9557a9a74715145ca29570a8edbddc7795d2450f54f"
 
 # ── RELEASE CHECKLIST — do these IN THIS ORDER when cutting a release ───────
 #  1. Publish both images to ghcr and verify each resolves BY DIGEST anonymously,
@@ -127,9 +127,9 @@ if [[ $EUID == 0 && ! -L /var/log/brrdfeeder ]] && mkdir -p /var/log/brrdfeeder 
   BLOG="/var/log/brrdfeeder/bootstrap-$(date -u +%Y%m%dT%H%M%SZ)-$RUN_ID.log"
 else
   BLOG="$(mktemp "/tmp/brrdfeeder-bootstrap-$RUN_ID.XXXXXXXX.log")"
-  printf '  (could not write /var/log/brrdfeeder — logging to %s)\n' "$BLOG"
 fi
 : > "$BLOG" && chmod 0640 "$BLOG"
+[[ $BLOG != /tmp/* ]] || log "Bootstrap log uses a temporary file before elevation: $BLOG"
 {
   printf '==== BRRDFEEDER BOOTSTRAP LOG ====\n'
   printf 'run_id=%s\nstarted=%s\nbootstrap_sha256=%s\nengine_image=%s\nconsole_image=%s\ninstaller_url=%s\ninstaller_sha256_expected=%s\ninvoked_by_uid=%s sudo_user=%s\nargv=%s\n\n' \
@@ -195,6 +195,13 @@ if (( EUID == 0 )); then
 else
   command -v sudo >/dev/null || die "sudo is not installed. Ask the administrator to install sudo and grant this account access, then retry: curl -fsSL https://get.cybrrd.com | bash"
   sudo_args=()
+  sudo_ready=0
+  # Debian verifypw=all may require a password for -v even when commands
+  # are permitted by NOPASSWD:ALL. Probe execution before validation.
+  if sudo -n true </dev/null 2>/dev/null; then
+    sudo_ready=1
+    sudo_args=(-n)
+  fi
   if { exec {handoff_tty}</dev/tty; } 2>/dev/null && [[ -t $handoff_tty ]]; then
     # Debian sudo use_pty distinguishes the /dev/tty alias (device 5:0) from
     # the concrete controlling terminal. In the real-PTY proof the alias alone
@@ -208,12 +215,14 @@ else
     { exec {handoff_tty}<"/dev/$terminal_name"; } 2>/dev/null \
       || die "cannot open your controlling terminal for sudo; retry from a normal terminal session."
     [[ -t $handoff_tty ]] || die "sudo input is not a terminal; refusing to strand a prompt."
-    sudo -v <&"$handoff_tty" || die "sudo authorization failed. Ask the administrator to grant this account sudo access, then retry: curl -fsSL https://get.cybrrd.com | bash"
+    if [[ $sudo_ready -eq 0 ]]; then
+      sudo -v <&"$handoff_tty" || die "sudo authorization failed. Ask the administrator to grant this account sudo access, then retry: curl -fsSL https://get.cybrrd.com | bash"
+    fi
   else
     if [[ -n ${handoff_tty:-} ]]; then exec {handoff_tty}<&-; unset handoff_tty; fi
     # Never attempt a password prompt through the curl pipe.
     sudo_args=(-n)
-    sudo -n -v </dev/null || die "No terminal and no noninteractive sudo permission. Use a terminal, or configure administrator-approved passwordless sudo for automation; uninstall also requires --yes."
+    [[ $sudo_ready -eq 1 ]] || die "Sudo could not run a noninteractive command, and no terminal is available for a password prompt. Re-run from a terminal, or ask the administrator to review sudo access; automated uninstall also requires --yes."
   fi
   # Explicit handoff only: no sudo -E, no broad caller environment preservation.
   handoff_args=(env

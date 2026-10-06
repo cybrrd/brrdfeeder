@@ -42,6 +42,7 @@ class Contract(unittest.TestCase):
 CONSOLE_UID=1003
 say() { echo "$*" >&2; }
 warn() { echo "$*" >&2; }
+log_event() { echo "$*" >&2; }
 systemctl() { echo queried >> "$PROBE_LOG"; echo /user.slice/user-1003.slice/user@1003.service; }
 console_run() { echo queried >> "$PROBE_LOG"; "$@"; }
 console_memory_policy() {'''+helper+'''
@@ -93,7 +94,7 @@ cat <<UNIT
         self.assertNotIn('--memory', unit)
         self.assertIn('console_memory_limit=deferred', log)
 
-    def oauth(self, display, handoff=True):
+    def oauth(self, display, handoff=True, scenario='approved', trace=False):
         with tempfile.TemporaryDirectory() as d:
             directory = Path(d)
             start = 'enrollment_display_available() {' if 'enrollment_display_available() {' in SOURCE else 'manual_creds_instructions() {'
@@ -110,6 +111,7 @@ cat <<UNIT
                 f'if [[ -z ${{BRRDFEEDER_LOG_CHILD:-}} ]]; then exec python3 {shlex.quote(str(driver))} "$0"; fi\n'
                 f'source {shlex.quote(str(INSTALL/"log-events.sh"))}\n'
                 f'cd {shlex.quote(d)}\n'
+                f'SCENARIO={shlex.quote(scenario)}\n'
                 '''DRY_RUN=0
 CREDS_PATH=$PWD/fake.creds
 REFRESH_TOKEN_PATH=$PWD/fake.refresh
@@ -132,13 +134,28 @@ chown() { :; }  # no host ownership mutations
 curl() {
   echo called >> calls
   case "$*" in
-    *device_authorization*) printf '%s\n' '{"device_code":"SEEDED-DEVICE-SECRET","user_code":"P0-CODE-1234","verification_uri_complete":"https://oauth.invalid/verify?user_code=P0-CODE-1234","expires_in":300,"interval":0}' ;;
-    *oauth/v2/token*) printf '%s\n200\n' '{"access_token":"eyJhbGciOiJIUzI1NiJ9.eyJzZWVkIjoidGVzdCJ9.signature"}' ;;
-    *flock.invalid*) printf '%s\n' '-----BEGIN NATS USER JWT-----' 'SEEDED-CREDS-CONTENT' '-----END NATS USER JWT-----' 200 ;;
+    *device_authorization*)
+      echo auth >> auths
+      n=$(wc -l < auths)
+      printf '{"device_code":"SEEDED-DEVICE-SECRET-%s","user_code":"P0-CODE-1234-%s","verification_uri_complete":"https://oauth.invalid/verify?user_code=P0-CODE-1234-%s","expires_in":300,"interval":0}\\n' "$n" "$n" "$n" ;;
+    *oauth/v2/token*)
+      echo poll >> polls; n=$(wc -l < polls)
+      case "$SCENARIO:$n" in
+        expired:*|expired-once:1) printf '%s\\n400\\n' '{"error":"expired_token"}'; return ;;
+        denied:*) printf '%s\\n400\\n' '{"error":"access_denied"}'; return ;;
+        slow-pending:1|slow-pending:2) printf '%s\\n400\\n' '{"error":"authorization_pending"}'; return ;;
+        slow-pending:3) printf '%s\\n400\\n' '{"error":"slow_down"}'; return ;;
+      esac
+      printf '%s\\n200\\n' '{"access_token":"eyJhbGciOiJIUzI1NiJ9.eyJzZWVkIjoidGVzdCJ9.signature"}' ;;
+    *flock.invalid*)
+      if [[ $SCENARIO == exchange-failed ]]; then printf 'unavailable\\n503\\n'; return; fi
+      printf '%s\\n' '-----BEGIN NATS USER JWT-----' 'SEEDED-CREDS-CONTENT' '-----END NATS USER JWT-----' 200 ;;
     *) echo unexpected-endpoint >&2; return 98 ;;
   esac
 }
-'''+flow+'\necho FLOW_COMPLETED\n')
+sleep() { echo "$1" >> sleeps; if [[ $SCENARIO == deadline ]]; then echo $(($(cat clock 2>/dev/null || echo 0) + 400)) > clock; fi; }
+date() { if [[ $SCENARIO == deadline && $1 == +%s ]]; then cat clock 2>/dev/null || echo 0; else command date "$@"; fi; }
+'''+('set -x\n' if trace else '')+flow+'\necho FLOW_COMPLETED\n')
             env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
             for key in ['BRRDFEEDER_LOG_CHILD', 'BRRDFEEDER_LOG_TOKEN', 'BRRDFEEDER_DISPLAY_FD']:
                 env.pop(key, None)
@@ -182,18 +199,34 @@ curl() {
                     captured = b''
                 logs = '\n'.join(f.read_text() for f in (directory/'logs').glob('install-*.log') if not f.is_symlink())
                 calls = (directory/'calls').read_text().count('called') if (directory/'calls').exists() else 0
-                if display == 'none':
+                transcript = (output+captured).decode()
+                self.assertIn('P0-CODE-1234', transcript)
+                if scenario in ('expired', 'deadline', 'denied', 'exchange-failed'):
                     self.assertEqual(p.returncode, 1, captured.decode())
-                    self.assertEqual(calls, 0)
                     self.assertIn('Manual provisioning fallback', captured.decode())
                     self.assertFalse((directory/'fake.creds').exists())
                 else:
-                    self.assertEqual(p.returncode, 0, (output+captured).decode())
-                    self.assertIn('P0-CODE-1234', output.decode())
-                    self.assertIn('FLOW_COMPLETED', output.decode())
-                    self.assertEqual(calls, 3)
+                    self.assertEqual(p.returncode, 0, transcript)
+                    self.assertIn('FLOW_COMPLETED', transcript)
+                    self.assertEqual(calls, {'approved': 3, 'expired-once': 5, 'slow-pending': 6}[scenario])
                     self.assertIn('SEEDED-CREDS-CONTENT', (directory/'fake.creds').read_text())
                     self.assertIn('[REDACTED:device-code]', logs)
+                auths = (directory/'auths').read_text().count('auth')
+                self.assertEqual(auths, {'expired': 3, 'deadline': 3, 'expired-once': 2}.get(scenario, 1))
+                expected = {'approved': ['approved'], 'expired': ['expired'],
+                            'deadline': ['expired'],
+                            'expired-once': ['expired', 'approved'], 'denied': ['denied'],
+                            'slow-pending': ['pending', 'slow_down', 'approved'],
+                            'exchange-failed': ['approved', 'exchange-failed']}[scenario]
+                for state in expected:
+                    self.assertIn('device-flow outcome='+state, logs)
+                    self.assertNotIn('device-flow outcome='+state, transcript)
+                self.assertIn('remaining', transcript)
+                if scenario == 'slow-pending':
+                    self.assertEqual(logs.count('device-flow outcome=pending'), 1)
+                    self.assertEqual((directory/'sleeps').read_text().splitlines(), ['0','0','0','5'])
+                if scenario == 'deadline':
+                    self.assertFalse((directory/'polls').exists(), 'do not poll an expired code')
                 for secret in ['P0-CODE-1234', 'SEEDED-DEVICE-SECRET', 'SEEDED-CREDS-CONTENT', 'eyJhbGci']:
                     self.assertNotIn(secret, logs)
                 self.assertNotIn('\x1b', logs)
@@ -210,8 +243,29 @@ curl() {
     def test_piped_installer_with_only_controlling_terminal(self):
         self.oauth('tty-only', handoff=False)
 
-    def test_no_display_keeps_offline_manual_fallback(self):
+    def test_no_tty_still_displays_link_and_code(self):
         self.oauth('none')
+
+    def test_expired_code_reissues_in_place(self):
+        self.oauth('none', scenario='expired-once')
+
+    def test_expiry_exhausts_three_codes(self):
+        self.oauth('none', scenario='expired')
+
+    def test_pending_and_slowdown_transitions(self):
+        self.oauth('none', scenario='slow-pending')
+
+    def test_denied_does_not_retry(self):
+        self.oauth('none', scenario='denied')
+
+    def test_approved_but_exchange_failed_is_logged(self):
+        self.oauth('none', scenario='exchange-failed')
+
+    def test_local_deadline_reissues_without_polling_expired_code(self):
+        self.oauth('none', scenario='deadline')
+
+    def test_xtrace_does_not_log_codes_or_tokens(self):
+        self.oauth('none', trace=True)
 
 
 if __name__ == '__main__':

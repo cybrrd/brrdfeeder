@@ -101,6 +101,8 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
                               '[[ -d "$QUADLET_DIR" ]] || run install -d -m 0755 "$QUADLET_DIR"')
             text=text.replace('public_directories /etc/containers /etc/containers/systemd /etc/containers/systemd/users \\\n    "/etc/containers/systemd/users/$CONSOLE_UID"',
                               'run install -d -m 0755 -o root -g root "/etc/containers/systemd/users/$CONSOLE_UID"')
+            text=text.replace('say "System logs are kept on disk."',
+                              'say "journald drop-in absent (persistent storage_class — disk journal)"')
             text=text.split('gate pre-flight "Pre-flight"\n',1)[1]
             # 2026-09-28 item 3: final verification and power/clock blocks have
             # behavioral coverage in installer-vcgencmd; preserve all other
@@ -248,7 +250,29 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
                               'canonical Open platform is Pi OS / Ubuntu.')
             # Generated comments are explicitly in the vocabulary-cleanup scope.
             return '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith('#'))
-        self.assertEqual(normalize(SOURCE).rstrip('\n'),old)
+        def ux_scope(text):
+            # Enrollment now has dedicated fake-OAuth/PTY behavioral coverage.
+            # Compare every surrounding install byte; do not freeze the old
+            # no-TTY refusal or single-expiry behavior in this teardown test.
+            a=text.index('manual_creds_instructions() {')
+            b=text.index('\nrun chmod 0640 "$CREDS_PATH"', a)
+            text=text[:a]+text[b:]
+            for new,previous in [
+                ('gate images "Checking the downloaded images match the approved versions"',
+                 'gate images "Immutable image preflight (inspect-and-assert; no signature claim)"'),
+                ('ok "Downloaded engine image matches the approved version"',
+                 'ok "image integrity bound to installer/operator-approved digest (NOT signature verified)"'),
+                ('log_event DETAIL "config node.storage_class = $VSC"', 'say "config node.storage_class = $VSC"'),
+                ('say "System logs are kept on disk."', 'say "journald drop-in absent (persistent storage_class — disk journal)"'),
+                ('BRRDFEEDER_INSTALLER=1 "$STATUS_PROVISIONER"', '"$STATUS_PROVISIONER"'),
+                ('say "Setting up the local console automatically."',
+                 'say "Continuing the provisioner\'s mount/config steps automatically; no manual console setup is needed."'),
+            ]:
+                text=text.replace(new,previous)
+            text=text.replace('if [[ ${BRRDFEEDER_INSTALLER:-0} != 1 ]]; then\n  printf', 'printf')
+            text=text.replace("enable node.status_file.\\n'\nfi", "enable node.status_file.\\n'")
+            return '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith('log_event DETAIL '))
+        self.assertEqual(ux_scope(normalize(SOURCE)).rstrip('\n'),ux_scope(old))
 
     def test_order(self):
         self.assertLess(HELPER.index('stop_unit system brrdfeeder-updater.path'),HELPER.index('stop_unit system brrdfeeder-engine.service'))

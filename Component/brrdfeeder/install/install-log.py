@@ -514,12 +514,17 @@ def wait_engine(context, progress, timeout=60):
     return result
 
 
+# Canonical user-facing update status. Switch only when automatic updates ship.
+SELF_UPDATE_STATUS = ('Self-Update is installed but not yet active — this version does not update itself. '
+                      'To install a newer release, run sudo brrdfeeder uninstall, then run the install command again.')
+
+
 def final_install_screen(context, readiness, log_path, run_id):
     title = ('BRRDfeeder is installed and running.' if readiness['running'] else
              'BRRDfeeder is installed. Engine startup is still waiting for GPS.')
     return '\n'.join([title, 'Node ID: '+context['node_id'], 'Console: '+context['console_url'],
                       *(key+': '+readiness['states'][key] for key in SYSTEMS),
-                      'Self-Update checks signed updates automatically and restores the previous version if an update fails its health checks.',
+                      SELF_UPDATE_STATUS,
                       'Status: sudo brrdfeeder status', 'Support: sudo brrdfeeder support-bundle',
                       'Uninstall: sudo brrdfeeder uninstall', f'Log: {log_path}  (run {run_id})'])
 
@@ -597,7 +602,7 @@ def supervise(script, args):
                     display_fd = terminal.fileno()
                     stack.enter_context(contextlib.redirect_stdout(terminal))
             except OSError:
-                pass  # No display: child keeps the manual-creds fallback.
+                pass  # No TTY: link and code remain visible on stdout.
         progress = Progress()
         stack.callback(progress.close)
         return _supervise(script, args, display_fd, tty_fd, progress)
@@ -724,6 +729,11 @@ def _supervise(script, args, display_fd, tty_fd, progress):
                 safe = redactor.text(payload)
                 progress.notice(safe)
                 log.write(f'{now()} [INFO]  {safe}\n')
+            elif kind == 'DETAIL':
+                log.write(f'{now()} [DETAIL] {redactor.text(payload)}\n')
+            elif kind == 'UPDATE_STATUS':
+                progress.notice(SELF_UPDATE_STATUS)
+                log.write(f'{now()} [INFO]  {SELF_UPDATE_STATUS}\n')
             elif kind == 'INSTALL_CONTEXT' and mode == 'install':
                 try:
                     value = json.loads(payload)

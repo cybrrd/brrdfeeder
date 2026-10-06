@@ -641,12 +641,17 @@ def wait_engine(context, progress, timeout=60):
     return result
 
 
+# Canonical user-facing update status. Switch only when automatic updates ship.
+SELF_UPDATE_STATUS = ('Self-Update is installed but not yet active — this version does not update itself. '
+                      'To install a newer release, run sudo brrdfeeder uninstall, then run the install command again.')
+
+
 def final_install_screen(context, readiness, log_path, run_id):
     title = ('BRRDfeeder is installed and running.' if readiness['running'] else
              'BRRDfeeder is installed. Engine startup is still waiting for GPS.')
     return '\n'.join([title, 'Node ID: '+context['node_id'], 'Console: '+context['console_url'],
                       *(key+': '+readiness['states'][key] for key in SYSTEMS),
-                      'Self-Update checks signed updates automatically and restores the previous version if an update fails its health checks.',
+                      SELF_UPDATE_STATUS,
                       'Status: sudo brrdfeeder status', 'Support: sudo brrdfeeder support-bundle',
                       'Uninstall: sudo brrdfeeder uninstall', f'Log: {log_path}  (run {run_id})'])
 
@@ -724,7 +729,7 @@ def supervise(script, args):
                     display_fd = terminal.fileno()
                     stack.enter_context(contextlib.redirect_stdout(terminal))
             except OSError:
-                pass  # No display: child keeps the manual-creds fallback.
+                pass  # No TTY: link and code remain visible on stdout.
         progress = Progress()
         stack.callback(progress.close)
         return _supervise(script, args, display_fd, tty_fd, progress)
@@ -851,6 +856,11 @@ def _supervise(script, args, display_fd, tty_fd, progress):
                 safe = redactor.text(payload)
                 progress.notice(safe)
                 log.write(f'{now()} [INFO]  {safe}\n')
+            elif kind == 'DETAIL':
+                log.write(f'{now()} [DETAIL] {redactor.text(payload)}\n')
+            elif kind == 'UPDATE_STATUS':
+                progress.notice(SELF_UPDATE_STATUS)
+                log.write(f'{now()} [INFO]  {SELF_UPDATE_STATUS}\n')
             elif kind == 'INSTALL_CONTEXT' and mode == 'install':
                 try:
                     value = json.loads(payload)
@@ -2535,14 +2545,7 @@ fi
 # ZITADEL_DEVICE_FLOW_HOOK — implemented 2026-06-10 (Option A exchange).
 # Flow: device_authorization → user approves in browser → poll token
 # endpoint → exchange access_token at flock for scoped NATS .creds.
-# Manual scp remains the fallback if flock v0 is not yet deployed or the
-# install is non-interactive.
-
-enrollment_display_available() {
-  # The supervisor relays output and preserves a real terminal fd across setsid.
-  # Check the descriptor, not a boolean inherited from the caller's environment.
-  [[ -t 1 ]] || { [[ ${BRRDFEEDER_DISPLAY_FD:-} =~ ^[0-9]+$ ]] && [[ -t $BRRDFEEDER_DISPLAY_FD ]]; }
-}
+# Manual scp remains a fallback. Approval needs a browser, not terminal input.
 
 manual_creds_instructions() {
   warn "Manual provisioning fallback:"
@@ -2564,11 +2567,21 @@ zitadel_device_flow() {
   local B="" Y="" G="" R=""
   if [[ -t 1 ]]; then B=$'\033[1m'; Y=$'\033[1;33m'; G=$'\033[1;32m'; R=$'\033[0m'; fi
 
-  gate enrollment "Zitadel Device Flow — binding this feeder to your cyBRRD account"
+  gate enrollment "Linking to your cyBRRD account"
+  log_event DETAIL 'Zitadel OAuth Device Flow enrollment'
+  local attempt last_outcome="" access_token="" refresh_token=""
+  poll_outcome() {
+    if [[ $last_outcome != "$1" ]]; then
+      log_event DETAIL "device-flow outcome=$1 attempt=$attempt"
+      last_outcome=$1
+    fi
+  }
+  for attempt in 1 2 3; do
+  access_token=""; refresh_token=""; last_outcome=""
 
   # ---- Step 1: request device authorization --------------------------
   local auth_resp
-  auth_resp=$(curl -sf -X POST "${OAUTH_ISSUER}/oauth/v2/device_authorization" \
+  auth_resp=$(curl -sf --connect-timeout 15 --max-time 30 -X POST "${OAUTH_ISSUER}/oauth/v2/device_authorization" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     --data-urlencode "client_id=${OAUTH_CLIENT_ID}" \
     --data-urlencode "scope=${OAUTH_SCOPE}") \
@@ -2576,12 +2589,15 @@ zitadel_device_flow() {
 
   local device_code user_code verification_uri_complete expires_in interval
   device_code=$(jq -re '.device_code' <<<"$auth_resp")                         || { warn "bad device_authorization response"; _restore_xtrace; return 1; }
-  user_code=$(jq -re '.user_code' <<<"$auth_resp")
+  user_code=$(jq -re '.user_code' <<<"$auth_resp") || { warn 'Account linking returned an incomplete code.'; _restore_xtrace; return 1; }
   log_secret device-code "$device_code"
   log_secret device-code "$user_code"
-  verification_uri_complete=$(jq -re '.verification_uri_complete // .verification_uri' <<<"$auth_resp")
+  verification_uri_complete=$(jq -re '.verification_uri_complete // .verification_uri' <<<"$auth_resp") || { warn 'Account linking returned no approval link.'; _restore_xtrace; return 1; }
   expires_in=$(jq -re '.expires_in // 300' <<<"$auth_resp")
   interval=$(jq -re '.interval // 5' <<<"$auth_resp")
+  if [[ ! $expires_in =~ ^[1-9][0-9]{0,4}$ || ! $interval =~ ^(0|[1-9][0-9]{0,3})$ ]]; then
+    warn 'Account linking returned an invalid time limit.'; _restore_xtrace; return 1
+  fi
 
   # ---- Step 2: prompt the operator (BIG, unmissable, install is PAUSED) -
   printf '\n\n'
@@ -2599,21 +2615,22 @@ zitadel_device_flow() {
   echo "        (This binds the feeder to you + your leaderboard score.)"
   echo
   echo "     The install will continue ${G}automatically${R} the moment you approve."
-  echo "     No need to come back to this screen. Code expires in $((expires_in / 60)) min."
+  echo "     Code $attempt of 3: $expires_in seconds remaining. Expired codes refresh here automatically."
   echo
-  printf '     Waiting for your approval'
 
   # ---- Step 3: poll the token endpoint (quiet spinner, no trace) ------
   local deadline=$(( $(date +%s) + expires_in ))
-  local token_resp http_code body err access_token refresh_token
+  local token_resp http_code body err remaining wait_seconds
   while true; do
-    if (( $(date +%s) >= deadline )); then
-      echo; warn "device code expired before approval — re-run the script for a fresh code"
-      _restore_xtrace; return 1
-    fi
-    run sleep "$interval"
+    remaining=$((deadline - $(date +%s)))
+    (( remaining > 0 )) || break
+    printf '     Waiting for your approval — %s seconds remaining.\n' "$remaining"
+    wait_seconds=$interval
+    (( wait_seconds <= remaining )) || wait_seconds=$remaining
+    sleep "$wait_seconds"
+    (( $(date +%s) < deadline )) || break
 
-    token_resp=$(curl -s -w '\n%{http_code}' -X POST "${OAUTH_ISSUER}/oauth/v2/token" \
+    token_resp=$(curl -s --connect-timeout 15 --max-time 30 -w '\n%{http_code}' -X POST "${OAUTH_ISSUER}/oauth/v2/token" \
       -H "Content-Type: application/x-www-form-urlencoded" \
       --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
       --data-urlencode "device_code=${device_code}" \
@@ -2622,8 +2639,11 @@ zitadel_device_flow() {
     body=$(sed '$d' <<<"$token_resp")
 
     if [[ "$http_code" == "200" ]]; then
-      access_token=$(jq -re '.access_token' <<<"$body") || { echo; warn "token response missing access_token"; _restore_xtrace; return 1; }
+      access_token=$(jq -re '.access_token' <<<"$body") || { poll_outcome exchange-failed; warn "Account linking returned no access token."; _restore_xtrace; return 1; }
       refresh_token=$(jq -r '.refresh_token // empty' <<<"$body")
+      log_secret access-token "$access_token"
+      [[ -z $refresh_token ]] || log_secret refresh-token "$refresh_token"
+      poll_outcome approved
       printf '\n\n'
       echo "  ${G}${B}✓ Approved — thank you. Continuing the install…${R}"
       echo
@@ -2632,19 +2652,29 @@ zitadel_device_flow() {
 
     err=$(jq -r '.error // "unknown_error"' <<<"$body" 2>/dev/null || echo "unparseable")
     case "$err" in
-      authorization_pending) printf '.' ;;                       # quiet progress
-      slow_down)             interval=$(( interval + 5 )) ;;     # RFC 8628 §3.5
-      expired_token)         echo; warn "code expired — re-run for a fresh one"; _restore_xtrace; return 1 ;;
-      access_denied)         echo; warn "authorization DENIED in the browser"; _restore_xtrace; return 1 ;;
-      *)                     echo; warn "token endpoint error: $err"; _restore_xtrace; return 1 ;;
+      authorization_pending) poll_outcome pending ;;
+      slow_down)             poll_outcome slow_down; interval=$(( interval + 5 )) ;; # RFC 8628 §3.5
+      expired_token)         break ;;
+      access_denied)         poll_outcome denied; warn "Account linking was declined in the browser."; _restore_xtrace; return 1 ;;
+      *)                     poll_outcome poll-failed; warn "Could not check account approval. Check your connection and retry."; _restore_xtrace; return 1 ;;
     esac
+  done
+  [[ -z $access_token ]] || break
+  poll_outcome expired
+  if (( attempt < 3 )); then
+    say 'That code expired. Getting a fresh code here — no need to restart the install.'
+  else
+    warn 'All three codes expired. Re-run from a terminal when you are ready to approve in your browser.'
+    _restore_xtrace; return 1
+  fi
   done
 
   # ---- Step 4/5: Option A exchange — access_token → NATS .creds -------
-  gate enrollment "Exchanging token at flock for NATS credentials"
+  gate enrollment "Finishing account linking"
+  log_event DETAIL 'Exchanging access token at flock for scoped NATS credentials'
   local creds_resp creds_code creds_body hdrs
   hdrs=$(mktemp)
-  creds_resp=$(curl -s -D "$hdrs" -w '\n%{http_code}' -X POST "$FLOCK_ENROLL_URL" \
+  creds_resp=$(curl -s --connect-timeout 15 --max-time 30 -D "$hdrs" -w '\n%{http_code}' -X POST "$FLOCK_ENROLL_URL" \
     -H "Authorization: Bearer ${access_token}" \
     -H "Content-Type: application/json" \
     -d "{\"node_hostname\":\"$(hostname)\"}") || true
@@ -2652,13 +2682,15 @@ zitadel_device_flow() {
   creds_body=$(sed '$d' <<<"$creds_resp")
 
   if [[ "$creds_code" != "200" ]]; then
-    warn "flock enrollment endpoint returned HTTP ${creds_code:-none} — flock v0 may not be deployed yet"
+    poll_outcome exchange-failed
+    warn "Account approval succeeded, but the feeder could not finish linking. Please retry."
     run rm -f "$hdrs"; _restore_xtrace; return 1
   fi
 
   # Expect the raw .creds file body (-----BEGIN NATS USER JWT----- ...)
   if ! grep -q "BEGIN NATS USER JWT" <<<"$creds_body"; then
-    warn "flock response does not look like a NATS .creds file"
+    poll_outcome exchange-failed
+    warn "Account approval succeeded, but the returned feeder credentials were invalid. Please retry."
     run rm -f "$hdrs"; _restore_xtrace; return 1
   fi
 
@@ -2687,17 +2719,13 @@ zitadel_device_flow() {
 
 if [[ ! -f "$CREDS_PATH" ]]; then
   if [[ $DRY_RUN -eq 1 ]]; then
-    say "[dry-run] would run Zitadel Device Flow enrollment"
-  elif enrollment_display_available; then
-    if ! zitadel_device_flow; then
-      warn "Device Flow enrollment did not complete."
-      manual_creds_instructions
-      fatal "creds required — enroll (re-run) or provision manually, then re-run."
-    fi
+    say "[dry-run] would link this feeder to your cyBRRD account"
   else
-    warn "NATS creds not found and no visible terminal for Device Flow."
-    manual_creds_instructions
-    fatal "creds required — provision and re-run."
+    if ! zitadel_device_flow; then
+      warn "Account linking did not complete."
+      manual_creds_instructions
+      fatal "Credentials required — re-run from a terminal to link your account, or provision manually and re-run."
+    fi
   fi
 fi
 run chmod 0640 "$CREDS_PATH"
@@ -2801,13 +2829,13 @@ if [[ $VERIFY_ONLY -eq 1 ]]; then
   systemctl is-active chrony >/dev/null 2>&1 && ok "chrony ACTIVE" || warn "chrony NOT active"
   VSC="$(get_storage_class "$CONFIG_PATH")"
   [[ -z "$VSC" ]] && VSC="(unset, defaults persistent)"
-  say "config node.storage_class = $VSC"
+  log_event DETAIL "config node.storage_class = $VSC"
   if [[ -f "$JOURNALD_DROPIN" ]]; then
     ok "journald drop-in present (BRRDfeeder hardening installed)"
   elif [[ -f "$JOURNALD_DROPIN_LEGACY" ]]; then
     warn "legacy journald drop-in present — re-run the installer to migrate it to $JOURNALD_DROPIN"
   else
-    say "journald drop-in absent (persistent storage_class — disk journal)"
+    say "System logs are kept on disk."
   fi
   systemctl is-active brrdfeeder-engine.service >/dev/null 2>&1 \
     && ok "brrdfeeder-engine.service is ACTIVE" \
@@ -2900,7 +2928,8 @@ fi
 # ----------------------------------------------------------------------
 # Step 1b — immutable image pull, BEFORE writing/activating the deployment
 # ----------------------------------------------------------------------
-gate images "Immutable image preflight (inspect-and-assert; no signature claim)"
+gate images "Checking the downloaded images match the approved versions"
+log_event DETAIL 'Immutable image preflight: inspect-and-assert; no signature claim'
 if [[ $DRY_RUN -eq 1 ]]; then
   say "[dry-run] would pull if absent and assert RepoDigests contains $CONTAINER_IMAGE"
 else
@@ -2913,7 +2942,8 @@ else
     || fatal "Cannot inspect the pinned image; deployment not changed."
   printf '%s\n' "$IMAGE_REPO_DIGESTS" | grep -qxF "$CONTAINER_IMAGE" \
     || fatal "Pinned image RepoDigests mismatch; deployment not changed."
-  ok "image integrity bound to installer/operator-approved digest (NOT signature verified)"
+  ok "Downloaded engine image matches the approved version"
+  log_event DETAIL 'RepoDigests matches installer/operator-approved digest (NOT signature verified)'
 fi
 
 # ----------------------------------------------------------------------
@@ -2930,7 +2960,7 @@ console_run() {
 console_memory_policy() {
   CONSOLE_MEMORY_ARGS=""
   if [[ $DRY_RUN -eq 1 ]]; then
-    say "console_memory_limit=deferred reason=dry-run; would inspect the running console user's delegated cgroup"
+    log_event DETAIL "console_memory_limit=deferred reason=dry-run; would inspect the running console user's delegated cgroup"
     return
   fi
   local group controllers reason=delegation-unavailable
@@ -2943,13 +2973,13 @@ console_memory_policy() {
         reason=delegation-not-writable
         if console_run test -w "/sys/fs/cgroup$group/cgroup.subtree_control"; then
           CONSOLE_MEMORY_ARGS=" --memory=96m --memory-swap=96m"
-          say "console_memory_limit=96m reason=memory-delegated cgroup=$group"
+          log_event DETAIL "console_memory_limit=96m reason=memory-delegated cgroup=$group"
           return
         fi
       fi
     fi
   fi
-  warn "console_memory_limit=omitted reason=$reason cgroup=${group:-unknown}; console has no memory cap; other hardening is retained"
+  log_event DETAIL "console_memory_limit=omitted reason=$reason cgroup=${group:-unknown}; console has no memory cap; other hardening is retained"
 }
 
 if [[ $DRY_RUN -eq 1 ]]; then
@@ -3038,12 +3068,14 @@ fi
 install -d -m 0755 -o "$service_uid" -g "$service_gid" "$directory"
 [[ $(stat -c '%u:%g:%a' "$directory") == "$service_uid:$service_gid:755" ]] || fail 'Directory ownership/mode verification failed.'
 printf 'Provisioned %s owner=%s:%s mode=0755; engine RW, console RO.\n' "$directory" "$service_uid" "$service_gid"
-printf 'Next: follow README unit setup to mount it in the engine and enable node.status_file.\n'
+if [[ ${BRRDFEEDER_INSTALLER:-0} != 1 ]]; then
+  printf 'Next: follow README unit setup to mount it in the engine and enable node.status_file.\n'
+fi
 STATUS_PROVISIONER_EOF
   run chmod 0755 "$STATUS_PROVISIONER"
   run chown root:root "$STATUS_PROVISIONER"
-  "$STATUS_PROVISIONER"
-  say "Continuing the provisioner's mount/config steps automatically; no manual console setup is needed."
+  BRRDFEEDER_INSTALLER=1 "$STATUS_PROVISIONER"
+  say "Setting up the local console automatically."
   # Preserve all user settings except this package-owned status destination.
   run python3 - "$CONFIG_PATH" "$STATUS_DIR/status.json" <<'STATUS_CONFIG_PY'
 import os, pathlib, sys, tempfile, yaml
@@ -3193,11 +3225,11 @@ fi
 # ----------------------------------------------------------------------
 # Step 4 — BRRDfeeder MicroSD hardening (storage_class=ephemeral)
 # ----------------------------------------------------------------------
-gate storage "Step 4 — BRRDfeeder hardware protection (storage_class)"
+gate storage "Step 4 — protecting the storage device"
 
 STORAGE_CLASS="$(get_storage_class "$CONFIG_PATH")"
 [[ -z "$STORAGE_CLASS" ]] && STORAGE_CLASS="persistent"
-say "config-declared node.storage_class=$STORAGE_CLASS"
+log_event DETAIL "config-declared node.storage_class=$STORAGE_CLASS"
 
 if [[ "$STORAGE_CLASS" == "ephemeral" ]]; then
   JOURNALD_DROPIN_DIR="$(dirname "$JOURNALD_DROPIN")"
@@ -3253,7 +3285,7 @@ JEOF
   say "BRRDfeeder journald hardening active (engine logs land in RAM, NOT on SD)"
   say "Note: PCAP capture tmpfs is INSIDE the container (Tmpfs= directive in Quadlet)"
 else
-  ok "storage_class=$STORAGE_CLASS — skipping ephemeral hardening (persistent disk keeps journal)"
+  ok "Persistent storage: keeping system logs on disk"
 fi
 
 # ----------------------------------------------------------------------
@@ -4198,7 +4230,7 @@ RELEASE_CONFIG_PY
   "$UPDATE_HELPER" install --config "$UPDATE_STAGE/config.json"
   rm -f "$UPDATE_STAGE/brrdfeeder-release" "$UPDATE_STAGE/config.json"
   rmdir "$UPDATE_STAGE"
-  ok "Self-Update checks signed updates and restores the previous version if an update fails its health checks"
+  log_event UPDATE_STATUS ''
   warn "Update notifications require server-side permissions and streams; this installer does not provision them."
 fi
 

@@ -611,6 +611,73 @@ mod tests {
         }
         assert!(seen.len() > 3, "jitter must actually vary dwell lengths");
     }
+
+    #[test]
+    fn channel_set_duplicates_are_deduped() {
+        // Operator error class: a duplicated channel silently doubles that
+        // channel's scheduled share. The resolved plan must carry each
+        // configured channel exactly once.
+        let yaml: HunterYaml = serde_yaml::from_str("channel_set: [6, 11, 11, 149]").unwrap();
+        let plan = HunterPlan::from_yaml(&yaml);
+        let mut seen = std::collections::HashSet::new();
+        for ch in &plan.channel_set {
+            assert!(
+                seen.insert(*ch),
+                "channel {ch} appears more than once in the resolved plan: {:?}",
+                plan.channel_set
+            );
+        }
+        assert_eq!(
+            plan.channel_set.len(),
+            3,
+            "duplicates must be dropped: {:?}",
+            plan.channel_set
+        );
+        // The duplicate must not double channel 11's scheduled share
+        // (fair 3-channel plan: 1200 + 220 + 1200 = 2620 ms cycle,
+        // share(11) = 220*100/2620 ≈ 8%; with the duplicate it is ~14%).
+        assert!(
+            plan.share_pct(11) <= 8,
+            "duplicate channel inflated ch 11 share to {}%",
+            plan.share_pct(11)
+        );
+    }
+
+    #[test]
+    fn dfs_channels_are_refused_at_plan_level() {
+        // DFS (UNII-2, 52–144) needs radar-clearance the hunter does not
+        // support; today the kernel refuses at runtime every cycle and the
+        // plan silently schedules a dead visit. The plan must never
+        // schedule them.
+        let yaml: HunterYaml =
+            serde_yaml::from_str("channel_set: [6, 52, 100, 144, 149]").unwrap();
+        let plan = HunterPlan::from_yaml(&yaml);
+        for ch in [52u32, 100, 144] {
+            assert!(
+                !plan.channel_set.contains(&ch),
+                "DFS channel {ch} must never be scheduled: {:?}",
+                plan.channel_set
+            );
+        }
+        assert!(plan.channel_set.contains(&6) && plan.channel_set.contains(&149));
+    }
+
+    #[test]
+    fn invalid_channels_are_refused_at_plan_level() {
+        // Channel numbers outside the supported regulatory range cannot be
+        // tuned at all; refusing at plan level replaces opaque per-cycle
+        // runtime errors with one actionable startup message.
+        let yaml: HunterYaml = serde_yaml::from_str("channel_set: [1, 15, 166, 300]").unwrap();
+        let plan = HunterPlan::from_yaml(&yaml);
+        for ch in [15u32, 166, 300] {
+            assert!(
+                !plan.channel_set.contains(&ch),
+                "unsupported channel {ch} must never be scheduled: {:?}",
+                plan.channel_set
+            );
+        }
+        assert!(plan.channel_set.contains(&1));
+    }
 }
 
 #[cfg(test)]

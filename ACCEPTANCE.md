@@ -38,7 +38,7 @@ set, 1 Hz Beacon aircraft on every channel, NAN discovery windows every
 | Other-channel dwell share | 5.1–10.25% | 4.4–4.8% (accepted trade: −~10% sweep yield for 2.5× social) |
 | Per-aircraft capture rate, 1 Hz Beacon on 6/149 | 0.081–0.089 fps | 0.145–0.155 fps (≥ 1.7× legacy) |
 | Mean time-to-first-detection on 6/149 | 6.5–10 s | ≤ 2.7 s |
-| Inter-catch gap on 6/149 (legacy + lock-on + 1 s dedup modeled) | p10 3.7–5.5 s, median 4–9 s — reproduces the 24-h capture (p10 4.0 s, median 5–8 s) within reason | median ≤ 7 s, p10 ≥ 2 s |
+| Inter-catch gap on 6/149 (legacy + lock-on + 1 s dedup modeled) | p10 3.7–5.5 s, median 4–9 s — reproduces the 24-h capture (measured pooled gaps: p10 ≈ 4.2 s, median ≈ 4.5 s, p75 9.0 s, 2×-cycle harmonic ≈ 8.4 s) within reason | median ≤ 7 s, p10 ≥ 2 s |
 | NAN discovery windows covered per social visit | ≤ 1 (82.5%/visit overlap) | ≥ 2 full periods |
 | Chatty 10 Hz identity-only aircraft on ch 6 (never completes budget) | channel monopoly: rotation starves, other channels lose ≥ 25% of visits | zero effect: every channel still visited each supercycle; no dwell exceeds 1200 ms × 1.15 |
 
@@ -131,3 +131,29 @@ Additional gates:
 - the full workspace test suite, hosted CI, and the local ARM64 release dry-run
   pass;
 - engine version is `0.8.25`; no tag or release is created.
+
+## Channel-scheduler hygiene follow-up (2026-10-06)
+
+Post-merge verification of the scheduler work passed with no MUST findings and
+three SHOULDs; this follow-up closes the two that land in this repository.
+The field-evidence correction above (measured pooled inter-observation gaps
+from the 24-h capture: p10 ≈ 4.2 s, median ≈ 4.5 s, p75 9.0 s, with the 2×
+cycle harmonic near 8.4 s — replacing the earlier "median 5–8 s" wording)
+is recorded first: an acceptance document must not misquote the field
+evidence it cites. The acceptance bands themselves are unchanged and still
+hold.
+
+Acceptance for the channel-set hygiene work, registered before
+implementation. Tests below fail on the current scheduler at their
+assertions:
+
+| Requirement | Test | Accepted behavior |
+|---|---|---|
+| H1 — duplicates never double a channel's share | `channel_set_duplicates_are_deduped` | `channel_set: [6, 11, 11, 149]` resolves to each channel exactly once (first-occurrence order); the startup log names the dropped duplicates. Dedupe with a notice, not refusal: the duplicated config functions today, and boot-failing it would break a working setup over an operator typo. |
+| H2 — DFS channels are refused at plan level | `dfs_channels_are_refused_at_plan_level` | UNII-2 (52–144) never appears in a resolved plan; startup fails closed with a per-channel reason before any radio administration (replacing per-cycle runtime refusals). |
+| H3 — invalid channels are refused at plan level | `invalid_channels_are_refused_at_plan_level` | Channel numbers outside the supported regulatory range never appear in a resolved plan; same fail-closed refusal. |
+| H4 — defaults unchanged | existing preset/back-compat suite | The default 12-channel set produces no dedupe notice and no refusals; every existing scheduler test stays green. |
+
+Mutation gates (after green): removing the dedupe step fails H1; removing the
+DFS branch fails H2; removing the regulatory-range branch fails H3. No engine
+version bump in this change — it batches into the next release.

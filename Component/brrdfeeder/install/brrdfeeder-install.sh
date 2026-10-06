@@ -107,6 +107,7 @@ if [[ -z ${BRRDFEEDER_LOG_CHILD:-} ]]; then
       case $LOG_ARG in --uninstall) LOG_MODE=uninstall;; --verify) LOG_MODE=verify;; esac
     done
     for LOG_ARG in "$@"; do [[ $LOG_ARG != --dry-run ]] || LOG_MODE=dryrun; done
+    LOG_REASON=''
     LOG_PATH="/var/log/brrdfeeder/$LOG_MODE-$LOG_STAMP-$RUN_ID.log"
     umask 027
     if [[ -L /var/log/brrdfeeder ]] || ! install -d -m 0750 -o root -g root /var/log/brrdfeeder 2>/dev/null || [[ $(stat -c '%u:%g:%a' /var/log/brrdfeeder) != 0:0:750 ]] || ! (set -C; : > "$LOG_PATH") 2>/dev/null; then

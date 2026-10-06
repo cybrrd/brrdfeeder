@@ -31,6 +31,25 @@
 
 use crate::node_config::HunterYaml;
 
+/// One refused `channel_set` entry with its reason. Refusals fail closed at
+/// startup (see main's hunter-plan gate): the resolved plan never schedules
+/// the channel, and the operator gets one actionable message instead of a
+/// per-cycle runtime error from the kernel/regulatory layer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RefusedChannel {
+    pub channel: u32,
+    pub reason: String,
+}
+
+/// UNII-2 (52–144) requires radar detection and clearance before transmit;
+/// a passive receiver can sit there, but the hunter's channel-setting
+/// primitive gets refused or silently no-ops per cycle on most drivers, and
+/// the default set deliberately excludes it. Refused at plan level so the
+/// dead visit never exists.
+fn is_dfs_channel(channel: u32) -> bool {
+    (52..=144).contains(&channel)
+}
+
 /// NAN Discovery Window period: 512 TU, 1 TU = 1.024 ms (Wi-Fi Alliance
 /// NAN specification; F3411 `BWF0032`/`BWF0036` place sync beacons and
 /// SDFs inside these windows).
@@ -112,6 +131,12 @@ pub struct HunterPlan {
     pub parked: bool,
     /// YAML keys the operator set explicitly (for the back-compat notice).
     pub explicit_fields: Vec<&'static str>,
+    /// Duplicate entries dropped from the configured `channel_set`
+    /// (first occurrence wins). Logged at startup as the dedupe notice.
+    pub deduped_channels: Vec<u32>,
+    /// Channels refused at plan level with reasons; non-empty → the engine
+    /// fails closed at startup (main's hunter-plan gate).
+    pub refused_channels: Vec<RefusedChannel>,
 }
 
 impl HunterPlan {
@@ -121,13 +146,48 @@ impl HunterPlan {
         let preset = y.preset.unwrap_or_default();
 
         let default_set = default_channel_set();
-        let channel_set = match &y.channel_set {
+        let configured_set = match &y.channel_set {
             Some(set) => {
                 explicit.push("channel_set");
                 set.clone()
             }
             None => default_set,
         };
+        // Channel-set hygiene (operator-error class): duplicates silently
+        // double a channel's share — dedupe, first occurrence wins, and
+        // record what was dropped for the startup notice. Unsupported
+        // channels (outside the regulatory range we scan) and DFS channels
+        // (52–144, radar-clearance unsupported) are refused: recorded here,
+        // never scheduled, and main fails closed on a non-empty refusal
+        // list before any radio administration.
+        let mut deduped_channels = Vec::new();
+        let mut refused_channels = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        let channel_set = configured_set
+            .into_iter()
+            .filter(|&ch| {
+                if !seen.insert(ch) {
+                    deduped_channels.push(ch);
+                    return false;
+                }
+                if let Err(reason) = crate::nl80211::channel_to_freq_mhz(ch) {
+                    refused_channels.push(RefusedChannel {
+                        channel: ch,
+                        reason,
+                    });
+                    return false;
+                }
+                if is_dfs_channel(ch) {
+                    refused_channels.push(RefusedChannel {
+                        channel: ch,
+                        reason: "DFS channel (UNII-2, 52-144): radar clearance is unsupported"
+                            .to_string(),
+                    });
+                    return false;
+                }
+                true
+            })
+            .collect::<Vec<u32>>();
 
         let (dwell_social_ms, dwell_other_ms, social_channels) = match preset {
             HunterPreset::Social | HunterPreset::Park6 => {
@@ -215,6 +275,8 @@ impl HunterPlan {
             jitter_seed,
             parked,
             explicit_fields: explicit,
+            deduped_channels,
+            refused_channels,
         }
     }
 
@@ -677,6 +739,47 @@ mod tests {
             );
         }
         assert!(plan.channel_set.contains(&1));
+    }
+
+    #[test]
+    fn hygiene_survivors_are_recorded_for_the_startup_notice() {
+        // The dedupe notice and the fail-closed refusal both read from the
+        // plan; the records must be exact and the reasons actionable.
+        let yaml: HunterYaml = serde_yaml::from_str("channel_set: [6, 11, 11, 149]").unwrap();
+        let plan = HunterPlan::from_yaml(&yaml);
+        assert_eq!(plan.deduped_channels, vec![11]);
+        assert!(plan.refused_channels.is_empty());
+
+        let yaml: HunterYaml =
+            serde_yaml::from_str("channel_set: [6, 52, 166, 149]").unwrap();
+        let plan = HunterPlan::from_yaml(&yaml);
+        assert!(plan.deduped_channels.is_empty());
+        assert_eq!(plan.channel_set, vec![6, 149]);
+        assert_eq!(plan.refused_channels.len(), 2);
+        assert_eq!(plan.refused_channels[0].channel, 52);
+        assert!(
+            plan.refused_channels[0].reason.contains("DFS"),
+            "DFS refusal must say so: {}",
+            plan.refused_channels[0].reason
+        );
+        assert_eq!(plan.refused_channels[1].channel, 166);
+        assert!(
+            plan.refused_channels[1]
+                .reason
+                .contains("not in the supported regulatory range"),
+            "range refusal must say so: {}",
+            plan.refused_channels[1].reason
+        );
+    }
+
+    #[test]
+    fn default_channel_set_needs_no_hygiene() {
+        // The default set carries no duplicates and no refused channels:
+        // existing configs see no new notices.
+        let plan = HunterPlan::from_yaml(&HunterYaml::default());
+        assert!(plan.deduped_channels.is_empty());
+        assert!(plan.refused_channels.is_empty());
+        assert_eq!(plan.channel_set, default_channel_set());
     }
 }
 

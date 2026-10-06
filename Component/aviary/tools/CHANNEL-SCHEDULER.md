@@ -47,6 +47,26 @@ artifact that was briefly misread as a transmitter cadence floor).
   preset defaults (back-compat); the engine logs which fields were explicit
   at startup.
 
+## Channel-set hygiene (2026-10-06)
+
+- **Duplicates** in `channel_set` are deduplicated at plan resolution (first
+  occurrence wins) and the startup log prints a notice, e.g.
+  `[hunter] channel_set deduplicated: dropped duplicate channels [11]`.
+  Dedupe with a notice rather than refusal: a duplicated entry functions
+  today (it silently doubles that channel's dwell share — the bug), so the
+  fix removes the double share without boot-failing a working setup over an
+  operator typo.
+- **DFS channels (52–144, UNII-2) and channels outside the supported
+  regulatory range** (2.4 GHz 1–14, 5 GHz 36–48/149–165) are **refused at
+  plan level**: the engine prints one actionable line per channel, e.g.
+  `[hunter-plan] refusing channel 52: DFS channel (UNII-2, 52-144): radar
+  clearance is unsupported`, then fails closed **before any radio
+  administration**. This replaces the previous behavior — scheduling a dead
+  visit the kernel refuses every capture cycle. The default 12-channel set
+  is unaffected (no DFS, no duplicates, no notices).
+- `priority_channels` entries outside the resolved `channel_set` are ignored
+  (unchanged); run the hygiene rules on `channel_set` itself.
+
 ## Measuring it (C4)
 
 - Every Wi-Fi observation on the wire carries `rx_channel` and

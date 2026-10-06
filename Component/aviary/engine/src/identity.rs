@@ -83,7 +83,11 @@ fn read_handoff(path: &Path, invocation: &str, owner: u32) -> Option<Option<Stri
 impl RunningIdentity {
     #[cfg(test)]
     pub fn upward_test_fixture() -> Self {
-        Self::from_sources(Some(format!("sha256:{}", "a".repeat(64))), Some(&"b".repeat(40)), Some("42"))
+        Self::from_sources(
+            Some(format!("sha256:{}", "a".repeat(64))),
+            Some(&"b".repeat(40)),
+            Some("42"),
+        )
     }
 
     #[cfg(test)]
@@ -270,6 +274,7 @@ mod tests {
             "fixture",
             std::time::Instant::now(),
             &crate::heartbeat::RadioState::new(),
+            None,
             None,
             None,
             None,

@@ -212,4 +212,25 @@ hummingbrrd = "none"
 # directions: omitting a profile from a status table fails RULE 3; marking bluetooth
 # `implemented` on the opensource profile fails RULE 2 by name.
 
+# ── Wi-Fi channel scheduler ─────────────────────────────────────────────────
+
+[hunter.channel_schedule]
+notes = """Cadence-aware, deadline-fair Wi-Fi visit schedule. Social channels 6/149
+dwell 1200 ms (two NAN discovery-window periods + >=1s Beacon guarantee); every other
+configured channel gets a fair 220 ms visit each supercycle; dwell and order jittered
+deterministically. NO aircraft-following lock-on in any preset default — lock-on is an
+explicit opt-in single-target audit tool. Presets: social (default), park6, sweep
+(legacy values); explicit config always wins. Every Wi-Fi observation carries
+rx_channel + provenance; the heartbeat hunter block reports per-channel dwell share,
+accumulated dwell, RID frames heard, and measured set_channel round-trip stats. The
+engine fails closed if the designated capture adapter carries the host default route.
+Contracted by REQ-BRRD-016. Software/simulator verified only (pre-registered
+simulator + mutation checks); field schedule validation is future work the
+heartbeat accounting exists to prove."""
+[hunter.channel_schedule.status]
+soho        = "planned"
+enterprise  = "planned"
+opensource  = "implemented"
+hummingbrrd = "planned"
+
 [contract_debt]

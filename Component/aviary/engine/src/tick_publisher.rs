@@ -199,12 +199,19 @@ struct CachedObservation {
 
 impl CachedObservation {
     fn into_wire(self, drone_id: String, now_ms: u64) -> AirspaceDroneObservation {
-        let position_state = if self.position.is_some() { PositionState::Measured } else { PositionState::Unknown };
+        let position_state = if self.position.is_some() {
+            PositionState::Measured
+        } else {
+            PositionState::Unknown
+        };
         AirspaceDroneObservation {
-            drone_id, protocol: self.protocol, position: self.position,
+            drone_id,
+            protocol: self.protocol,
+            position: self.position,
             operational_status: self.operational_status,
             position_unknown_reason: self.position_unknown_reason,
-            velocity: self.velocity, position_state,
+            velocity: self.velocity,
+            position_state,
             last_broadcast_unix_ms: self.last_broadcast_unix_ms,
             broadcast_age_ms: now_ms.saturating_sub(self.last_broadcast_unix_ms),
             signal_rssi_dbm: self.signal_rssi_dbm,
@@ -259,9 +266,7 @@ impl ObservationStore {
         let Ok(mut g) = self.inner.lock() else {
             return Vec::new();
         };
-        g.retain(|_, obs| {
-            now_ms.saturating_sub(obs.last_broadcast_unix_ms) < STALE_THRESHOLD_MS
-        });
+        g.retain(|_, obs| now_ms.saturating_sub(obs.last_broadcast_unix_ms) < STALE_THRESHOLD_MS);
         g.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
     }
 
@@ -438,6 +443,8 @@ mod tests {
                 transport: None,
                 message_counter: None,
                 wifi_bssid: None,
+                rx_channel: None,
+                rx_channel_source: None,
                 protocol: ProtocolType::AstmF3411_22a,
                 mac_address: [0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc],
                 drone_id: drone_id.into(),

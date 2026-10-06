@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+id: REQ-BRRD-016
+title: Cadence-aware, deadline-fair Wi-Fi channel schedule without aircraft following
+statement: >-
+  WHEN the hunter is enabled, the engine SHALL schedule Wi-Fi channel visits so the
+  social channels (6 and 149) each receive a long dwell — at least one NAN
+  discovery-window period (512 TU) plus margin and at least 1000 ms so a >=1 Hz
+  Beacon is caught with high probability — while every other configured channel
+  still receives a short, fair visit every supercycle, with dwell length and
+  visit order jittered deterministically so no transmitter cadence can phase-lock
+  against the schedule. The default configuration SHALL NOT include
+  aircraft-following lock-on; lock-on SHALL remain available only as an explicit
+  opt-in single-target audit mode. The engine SHALL expose the schedule as
+  presets (social, park6, sweep) with explicit operator values always winning
+  over preset defaults, SHALL stamp the receive channel and its provenance
+  (radiotap-measured or hunter-configured) on every Wi-Fi observation, SHALL
+  report per-channel dwell share, accumulated dwell, RID frames heard, and
+  measured set_channel round-trip statistics in the heartbeat hunter block, and
+  SHALL fail closed before radio administration when the designated capture
+  adapter carries the host default route.
+rationale: >-
+  A network receiver must hear the SET of aircraft in range. The legacy
+  200/400 ms rotation gave the social channels ~10% of wall time and turned
+  >=1 Hz broadcast cadence into ~4-5 s observation gaps (a receiver artifact
+  misread as a transmitter cadence floor), while aircraft-triggered lock-on
+  could monopolize a channel indefinitely. Pre-registered simulator evidence
+  and field heartbeat accounting must be able to prove both fixes.
+binds:
+  - "engine/src/schedule.rs"
+  - "engine/src/hunter.rs"
+  - "engine/src/node_config.rs"
+  - "engine/src/capture.rs"
+  - "engine/src/heartbeat.rs"
+  - "engine/src/route_guard.rs"
+  - "engine/src/main.rs"
+  - "capabilities.toml::hunter.channel_schedule"
+verify:
+  - "schedule::social_defaults_give_social_channels_long_share"
+  - "schedule::jitter_never_breaks_social_minimums"
+  - "schedule::every_channel_visited_each_supercycle_and_social_separated"
+  - "schedule::park6_parks_without_rotation"
+  - "schedule::sweep_preset_reproduces_legacy_values"
+  - "schedule::explicit_config_wins_over_preset"
+  - "schedule::sim_legacy_reproduces_24h_gap_distribution"
+  - "schedule::sim_social_beats_legacy_on_social_channels"
+  - "schedule::sim_social_share_survives_worst_case_retune"
+  - "schedule::sim_legacy_lock_on_monopolizes_for_chatty_incomplete_aircraft"
+  - "schedule::sim_social_covers_two_nan_windows_per_visit"
+  - "node_config::tests::hunter_defaults_give_social_channels_long_dwell_share"
+  - "node_config::tests::hunter_default_disables_aircraft_following_lock_on"
+  - "capture::tests::wire_carries_rx_channel"
+  - "heartbeat::tests::channel_vitals_report_dwell_and_hits"
+  - "route_guard::tests::default_route_on_capture_interface_is_detected"
+  - "route_guard::tests::non_default_interfaces_pass"
+  - "route_guard::tests::empty_or_malformed_table_has_no_false_positive"
+status: bound
+provenance:
+  decided: "2026-10-05 — channel-scheduler implementation packet"
+  evidence: >-
+    Acceptance-first behavioral red on the pre-scheduler code, deterministic
+    schedule simulator with pre-registered expected numbers, mutation checks
+    (lock-on reintroduction and social-dwell shrink each fail a test), Rust
+    1.88 workspace, hosted contracts/CodeQL, and the ARM64 release helper.
+    Software/simulator verified only: no field schedule validation has been
+    run; the heartbeat dwell/hit accounting exists so it can be.
+references:
+  - "BWF0090 (NAN ch 6 mandatory, 149 optional)"
+  - "BWFB0030 / BWFB0010 (Beacon social/any channels)"
+  - "BWFB0040 / BWFB0050 (200 TU any-channel Beacon interval)"
+  - "BUR0010 (>=1 Hz dynamic messages)"
+  - "ACCEPTANCE.md — Channel scheduler acceptance"

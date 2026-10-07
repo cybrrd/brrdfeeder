@@ -123,6 +123,9 @@ impl RadioState {
 /// resolution is fine for liveness signals.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeartbeatPayload {
+    /// Additive Silver memory observations; all sizes are bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<crate::memory::Memory>,
     #[serde(flatten)]
     pub release_currency: crate::release_currency::ReleaseCurrency,
     pub node_id: String,
@@ -574,6 +577,7 @@ pub fn build_payload(
             None => (None, None, None, None, None, None),
         };
     HeartbeatPayload {
+        memory: Some(crate::memory::sample()),
         release_currency: crate::release_currency::ReleaseCurrency::read(
             std::path::Path::new("/var/lib/brrdfeeder/release_currency.json"),
             node_id,
@@ -832,6 +836,7 @@ mod tests {
         // Wave 6.4.1: timestamp_utc is now Unix milliseconds.
         // 1714342400 (s) → 1714342400000 (ms).
         let payload = HeartbeatPayload {
+            memory: None,
             release_currency: Default::default(),
             node_id: "bf-test-001".into(),
             timestamp_utc: 1714342400000,
@@ -875,8 +880,37 @@ mod tests {
     }
 
     #[test]
+    fn memory_is_additive_optional_and_preserves_exact_byte_values() {
+        let mut raw = serde_json::json!({
+            "node_id": "memory-fixture", "timestamp_utc": 1,
+            "uptime_seconds": 0, "load_avg_1m": 0.0, "load_avg_5m": 0.0,
+            "load_avg_15m": 0.0, "radio_status": "up"
+        });
+        let old: HeartbeatPayload = serde_json::from_value(raw.clone()).unwrap();
+        assert!(old.memory.is_none());
+        assert!(serde_json::to_value(old).unwrap().get("memory").is_none());
+        raw["memory"] = serde_json::json!({
+            "engine_rss_bytes": 14336000, "engine_cgroup_current_bytes": 20000000,
+            "engine_cgroup_peak_bytes": 26000000, "console_rss_bytes": 8192000,
+            "host_mem_total_bytes": 1986422374u64, "host_mem_available_bytes": 1600000000,
+            "volatile_journal_bytes": 1048576, "memory_cap_events": 0,
+            "future_memory_field": "ignored"
+        });
+        let payload: HeartbeatPayload = serde_json::from_value(raw.clone()).unwrap();
+        let wire = serde_json::to_value(payload).unwrap();
+        assert_eq!(wire["memory"]["memory_cap_events"], 0);
+        assert!(wire["memory"].get("future_memory_field").is_none());
+        raw["memory"]
+            .as_object_mut()
+            .unwrap()
+            .remove("future_memory_field");
+        assert_eq!(wire["memory"], raw["memory"]);
+    }
+
+    #[test]
     fn heartbeat_payload_omits_cpu_temp_when_absent() {
         let payload = HeartbeatPayload {
+            memory: None,
             release_currency: Default::default(),
             node_id: "bf-test-001".into(),
             timestamp_utc: 0,
@@ -914,6 +948,7 @@ mod tests {
         // heartbeats with no `hunter` field; downstream parsers
         // (globe-backend Wave 6.2g+) must continue to accept that.
         let payload = HeartbeatPayload {
+            memory: None,
             release_currency: Default::default(),
             node_id: "bf-pre-w7".into(),
             timestamp_utc: 0,
@@ -955,6 +990,7 @@ mod tests {
         // emitted JSON carries current_channel + lineage + per-channel
         // noise_dbm + busy_pct + sample_age_ms.
         let payload = HeartbeatPayload {
+            memory: None,
             release_currency: Default::default(),
             node_id: "bf-00000003".into(),
             timestamp_utc: 1714342400000,
@@ -1155,6 +1191,7 @@ mod tests {
     #[test]
     fn heartbeat_payload_with_gps_serializes_to_wire_contract() {
         let payload = HeartbeatPayload {
+            memory: None,
             release_currency: Default::default(),
             node_id: "bf-00000003".into(),
             timestamp_utc: 1714342400000,
@@ -1217,6 +1254,7 @@ mod tests {
     #[test]
     fn heartbeat_payload_without_gps_omits_field_entirely() {
         let payload = HeartbeatPayload {
+            memory: None,
             release_currency: Default::default(),
             node_id: "bf-pre-w72".into(),
             timestamp_utc: 1714342400000,
@@ -1261,6 +1299,7 @@ mod wave_7_4_tests {
     #[test]
     fn heartbeat_payload_node_position_source_serializes_snake_case() {
         let payload = HeartbeatPayload {
+            memory: None,
             release_currency: Default::default(),
             node_id: "bf-00000003".into(),
             timestamp_utc: 1714342400000,

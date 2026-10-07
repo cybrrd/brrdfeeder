@@ -4,6 +4,10 @@
 Description=BRRDfeeder engine — non-root process, dedicated host radios
 After=network-online.target
 Wants=network-online.target
+Wants=brrdfeeder-memory.service brrdfeeder-memory.timer
+After=brrdfeeder-memory.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
 # The BRRDfeeder installer owns this system timer. Wants is non-fatal on persistent
 # tiers but ensures a provisioned black box starts with the engine.
 After=brrdfeeder-blackbox.timer
@@ -13,6 +17,8 @@ Wants=brrdfeeder-blackbox.timer
 # Operator replaces with the complete pinned image after test-node-3 proof.
 Image=localhost/brrdfeeder-engine:verified
 ContainerName=brrdfeeder-engine
+CgroupsMode=split
+Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro
 User=1001:20
 Network=host
 LogDriver=journald
@@ -49,6 +55,11 @@ ReadOnly=true
 
 [Service]
 ExecStartPre=/usr/local/libexec/brrdfeeder-gps-runtime prepare
+MemoryAccounting=yes
+MemoryMax=256M
+MemorySwapMax=0
+OOMPolicy=kill
+ExecStopPost=/usr/local/libexec/brrdfeeder-host-memory stop
 RuntimeDirectory=brrdfeeder-identity
 RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=no

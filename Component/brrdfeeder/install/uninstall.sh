@@ -373,6 +373,8 @@ if exists /usr/local/sbin/brrdfeeder; then
 fi
 
 files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
+  /usr/local/libexec/brrdfeeder-host-memory
+  /etc/systemd/system/brrdfeeder-memory.service /etc/systemd/system/brrdfeeder-memory.timer
   /etc/brrdfeeder/updater.json /etc/brrdfeeder/.updater-helper.sha256
   /usr/local/libexec/brrdfeeder-release
   /usr/local/libexec/brrdfeeder-release-launch
@@ -427,6 +429,9 @@ if [[ -f /usr/local/libexec/brrdfeeder-release.previous ]]; then
   [[ $(sha256sum /usr/local/libexec/brrdfeeder-release.previous | cut -d' ' -f1) == "$prior_hash" ]] || die 'retained updater checksum mismatch'
 fi
 for pair in \
+  '/usr/local/libexec/brrdfeeder-host-memory|Read-only host observations; only stop mode writes a durable OOM receipt.' \
+  '/etc/systemd/system/brrdfeeder-memory.service|BRRDfeeder read-only host memory observations' \
+  '/etc/systemd/system/brrdfeeder-memory.timer|BRRDfeeder periodic host memory observations' \
   '/etc/containers/systemd/brrdfeeder-engine.container|Installed by brrdfeeder-install.sh.' \
   '/etc/brrdfeeder/brrdhouse.container|Description=BRRDhouse intrinsic read-only LAN status console' \
   '/etc/systemd/system/brrdfeeder-updater.path|# BRRDfeeder signed-update watcher.|#185 Drop 2' \
@@ -458,7 +463,7 @@ done
 for backup in /etc/containers/systemd/brrdfeeder-engine.container.bak.*; do
   grep -qF 'Installed by brrdfeeder-install.sh.' "$backup" || die "unrecognised backup content: $backup"
 done
-for tree in /etc/brrdfeeder /var/lib/brrdfeeder-status /run/brrdfeeder-identity /var/lib/brrdfeeder-updater; do
+for tree in /etc/brrdfeeder /var/lib/brrdfeeder-status /run/brrdfeeder-identity /var/lib/brrdfeeder-updater /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do
   safe_tree "$tree"
 done
 [[ ! -d /etc/brrdfeeder || $(stat -c %u /etc/brrdfeeder) == 0 ]] || die 'config tree is not root-owned'
@@ -474,6 +479,13 @@ if [[ -d /run/brrdfeeder-gps ]]; then
     esac
   done
 fi
+for tree in /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do
+  [[ ! -d $tree || $(stat -c %u "$tree") == 0 ]] || die 'wrong memory observer owner'
+  for entry in "$tree"/*; do
+    case ${entry##*/} in events.json|host.json|.lock|.memory-*) safe_file "$entry";;
+      *) die "unrecognised memory state: $entry";; esac
+  done
+done
 if [[ -d /var/lib/brrdfeeder-status ]]; then
   owner=$(stat -c %u /var/lib/brrdfeeder-status)
   [[ $owner == 0 || $owner == "${uid[brrdfeeder]:-absent}" ]] || die 'wrong status-directory owner'
@@ -514,7 +526,7 @@ done
 for unit in /etc/systemd/system/brrdfeeder-engine.service /etc/systemd/system/brrdhouse.service; do
   ! exists "$unit" || die "unexpected native override of generated unit: $unit"
 done
-for unit in brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
+for unit in brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-memory.service brrdfeeder-memory.timer brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
   ! exists "/etc/systemd/system/$unit.d" || die "unexpected unit overrides: $unit.d"
 done
 console_links=()
@@ -583,6 +595,8 @@ reset_failed_unit() {
 }
 confirm_removal
 progress_phase 'Stopping services'
+stop_unit system brrdfeeder-memory.timer
+stop_unit system brrdfeeder-memory.service
 stop_unit system brrdfeeder-release-poll.timer
 stop_unit system brrdfeeder-gps-runtime.timer
 stop_unit system brrdfeeder-gps-runtime.service
@@ -616,6 +630,8 @@ remove_file() {
   else absent "$1"; fi
 }
 progress_phase 'Removing service definitions'
+remove_file /etc/systemd/system/brrdfeeder-memory.service
+remove_file /etc/systemd/system/brrdfeeder-memory.timer
 for file in /etc/systemd/system/brrdfeeder-updater.path /etc/systemd/system/brrdfeeder-updater.service /etc/containers/systemd/brrdfeeder-engine.container /etc/systemd/system/brrdfeeder-release-poll.timer /etc/systemd/system/brrdfeeder-release-poll.service /etc/systemd/system/brrdfeeder-release-recover.service /etc/systemd/system/brrdfeeder-host-update.service /etc/systemd/system/brrdfeeder-host-update.timer; do remove_file "$file"; done
 for file in "${console_links[@]}"; do remove_file "$file"; done
 for file in /etc/systemd/system/brrdfeeder-gps-runtime.timer /etc/systemd/system/brrdfeeder-gps-runtime.service; do remove_file "$file"; done
@@ -757,7 +773,7 @@ remove_tree() {
     else find -P "$path" -xdev -depth -delete; log "REMOVED tree: $path"; fi
   else absent "$path"; fi
 }
-for tree in /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater; do remove_tree "$tree"; done
+for tree in /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do remove_tree "$tree"; done
 progress_phase 'Removing service accounts'
 for user in brrdhouse brrdfeeder; do
   if [[ -n ${uid[$user]:-} ]]; then

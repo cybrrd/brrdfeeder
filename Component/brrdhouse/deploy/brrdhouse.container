@@ -23,6 +23,7 @@ ReadOnlyTmpfs=false
 # Mount the directory, not the file, so atomic replacements and unlink are seen.
 Pull=never
 Volume=/var/lib/brrdfeeder-status:/var/lib/brrdfeeder-status:ro
+Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro
 Exec=--listen=LAN_IP:8080 --allowed-hosts=LAN_IP:8080,UNIT_HOSTNAME.local:8080 --status-file=/var/lib/brrdfeeder-status/status.json
 # The installer adds --memory=96m --memory-swap=96m ONLY after verifying
 # memory is available/writable in this user's delegated cgroup. Stock Pi hosts

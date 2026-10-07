@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Behavioral RED — 2026-10-07 UTC
 
 Base: a02976123ed42fe2918d9c3fb55f5b7223f588a0 (0.8.29 host gates).

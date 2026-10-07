@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # 0.8.29 memory acceptance (registered before implementation)
 
 Scope: a separate PR stacked on the held auto-update host-gates branch. No

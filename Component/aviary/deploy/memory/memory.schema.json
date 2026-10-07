@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Optional heartbeat.memory Silver observations, 0.8.29",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "engine_rss_bytes": {"$ref": "#/$defs/bytes"},
+    "engine_cgroup_current_bytes": {"$ref": "#/$defs/bytes"},
+    "engine_cgroup_peak_bytes": {"$ref": "#/$defs/bytes"},
+    "console_rss_bytes": {"$ref": "#/$defs/bytes"},
+    "host_mem_total_bytes": {"$ref": "#/$defs/bytes"},
+    "host_mem_available_bytes": {"$ref": "#/$defs/bytes"},
+    "volatile_journal_bytes": {"$ref": "#/$defs/bytes"},
+    "memory_cap_events": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615, "description": "Durable count of systemd-confirmed engine-service OOM deaths under the configured cap; not a count of allocation retries or proof of cap causality."}
+  },
+  "$defs": {
+    "bytes": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615, "description": "Bytes; absent means unavailable, never an implicit zero."}
+  }
+}

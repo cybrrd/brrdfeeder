@@ -70,7 +70,8 @@ class Package(unittest.TestCase):
                      'Volume=${STATUS_DIR}:${STATUS_DIR}:ro', 'WantedBy=default.target']:
             self.assertIn(line, console.splitlines())
         self.assertEqual([line for line in console.splitlines() if line.startswith('Volume=')],
-                         ['Volume=${STATUS_DIR}:${STATUS_DIR}:ro'])
+                         ['Volume=${STATUS_DIR}:${STATUS_DIR}:ro',
+                          'Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro'])
         self.assertIn('User=${TARGET_UID}:${TARGET_GID}', TEXT)
         self.assertIn('Volume=${STATUS_DIR}:${STATUS_DIR}:rw', TEXT)
         self.assertNotIn('User=0:0', TEXT)

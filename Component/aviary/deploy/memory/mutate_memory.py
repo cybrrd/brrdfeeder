@@ -29,7 +29,7 @@ with tempfile.TemporaryDirectory(prefix='brrd-memory-mutants-') as folder:
     scratch = Path(folder)
     for name, old, new in (
         ('cap-is-enforced', 'MemoryMax=256M', 'MemoryMax=infinity'),
-        ('payload-stays-in-service-cgroup', 'CgroupsMode=split', 'CgroupsMode=enabled'),
+        ('payload-stays-in-service-cgroup', 'PodmanArgs=--cgroups=split', 'PodmanArgs=--cgroups=enabled'),
         ('oom-kills-service-group', 'OOMPolicy=kill', 'OOMPolicy=continue'),
         ('restart-loop-is-bounded', 'StartLimitBurst=3', 'StartLimitBurst=0'),
     ):

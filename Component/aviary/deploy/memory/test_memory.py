@@ -126,14 +126,18 @@ class DeploymentContracts(unittest.TestCase):
         for line in ('MemoryMax=256M', 'MemorySwapMax=0', 'OOMPolicy=kill',
                      'Restart=always', 'ExecStopPost=/usr/local/libexec/brrdfeeder-host-memory stop'):
             self.assertIn(line, service.splitlines())
-        self.assertRegex(service, r'--cgroups(?:=| )split(?: |$)')
+        # Older generators emit a default first; Podman uses the final argument.
+        command = next(line for line in service.splitlines() if line.startswith('ExecStart='))
+        modes = __import__('re').findall(r'--cgroups(?:=| )([^ ]+)', command)
+        self.assertTrue(modes)
+        self.assertEqual(modes[-1], 'split')
         self.assertIn('StartLimitBurst=3', rendered)
         self.assertIn('StartLimitIntervalSec=300', rendered)
         self.assertIn('/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro', rendered)
         # Verify the shipping installer block, not just the reference template.
         installer = (ROOT / 'Component/brrdfeeder/install/brrdfeeder-install.sh').read_text()
         unit = installer.split('NEW_QUADLET=$(cat <<EOF\n', 1)[1].split('\nEOF', 1)[0]
-        for line in ('MemoryMax=256M', 'MemorySwapMax=0', 'OOMPolicy=kill', 'CgroupsMode=split',
+        for line in ('MemoryMax=256M', 'MemorySwapMax=0', 'OOMPolicy=kill', 'PodmanArgs=--cgroups=split',
                      'StartLimitBurst=3', 'StartLimitIntervalSec=300'):
             self.assertIn(line, unit.splitlines())
 

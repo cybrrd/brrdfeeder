@@ -86,7 +86,7 @@ def run(out, image, repeat_oom=False):
     state.chmod(0o755)
     if repeat_oom:
         (root / 'repeat-oom').write_text('three starts then start-limit-hit\n')
-    unit = f'codex-brrd-memory-test-{os.getpid()}.service'
+    unit = f'brrd-memory-test-{os.getpid()}.service'
     container = unit.removesuffix('.service')
     image_id = command(['podman', 'image', 'inspect', '--format', '{{.Id}}', image]).strip()
     (root / 'input.json').write_text(json.dumps({'image_id': image_id, 'unit': unit, 'scope': 'local user-unit fixture; NOT native engine'}, indent=2))

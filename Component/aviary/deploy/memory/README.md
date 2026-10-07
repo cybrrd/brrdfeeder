@@ -3,7 +3,7 @@
 # Engine memory bound and Silver observations (0.8.29)
 
 The shipping installer renders a rootful system Quadlet with explicit
-`CgroupsMode=split`, `[Service] MemoryMax=256M`, `MemorySwapMax=0`, and
+`PodmanArgs=--cgroups=split`, `[Service] MemoryMax=256M`, `MemorySwapMax=0`, and
 `OOMPolicy=kill`. The service bound includes the engine, conmon, and charged
 container tmpfs. It does not cap unrelated host services. 256 MiB leaves headroom
 above the measured 12–14 MB engine RSS, roughly 5 MB conmon, and the 50 MiB capture
@@ -12,6 +12,9 @@ tmpfs. This is a starting safety bound, not a measured workload maximum.
 This deliberately uses systemd resource control in **[Service]**, never
 `[Container]`. Podman's split mode keeps the payload below the service's cgroup;
 using a separate Podman scope would make a launcher-only limit ineffective.
+The explicit Podman argument also works with older Quadlet generators that do
+not recognize the newer `CgroupsMode` key. Tests check the last effective
+`--cgroups` argument, including when a generator supplies its own default.
 See the [Podman Quadlet cgroup contract](https://docs.podman.io/en/v5.4.2/markdown/podman-systemd.unit.5.html#cgroupsmode)
 and [systemd OOMPolicy](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#OOMPolicy=).
 The rootless console keeps its existing conditional 96 MiB Podman limit: lack
@@ -112,7 +115,7 @@ across two further restart intervals. systemd may retain `Result=oom-kill`
 rather than replace it with `start-limit-hit`.
 Warn the shared-host operator **before** invoking either fault mode: memory
 shortage alerts can fire even though the test allocation is cgroup-bounded.
-Units use `codex-brrd-memory-test-*` names and an explicit `TEST ONLY` description;
+Units use `brrd-memory-test-*` names and an explicit `TEST ONLY` description;
 the harness removes its own unit/container on completion and retains only proof
 files. It does not suppress host monitoring alerts.
 

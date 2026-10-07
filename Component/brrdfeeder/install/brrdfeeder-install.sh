@@ -4436,7 +4436,7 @@ StartLimitBurst=3
 [Container]
 Image=${CONTAINER_IMAGE}
 ContainerName=brrdfeeder-engine
-CgroupsMode=split
+PodmanArgs=--cgroups=split
 Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro
 
 # Rootful container, non-root process. IDs come from the dedicated host account.

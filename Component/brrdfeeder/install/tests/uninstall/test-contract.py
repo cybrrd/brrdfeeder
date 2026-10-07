@@ -104,6 +104,19 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
             text=text.replace('say "System logs are kept on disk."',
                               'say "journald drop-in absent (persistent storage_class — disk journal)"')
             text=text.split('gate pre-flight "Pre-flight"\n',1)[1]
+            # 0.8.29 memory scope: exact helper/unit embedding, generated cgroup
+            # confinement and bounded restart behavior are independently tested
+            # by deploy/memory/test_memory.py and its negative controls.
+            a = text.index('# Host memory observations are separate')
+            b = text.index('gate quadlets ', a)
+            text = text[:a] + text[b:]
+            for line in ('Wants=brrdfeeder-memory.service brrdfeeder-memory.timer',
+                         'After=brrdfeeder-memory.service', 'StartLimitIntervalSec=300',
+                         'StartLimitBurst=3', 'PodmanArgs=--cgroups=split',
+                         'Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro',
+                         'MemoryAccounting=yes', 'MemoryMax=256M', 'MemorySwapMax=0',
+                         'OOMPolicy=kill', 'ExecStopPost=/usr/local/libexec/brrdfeeder-host-memory stop'):
+                text = text.replace(line + '\n', '')
             # 2026-09-28 item 3: final verification and power/clock blocks have
             # behavioral coverage in installer-vcgencmd; preserve all other
             # enrollment, privileges, image, account and updater code checks.

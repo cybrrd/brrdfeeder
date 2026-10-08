@@ -131,6 +131,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // explicit overrides) and surface the effective schedule — this is
     // also the migration notice for pre-scheduler configs.
     let hunter_plan = schedule::HunterPlan::from_yaml(&cfg.capture.hunter);
+    // Plan-level hygiene gate: an unsupported channel in the configured set
+    // is a config error, not a runtime condition. Fail closed BEFORE any
+    // radio administration (same boundary discipline as the route guard) —
+    // the per-channel reason replaces opaque kernel refusals every cycle.
+    if !hunter_plan.refused_channels.is_empty() {
+        for refused in &hunter_plan.refused_channels {
+            eprintln!(
+                "[hunter-plan] refusing channel {}: {}",
+                refused.channel, refused.reason
+            );
+        }
+        eprintln!(
+            "[hunter-plan] FAILING CLOSED: remove the refused channels from hunter.channel_set"
+        );
+        return Err("hunter channel_set contains refused channels".into());
+    }
+    if !hunter_plan.deduped_channels.is_empty() {
+        println!(
+            "[hunter] channel_set deduplicated: dropped duplicate channels {:?} \
+             (each channel is visited once per supercycle)",
+            hunter_plan.deduped_channels
+        );
+    }
     println!(
         "[hunter] plan: preset={:?} channels={:?} social={:?} dwell_social={}ms \
          dwell_other={}ms jitter=±{:.0}% parked={} lock_on={}ms explicit_overrides={:?}",

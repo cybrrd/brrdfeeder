@@ -1,14 +1,14 @@
-# ACCEPTANCE — Adafruit Ultimate GPS (#746) support (GLM seat, 2026-10-08)
+# ACCEPTANCE — Adafruit Ultimate GPS (#746) support (development seat, 2026-10-08)
 
-Packet: `~/.cache/glm-queue/PACKET-GPS-ADAFRUIT-ULTIMATE-746-2026-10-06.md` + ADDENDUM 1.
+Packet: `PACKET-GPS-ADAFRUIT-ULTIMATE-746-2026-10-06.md (internal queue; path elided)` + ADDENDUM 1.
 Registered BEFORE code (design note already drafted: `docs/adafruit-gps-746-design.md`).
 Repo: public `cybrrd/brrdfeeder`, branch `feat/adafruit-gps-746-2026-10-08` (design note may
-ride the same PR or a docs-first commit). Kimi audits; NOT merged; no version bump (batch
+ride the same PR or a docs-first commit). The verifier audits; NOT merged; no version bump (batch
 identity assigned at merge).
 
 ## Acceptance criteria
 
-- AC1 **Recognition is opt-in and explicit (Synth-amended):** the CP2102N (`10c4:ea60`) maps
+- AC1 **Recognition is opt-in and explicit (the director-amended):** the CP2102N (`10c4:ea60`) maps
   to `/dev/cybrrd_gps` ONLY via (a) interactive prompt, default **No**, read through the
   installer's existing tty discipline (`BRRDFEEDER_TTY_FD`/`/dev/tty`; pipe-with-tty prompts
   on the tty; **no tty = No**; `-y` never auto-accepts) or (b) the explicit headless flag
@@ -39,14 +39,14 @@ identity assigned at merge).
   `-y` does not accept, accept-path writes config + rule); gps-seed tolerates PMTK ack
   sentences; engine PMTK init (sent sentences logged, once per open, default sends nothing);
   interim-rule supersession; UART flag ask-path (mocked host files).
-- AC7 **No node contact, no host changes by me;** measurement plan is a Synth-run document
+- AC7 **No node contact, no host changes by me;** measurement plan is a the director-run document
   (§5 of the design note) with the grounding/bias-voltage preconditions the ADDENDUM
   demands; no hardware-list/get.cybrrd.com changes.
 - AC8 Identity `cyBRRD Development <dev@cybrrd.com>`; workspace
-  `/home/cy/.cache/glm-adafruit-2026-10-08/`; CI green (contracts incl. role-language,
+  `the seat workspace (internal path elided)`; CI green (contracts incl. role-language,
   CodeQL, analyze); local build-arm64 at final head with fuzz corpus cleared.
 
-## Amendments folded (Synth answer 2026-10-08T22:34Z, recorded in the design note §2)
+## Amendments folded (the director answer 2026-10-08T22:34Z, recorded in the design note §2)
 
 1. `--gps-usb-id` headless flag (interactive prompt stays; tty discipline per the uninstall
    confirmation pattern; no-tty = No).

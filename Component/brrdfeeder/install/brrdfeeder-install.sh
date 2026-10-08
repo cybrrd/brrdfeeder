@@ -2991,9 +2991,9 @@ GPS_ID_EOF
 }
 
 gps_nmea_confirm() {
-  # Passive NMEA confirm for an opted-in candidate device (Synth amendment 2):
-  # ~5s read-only at 9600 baud; requires >=2 checksum-valid $GP/$GN sentences;
-  # NEVER writes to the port. Prints "ok" or "no-nmea".
+  # Passive NMEA confirm for an opted-in candidate device (follow-up ruling,
+  # 2026-10-08): ~5s read-only at 9600 baud; requires >=2 checksum-valid
+  # $GP/$GN sentences; NEVER writes to the port. Prints "ok" or "no-nmea".
   local dev=$1
   python3 - "$dev" <<'GPS_PROBE_EOF'
 import sys, os, termios, select, time
@@ -3521,7 +3521,7 @@ GPS_DECLARED_RULE=""
 if [[ -n $gps_declared_usb_id && $GPS_USB_ID_PRESENT -eq 1 ]]; then
   GPS_DECLARED_RULE=$(printf 'SUBSYSTEM=="tty", ATTRS{idVendor}=="%s", ATTRS{idProduct}=="%s", SYMLINK+="%s", GROUP="dialout", MODE="0660", ENV{CYBRRD_GPS_DECLARED}=="1"' "${gps_declared_usb_id%:*}" "${gps_declared_usb_id#*:}" "$GPS_SYMLINK")
   # Report — never delete or overwrite — a pre-existing third-party rule that
-  # already claims this VID:PID (Synth amendment 3).
+  # already claims this VID:PID (follow-up ruling, 2026-10-08).
   local_style=""
   for rulefile in /etc/udev/rules.d/*.rules; do
     [[ -r $rulefile ]] || continue

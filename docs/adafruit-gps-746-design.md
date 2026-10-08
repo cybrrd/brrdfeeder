@@ -1,9 +1,9 @@
 # Design note — Adafruit Ultimate GPS Breakout (#746) support
 
-**Status:** design for the packet (`~/.cache/glm-queue/PACKET-GPS-ADAFRUIT-ULTIMATE-746-2026-10-06.md`,
-ADDENDUM 1 released to GLM 2026-10-08). Target: next release after 0.8.29. Repo: public
+**Status:** design for the packet (`PACKET-GPS-ADAFRUIT-ULTIMATE-746-2026-10-06.md (internal queue; path elided)`,
+ADDENDUM 1 released to the development seat 2026-10-08). Target: next release after 0.8.29. Repo: public
 `cybrrd/brrdfeeder`. Facts below are cited to datasheet/source/repo; anything only measurable
-on the device is marked **UNVERIFIED (device)**. Kimi audits; Cy merges; Synth + Cy live-test
+on the device is marked **UNVERIFIED (device)**. The verifier audits; the head coach merges; the director + the head coach live-test
 on brrdg3s3.
 
 ---
@@ -14,9 +14,9 @@ on brrdg3s3.
 
 | Question | Answer | Source |
 |---|---|---|
-| Which module/revision? | Adafruit product 746 "Ultimate GPS Breakout" — 2012–2024 revisions carried the **GlobalTop PA1616S** (MediaTek MT3339 core); current stock may carry PA1616D or the PA1616 "v3" variant. The differences (LNA presence, TCXO) do not change the NMEA/PMTK interface. | Adafruit product page 746 + its "Technical Details" and schematic PDFs; GlobalTop PA1616 datasheet family. Exact revision on brrdg3s3: **UNVERIFIED (device)** — Synth can read the module's firmware sentence (`$PMTK...`, or Adafruit's `PMTK_Q` responses) or the board silkscreen when convenient; the software below does not depend on the revision. |
+| Which module/revision? | Adafruit product 746 "Ultimate GPS Breakout" — 2012–2024 revisions carried the **GlobalTop PA1616S** (MediaTek MT3339 core); current stock may carry PA1616D or the PA1616 "v3" variant. The differences (LNA presence, TCXO) do not change the NMEA/PMTK interface. | Adafruit product page 746 + its "Technical Details" and schematic PDFs; GlobalTop PA1616 datasheet family. Exact revision on brrdg3s3: **UNVERIFIED (device)** — the director can read the module's firmware sentence (`$PMTK...`, or Adafruit's `PMTK_Q` responses) or the board silkscreen when convenient; the software below does not depend on the revision. |
 | Interface | **TTL UART, default 9600 baud, NMEA 0183** (2.8–5 V logic tolerant via onboard regulator/level shifts). PMTK command set (proprietary NMEA-like `$PMTK...` sentences with checksum) for configuration. | PA1616/MT3339 datasheets; Adafruit tutorial 746 (Ultimate GPS) — wiring and PMTK examples. |
-| How is it wired on brrdg3s3? | **USB via Silicon Labs CP2102N bridge `10c4:ea60`** → `/dev/ttyUSB0` (by-id serial `8a843057d49df01188d7f692bb936ffa`). NOT the GPIO UART. No PPS wired (`/dev/pps*` absent). Pi serial console is on serial0 and unaffected. | Packet §"Observed on brrdg3s3" (Synth, read-only 2026-10-06). |
+| How is it wired on brrdg3s3? | **USB via Silicon Labs CP2102N bridge `10c4:ea60`** → `/dev/ttyUSB0` (by-id serial `8a843057d49df01188d7f692bb936ffa`). NOT the GPIO UART. No PPS wired (`/dev/pps*` absent). Pi serial console is on serial0 and unaffected. | Packet §"Observed on brrdg3s3" (the director, read-only 2026-10-06). |
 
 ### 1.2 PPS output
 
@@ -44,10 +44,10 @@ on brrdg3s3.
   3.3 V module bias either underperforms or, with a passive-antenna assumption broken, fails.
   **A bias-tee / external 5 V injector with DC-block on the module side is REQUIRED before
   the ship antenna connects.** Exact ship-antenna model/voltage: **UNVERIFIED (device)** —
-  Cy has the antenna; the installer must NOT assume, and this design adds no antenna
+  the head coach has the antenna; the installer must NOT assume, and this design adds no antenna
   automation (out of software scope — it stays a hardware-notes item).
 - Field risk (recorded per ADDENDUM 1): the 2026-10-07 brrdg3s3 hub drop is suspected ESD
-  via the then-ungrounded GPS bulkhead coax; Cy is grounding it + adding a surge protector.
+  via the then-ungrounded GPS bulkhead coax; the head coach is grounding it + adding a surge protector.
   **Hardware note, not a software finding** — it goes in the measurement plan's preconditions
   and the eventual hardware-list entry, not in installer logic.
 
@@ -73,7 +73,7 @@ bridge on earth — Arduinos, consoles, SDRs).
    declaring key. Multiple GPS bridges → first-declared wins is NOT silent: the installer
    refuses a second candidate and names both by-id paths (the same discipline as the capture
    interface).
-2. Opt-in flow at install/re-run (**as amended by Synth's answer, 2026-10-08T22:34Z**): the
+2. Opt-in flow at install/re-run (**as amended by the director's answer, 2026-10-08T22:34Z**): the
    existing preflight loop already enumerates USB serial candidates with their VID:PID
    (`brrdfeeder-install.sh:2895-2935`). Extend it:
    - **Interactive:** when a candidate is `10c4:ea60` **and** no u-blox is present **and**
@@ -95,7 +95,7 @@ bridge on earth — Arduinos, consoles, SDRs).
    - **Pre-existing rules are never deleted or overwritten by us:** if another rules file
      already claims the same VID:PID → SYMLINK (e.g. brrdg3s3's interim
      `97-cybrrd-gps-local-adafruit.rules`), the installer REPORTS it (file + its effect)
-     and says the operator may remove it; we neither remove nor overwrite. Synth removes
+     and says the operator may remove it; we neither remove nor overwrite. the director removes
      the interim rule by hand during the live test.
    - **Re-runs and auto-update:** an existing `sensors.gps.usb_id` is honored without
      prompting (idempotent re-render). The 0.8.29 auto-update path replaces only the
@@ -112,7 +112,7 @@ bridge on earth — Arduinos, consoles, SDRs).
    `--gps-uart /dev/ttyAMA0` (or `/dev/serial0`). Choosing it: (a) prints that Pi OS's
    serial console on the UART must be disabled (`console=serial0,115200` removed from
    /boot/firmware/cmdline.txt, `enable_uart=1` in config.txt) and **asks** before changing
-   either — Cy's explicit opt-in step per the packet boundary; (b) writes
+   either — the head coach's explicit opt-in step per the packet boundary; (b) writes
    `sensors.gps.device: /dev/ttyAMA0` and renders a udev rule matching that kernel name
    (`KERNEL=="ttyAMA0"`); (c) the runtime transport (`gps-runtime.py`) already follows the
    configured device path — no change needed there.
@@ -160,9 +160,9 @@ The parser side needs nothing new (§1.4). What's missing is optional PMTK initi
   it). This is the wire-v5 "clock source and estimated error" feed named by the packet —
   shipped behind the flag, absent when PPS is not configured (absence stays absent).
 
-## 5. Requirement 4 — measurement plan (Synth runs on brrdg3s3; I do not touch nodes)
+## 5. Requirement 4 — measurement plan (the director runs on brrdg3s3; I do not touch nodes)
 
-Preconditions (hardware notes): bulkhead coax grounded + surge protector fitted (Cy, in
+Preconditions (hardware notes): bulkhead coax grounded + surge protector fitted (the head coach, in
 progress); **ship antenna bias voltage confirmed with a multimeter BEFORE connecting**; if
 5 V — bias-tee + DC-block installed; both receivers' PMTK/u-blox config pinned to the same
 update rate + sentence set.
@@ -171,7 +171,7 @@ update rate + sentence set.
    brrdg3s3's roof vantage, both via their own USB ports; capture per-fix:
    time-to-first-fix (cold + warm), sats used (GSA), HDOP (GGA), position scatter (the
    heartbeat/status stream already carries all three at 1 Hz; `gps.state` transitions give
-   TTFF). DuckDB over the status JSON is Synth's existing pattern.
+   TTFF). DuckDB over the status JSON is the director's existing pattern.
 2. **Antenna A/B (1 more site-day each):** ship antenna on the Adafruit (via the grounded
    bulkhead), same vantage: repeat the same metrics; record the ESD/grounding state in the
    log — the 2026-10-07 hub drop makes the first hours after connection a watched window.
@@ -190,7 +190,7 @@ update rate + sentence set.
 
 ## 7. Open questions (none blocking the build)
 
-1. Ship-antenna model + bias voltage (Cy, before the antenna A/B) — measurement-plan input.
+1. Ship-antenna model + bias voltage (the head coach, before the antenna A/B) — measurement-plan input.
 2. Board revision on brrdg3s3 (curiosity + hardware note; software is revision-agnostic).
 3. Whether the PPS status helper should also feed command's Silver view (out of scope here;
    the fleet-health work reads gps vitals, not chrony — noted for a later cycle).

@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 """Behavioral tests for the non-u-blox GPS opt-in (Adafruit Ultimate GPS #746).
 
-Covers the three Synth amendments: headless --gps-usb-id flag discipline is
+Covers the three follow-up rulings (2026-10-08): headless --gps-usb-id flag discipline is
 covered by bash-level checks here (validation, default-decline without tty);
 the passive NMEA confirm (never writes, >=2 valid $GP/$GN sentences required);
 and pre-existing-rule reporting (never deleted/overwritten). The udev render

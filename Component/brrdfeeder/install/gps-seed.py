@@ -25,6 +25,8 @@ import yaml
 CONFIG = Path('/etc/brrdfeeder/config.yaml')
 STARTUP = Path('/var/lib/brrdfeeder-status/startup.json')
 UNIT = 'brrdfeeder-engine.service'
+SYSFS_TTY = Path('/sys/class/tty')
+LAST_LOG = None
 
 
 class UniqueLoader(yaml.SafeLoader):
@@ -138,7 +140,10 @@ class NMEADiagnostics:
             if talker not in self.TALKERS:
                 return
             if kind == 'GGA' and len(f) == 15:
-                self.gga = (now, self.integer(f[6], 0, 8), self.integer(f[7], 0, 99))
+                hdop = float(f[8]) if re.fullmatch(r'\d{1,3}(?:\.\d{1,6})?', f[8]) else None
+                if hdop is not None and not 0 < hdop <= 999:
+                    hdop = None
+                self.gga = (now, self.integer(f[6], 0, 8), self.integer(f[7], 0, 99), hdop)
             elif kind == 'GSA' and len(f) in (18, 19) and f[1] in ('A', 'M'):
                 self.gsa = (now, self.integer(f[2], 1, 3))
             elif kind == 'GSV':
@@ -177,10 +182,10 @@ class NMEADiagnostics:
 
     def snapshot(self, now):
         data = dict(satellites_used=None, satellites_in_view=None, fix_quality=None,
-                    fix_mode=None, snr_max_dbhz=None, snr_avg_dbhz=None,
+                    fix_mode=None, hdop=None, snr_max_dbhz=None, snr_avg_dbhz=None,
                     nmea_age_secs=None if self.last is None else round(min(1e9, max(0, now-self.last)), 1))
         if self.gga and now-self.gga[0] <= 15:
-            data['fix_quality'], data['satellites_used'] = self.gga[1:]
+            data['fix_quality'], data['satellites_used'], data['hdop'] = self.gga[1:]
         if self.gsa and now-self.gsa[0] <= 15:
             data['fix_mode'] = self.gsa[1]
         fresh = {k: v for k, v in self.completed.items() if now-v[0] <= 15}
@@ -234,13 +239,37 @@ def atomic_write(path, data, mode, uid, gid):
             os.unlink(temporary)
 
 
+def adapter_ids():
+    """USB IDs only, no USB serial strings or receiver probing/auto-claiming."""
+    result = set()
+    for tty in SYSFS_TTY.glob('*/device'):
+        for parent in [tty.resolve(), *tty.resolve().parents]:
+            try:
+                value = (parent/'idVendor').read_text().strip()+':'+(parent/'idProduct').read_text().strip()
+            except OSError:
+                continue
+            if re.fullmatch(r'[0-9a-fA-F]{4}:[0-9a-fA-F]{4}', value):
+                result.add(value.lower())
+            break
+        if len(result) >= 8:
+            break
+    return sorted(result)
+
+
 def report(state, message, diagnostics=None):
+    global LAST_LOG
     diagnostics = diagnostics if diagnostics is not None else NMEADiagnostics().snapshot(time.monotonic())
     message += '; '+ ' '.join(k+'='+('unknown' if v is None else str(v)) for k, v in diagnostics.items())
-    print(message, flush=True)
+    adapters = adapter_ids()
+    if state == 'gps-missing':
+        message += '; serial adapter IDs seen: '+(', '.join(adapters) or 'none')
+    now = time.monotonic()
+    if LAST_LOG is None or now-LAST_LOG >= 60 or state == 'gps-fix':
+        print(message, flush=True)
+        LAST_LOG = now
     # Fixed public vocabulary only, never NMEA/device contents or node identity.
     data = dict(schema_version=1, state=state, written_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                status_interval_secs=5, gps=diagnostics)
+                status_interval_secs=5, gps=diagnostics, usb_adapter_ids=adapters)
     parent = STARTUP.parent.stat()
     if STARTUP.parent.is_symlink() or parent.st_mode & 0o022 or not stat.S_ISDIR(parent.st_mode):
         raise ValueError('unsafe startup status directory')

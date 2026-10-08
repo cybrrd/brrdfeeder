@@ -207,7 +207,17 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
                     continue  # P0-6 new block, separately exercised by test-ble.py
                 a=text.index(start); b=text.index(end,a)
                 text=text[:a]+text[b:]
-            for line in ['ExecStartPre=${GPS_SEED}\n','TimeoutStartSec=infinity\n','NotifyAccess=all\n','GPS_WAITING=0\n']:
+            # GPS-runtime transport/status are executed independently by the
+            # missing-device container, restart policy and first-fix fixtures.
+            text=text.replace('AddDevice=/run/brrdfeeder-gps/device:', 'AddDevice=/dev/${GPS_SYMLINK}:')
+            text=text.replace('''  if [[ -x /usr/local/libexec/brrdfeeder-gps-runtime ]]; then
+    /usr/local/libexec/brrdfeeder-gps-runtime status
+  fi
+''', '')
+            for line in ['ExecStartPre=/usr/local/libexec/brrdfeeder-gps-runtime prepare\n',
+                         'Environment=BRRDFEEDER_GPS_TRANSPORT=/dev/${GPS_SYMLINK}\n',
+                         'run systemctl enable --now brrdfeeder-gps-runtime.timer\n',
+                         'ExecStartPre=${GPS_SEED}\n','TimeoutStartSec=infinity\n','NotifyAccess=all\n','GPS_WAITING=0\n']:
                 text=text.replace(line,'')
             text=text.replace('( $entry == "$directory/status.json" || $entry == "$directory/startup.json" )', '$entry == "$directory/status.json"')
             # P0 tests independently execute both helpers and the rendered Quadlet.

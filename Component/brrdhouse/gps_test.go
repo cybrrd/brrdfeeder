@@ -117,7 +117,7 @@ func TestGPSRatingWaiterRendering(t *testing.T) {
 		if quality > 0 {
 			want = "Poor"
 		}
-		for _, text := range []string{`data-gps-rating="` + want + `"`, gpsPlacement, "Satellites in view</dt><dd>9", "Maximum SNR</dt><dd>30", "Not reported by this waiter version"} {
+		for _, text := range []string{`data-gps-rating="` + want + `"`, gpsPlacement, "Satellites in view</dt><dd>9", "Maximum SNR</dt><dd>30", "HDOP</dt><dd>Not reported or invalid"} {
 			if !strings.Contains(body, text) {
 				t.Fatalf("missing %q", text)
 			}

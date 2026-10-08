@@ -122,6 +122,9 @@ func readStatus(path string, now time.Time) view {
 	}
 	if s.WrittenAt.After(now) || (s.Heartbeat.ClockTrusted != nil && !*s.Heartbeat.ClockTrusted) {
 		v.Reason = "The engine clock cannot establish a trustworthy status time."
+		if s.Inventory.GPS != nil && s.Inventory.GPS.State == "failed" {
+			v.Reason += " The last engine report says position preserved, GPS not live. Current report freshness is unverified."
+		}
 		return offline(v)
 	}
 	age := now.Sub(s.WrittenAt)

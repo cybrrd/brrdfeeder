@@ -41,6 +41,21 @@ func TestStartupNeverClaimsEngineHealthy(t *testing.T) {
 	}
 }
 
+func TestMissingGPSNamesOnlyValidatedAdapterIDs(t *testing.T) {
+	c, path := testConsole(t)
+	b, _ := json.Marshal(map[string]any{"schema_version": 1, "state": "gps-missing",
+		"written_at": proofNow, "status_interval_secs": 5,
+		"usb_adapter_ids": []string{"10c4:ea60", "0403:6001", attack}})
+	if err := os.WriteFile(filepath.Join(filepath.Dir(path), "startup.json"), b, 0644); err != nil {
+		t.Fatal(err)
+	}
+	body := render(c, "/").Body.String()
+	assertState(t, body, "offline")
+	if !strings.Contains(body, "10c4:ea60") || !strings.Contains(body, "0403:6001") || strings.Contains(body, attack) {
+		t.Fatal(body)
+	}
+}
+
 func TestStartupFreshnessAndInvalidRecordsFailClosed(t *testing.T) {
 	for _, age := range []time.Duration{15 * time.Second, 15*time.Second + time.Nanosecond, -time.Second} {
 		c, path := testConsole(t)
@@ -69,13 +84,16 @@ func TestStartupFreshnessAndInvalidRecordsFailClosed(t *testing.T) {
 func TestStartupGPSDiagnostics(t *testing.T) {
 	c, path := testConsole(t)
 	b, _ := json.Marshal(map[string]any{"schema_version": 1, "state": "gps-waiting", "written_at": proofNow, "status_interval_secs": 5,
-		"gps": map[string]any{"satellites_used": 0, "satellites_in_view": 12, "fix_quality": 0, "fix_mode": 1, "snr_max_dbhz": 37, "snr_avg_dbhz": 23.5, "nmea_age_secs": 2}})
+		"gps": map[string]any{"satellites_used": 0, "satellites_in_view": 12, "fix_quality": 0, "fix_mode": 1, "snr_max_dbhz": 37, "snr_avg_dbhz": 23.5, "nmea_age_secs": 2, "hdop": 4.2}})
 	p := filepath.Join(filepath.Dir(path), "startup.json")
 	if err := os.WriteFile(p, b, 0644); err != nil {
 		t.Fatal(err)
 	}
 	body := render(c, "/").Body.String()
 	assertState(t, body, "offline")
+	if !strings.Contains(body, "HDOP</dt><dd>4.2") {
+		t.Fatal("waiter HDOP missing")
+	}
 	for _, want := range []string{"GPS receiver observations", "Satellites used</dt><dd>0", "Satellites in view</dt><dd>12", "Fix quality</dt><dd>0", "Fix mode</dt><dd>1", "Maximum SNR</dt><dd>37", "Average SNR</dt><dd>23.5", "Last valid NMEA age</dt><dd>2"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)

@@ -1360,7 +1360,24 @@ yes=${5:-0}
 [[ $stage == plan || $stage == confirm ]] && [[ $yes =~ ^[01]$ ]] || exit 2
 log() { printf '[brrdfeeder-uninstall] %s\n' "$*"; }
 notice() { if declare -F log_event >/dev/null; then log_event NOTICE "$*"; else log "$*"; fi; }
-die() { log "REFUSED: $*" >&2; exit 1; }
+die() {
+  log "REFUSED: $*" >&2
+  local reason="$*" path quoted kind owner empty=not-applicable
+  if [[ $reason != *'type='* && $reason =~ (/[^[:space:]\;\,\)]+) ]]; then
+    path=${BASH_REMATCH[1]}
+    kind=$(stat -c %F -- "$path" 2>/dev/null) || kind=unavailable
+    owner=$(stat -c %u:%g -- "$path" 2>/dev/null) || owner=unavailable
+    if [[ -d $path && ! -L $path ]]; then
+      if [[ -z $(find -P "$path" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null) ]]; then empty=empty; else empty=non-empty; fi
+    elif [[ -f $path && ! -L $path ]]; then
+      if [[ -s $path ]]; then empty=non-empty; else empty=empty; fi
+    fi
+    printf -v quoted %q "$path"
+    log "Found: type=$kind owner=$owner emptiness=$empty. Inspect with: sudo stat -- $quoted" >&2
+  fi
+  log 'Next step: keep unverified data; run sudo brrdfeeder uninstall --dry-run to review the refusal. Correct only verified package ownership/state, then run sudo brrdfeeder uninstall again. If ownership is uncertain, share this refusal with support.' >&2
+  exit 1
+}
 [[ $EUID == 0 ]] || die 'Run with sudo.'
 exists() { [[ -e $1 || -L $1 ]]; }
 act() {
@@ -1616,6 +1633,33 @@ safe_tree() {
   no_mounts "$1"
 }
 
+refuse_entry() {
+  local path=$1 reason=$2 kind owner empty=not-applicable quoted
+  kind=$(stat -c %F -- "$path" 2>/dev/null) || kind=unavailable
+  owner=$(stat -c %u:%g -- "$path" 2>/dev/null) || owner=unavailable
+  if [[ -d $path && ! -L $path ]]; then
+    if [[ -z $(find -P "$path" -mindepth 1 -maxdepth 1 -print -quit) ]]; then empty=empty; else empty=non-empty; fi
+  elif [[ -f $path && ! -L $path ]]; then
+    if [[ -s $path ]]; then empty=non-empty; else empty=empty; fi
+  fi
+  printf -v quoted %q "$path"
+  die "$reason: $path (type=$kind owner=$owner emptiness=$empty). Next step: sudo stat -- $quoted; review and move any confirmed unrelated content outside the service home before retrying sudo brrdfeeder uninstall."
+}
+
+service_home_residue() {
+  local root=$1 entry relative
+  safe_tree "$root"
+  # These are directory-only skeletons made by service-user/systemd/Podman
+  # initialization. The engine is rootful: no rootless storage DATA belongs here.
+  while IFS= read -r -d '' entry; do
+    relative=${entry#/var/lib/brrdfeeder/}
+    case $relative in .config|.config/systemd|.config/systemd/user|.local|.local/share|.local/share/containers|.cache) ;;
+      *) refuse_entry "$entry" 'unrecognised service-home residue';; esac
+    [[ -d $entry && ! -L $entry && $(stat -c %u "$entry") == "${uid[brrdfeeder]:-absent}" ]] \
+      || refuse_entry "$entry" 'unsafe service-home residue'
+  done < <(find -P "$root" -xdev -print0)
+}
+
 declare -A uid=() gid=()
 for user in brrdfeeder brrdhouse; do
   home=/var/lib/$user
@@ -1692,6 +1736,9 @@ files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
   /etc/chrony/conf.d/10-brrdfeeder.conf /etc/chrony/conf.d/10-pack.conf
   /usr/local/libexec/brrdfeeder-image-identity /usr/local/libexec/brrdfeeder-provision-status
   /usr/local/libexec/brrdfeeder-gps-seed
+  /usr/local/libexec/brrdfeeder-gps-runtime
+  /etc/systemd/system/brrdfeeder-gps-runtime.service
+  /etc/systemd/system/brrdfeeder-gps-runtime.timer
   /usr/local/libexec/brrdfeeder-bluetooth /etc/brrdfeeder/.bluetooth-prior.json
   /usr/local/bin/brrdfeeder-updater.sh /run/brrdfeeder-engine.cid /run/brrdfeeder-engine.service.cid)
 shopt -s nullglob dotglob
@@ -1745,6 +1792,9 @@ for pair in \
   '/usr/local/libexec/brrdfeeder-image-identity|Host-side Quadlet lifecycle helper.' \
   '/usr/local/libexec/brrdfeeder-provision-status|BRRDhouse status provisioning:' \
   '/usr/local/libexec/brrdfeeder-gps-seed|BRRDfeeder GPS location seed' \
+  '/usr/local/libexec/brrdfeeder-gps-runtime|BRRDfeeder GPS runtime transport' \
+  '/etc/systemd/system/brrdfeeder-gps-runtime.service|BRRDfeeder GPS runtime transport' \
+  '/etc/systemd/system/brrdfeeder-gps-runtime.timer|BRRDfeeder GPS runtime transport' \
   '/usr/local/libexec/brrdfeeder-bluetooth|BRRDfeeder Bluetooth ownership:' \
   '/usr/local/bin/brrdfeeder-updater.sh|# BRRDfeeder signed-update installer.|#185 Drop 2'; do
   file=${pair%%|*}; signature=${pair#*|}
@@ -1760,6 +1810,17 @@ for tree in /etc/brrdfeeder /var/lib/brrdfeeder-status /run/brrdfeeder-identity 
 done
 [[ ! -d /etc/brrdfeeder || $(stat -c %u /etc/brrdfeeder) == 0 ]] || die 'config tree is not root-owned'
 [[ ! -d /run/brrdfeeder-identity || $(stat -c %u /run/brrdfeeder-identity) == 0 ]] || die 'wrong runtime identity owner'
+safe_tree /run/brrdfeeder-gps
+if [[ -d /run/brrdfeeder-gps ]]; then
+  [[ $(stat -c %u:%a /run/brrdfeeder-gps) == 0:700 ]] || die 'unsafe GPS runtime directory'
+  for entry in /run/brrdfeeder-gps/*; do
+    case ${entry##*/} in
+      device|device.new) [[ $(stat -c %u:%h "$entry") == 0:1 && ( ( ! -L $entry && -c $entry ) || ( -L $entry && $(readlink "$entry") == /dev/null ) ) ]] || die "unsafe GPS runtime device: $entry";;
+      lock|state.json|state.new) safe_file "$entry";;
+      *) die "unexpected GPS runtime entry: $entry";;
+    esac
+  done
+fi
 if [[ -d /var/lib/brrdfeeder-status ]]; then
   owner=$(stat -c %u /var/lib/brrdfeeder-status)
   [[ $owner == 0 || $owner == "${uid[brrdfeeder]:-absent}" ]] || die 'wrong status-directory owner'
@@ -1780,8 +1841,9 @@ done
 for entry in /var/lib/brrdfeeder/*; do
   case ${entry##*/} in policy_state.json|pending_update.json|pending_update.failed|update_outcome.json|update_transaction.json|release_currency.json|*.tmp|.update-*|.pending-*) ;;
     upward) safe_tree "$entry"; continue;;
-    *) die "unrecognised engine state: $entry";; esac
-  [[ -f $entry && ! -L $entry ]] || die "unsafe engine state: $entry"
+    .config|.local|.cache) service_home_residue "$entry"; continue;;
+    *) refuse_entry "$entry" 'unrecognised engine state';; esac
+  [[ -f $entry && ! -L $entry ]] || refuse_entry "$entry" 'unsafe engine state'
 done
 for entry in /var/lib/brrdfeeder-updater/*; do
   case ${entry##*/} in state.json|lock|launch.lock|host-state.json|host-transaction.json|pending_update.json|pending.failed.json|rejected.json|.update-*) safe_file "$entry";;
@@ -1799,7 +1861,7 @@ done
 for unit in /etc/systemd/system/brrdfeeder-engine.service /etc/systemd/system/brrdhouse.service; do
   ! exists "$unit" || die "unexpected native override of generated unit: $unit"
 done
-for unit in brrdfeeder-engine.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
+for unit in brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
   ! exists "/etc/systemd/system/$unit.d" || die "unexpected unit overrides: $unit.d"
 done
 console_links=()
@@ -1859,6 +1921,8 @@ stop_unit() {
 confirm_removal
 progress_phase 'Stopping services'
 stop_unit system brrdfeeder-release-poll.timer
+stop_unit system brrdfeeder-gps-runtime.timer
+stop_unit system brrdfeeder-gps-runtime.service
 stop_unit system brrdfeeder-host-update.timer
 stop_unit system brrdfeeder-host-update.service
 stop_unit system brrdfeeder-release-poll.service
@@ -2024,7 +2088,7 @@ remove_tree() {
     else find -P "$path" -xdev -depth -delete; log "REMOVED tree: $path"; fi
   else absent "$path"; fi
 }
-for tree in /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /var/lib/brrdfeeder-updater; do remove_tree "$tree"; done
+for tree in /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater; do remove_tree "$tree"; done
 progress_phase 'Removing service accounts'
 for user in brrdhouse brrdfeeder; do
   if [[ -n ${uid[$user]:-} ]]; then
@@ -2032,6 +2096,11 @@ for user in brrdhouse brrdfeeder; do
     act loginctl disable-linger "$user"
     act systemctl stop "user@${uid[$user]}.service" "user-runtime-dir@${uid[$user]}.service"
     if (( ! dry )) && pgrep -u "${uid[$user]}" >/dev/null; then die "processes still run as $user; account retained"; fi
+    if [[ $user == brrdfeeder ]]; then
+      for residue in /var/lib/brrdfeeder/.config /var/lib/brrdfeeder/.local /var/lib/brrdfeeder/.cache; do
+        ! exists "$residue" || service_home_residue "$residue"
+      done
+    fi
     remove_tree "/var/lib/$user"
     act userdel "$user"  # never -r: home was separately checked, no guessed directories
     if getent group "$user" >/dev/null; then act groupdel "$user"; else absent "group $user"; fi
@@ -2658,7 +2727,7 @@ gps_usb_preflight() {
       HAVE_UBLOX=1
       ok "Supported GPS USB ID $id detected; tty rule will map /dev/$GPS_SYMLINK"
     else
-      warn "USB serial/u-blox candidate $id is not in the supported GPS list; no automatic /dev/$GPS_SYMLINK mapping for this ID. It may be non-GPS hardware; an unsupported receiver needs a reviewed rule/config, not a guessed probe."
+      warn "USB serial adapter $id present — not a supported GPS; no automatic /dev/$GPS_SYMLINK mapping. See docs/gps-runtime.md for the explicit opt-in boundary; this may be non-GPS hardware."
     fi
   done < <(
     for device in /sys/class/tty/*/device; do
@@ -2715,6 +2784,9 @@ fi
 
 if [[ $VERIFY_ONLY -eq 1 ]]; then
   gate "Verify-only mode — checking current substrate state"
+  if [[ -x /usr/local/libexec/brrdfeeder-gps-runtime ]]; then
+    /usr/local/libexec/brrdfeeder-gps-runtime status
+  fi
   [[ -f "$UDEV_RULES_FILE" ]]   && ok "udev rules present: $UDEV_RULES_FILE"   || warn "udev rules ABSENT"
   [[ -L "/dev/$GPS_SYMLINK" ]]  && ok "/dev/$GPS_SYMLINK -> $(readlink -f /dev/$GPS_SYMLINK)" || warn "/dev/$GPS_SYMLINK MISSING"
   [[ -L "/dev/$BLE_SYMLINK" ]]  && ok "/dev/$BLE_SYMLINK -> $(readlink -f /dev/$BLE_SYMLINK)" || warn "/dev/$BLE_SYMLINK MISSING (optional)"
@@ -3286,6 +3358,8 @@ import yaml
 CONFIG = Path('/etc/brrdfeeder/config.yaml')
 STARTUP = Path('/var/lib/brrdfeeder-status/startup.json')
 UNIT = 'brrdfeeder-engine.service'
+SYSFS_TTY = Path('/sys/class/tty')
+LAST_LOG = None
 
 
 class UniqueLoader(yaml.SafeLoader):
@@ -3399,7 +3473,10 @@ class NMEADiagnostics:
             if talker not in self.TALKERS:
                 return
             if kind == 'GGA' and len(f) == 15:
-                self.gga = (now, self.integer(f[6], 0, 8), self.integer(f[7], 0, 99))
+                hdop = float(f[8]) if re.fullmatch(r'\d{1,3}(?:\.\d{1,6})?', f[8]) else None
+                if hdop is not None and not 0 < hdop <= 999:
+                    hdop = None
+                self.gga = (now, self.integer(f[6], 0, 8), self.integer(f[7], 0, 99), hdop)
             elif kind == 'GSA' and len(f) in (18, 19) and f[1] in ('A', 'M'):
                 self.gsa = (now, self.integer(f[2], 1, 3))
             elif kind == 'GSV':
@@ -3438,10 +3515,10 @@ class NMEADiagnostics:
 
     def snapshot(self, now):
         data = dict(satellites_used=None, satellites_in_view=None, fix_quality=None,
-                    fix_mode=None, snr_max_dbhz=None, snr_avg_dbhz=None,
+                    fix_mode=None, hdop=None, snr_max_dbhz=None, snr_avg_dbhz=None,
                     nmea_age_secs=None if self.last is None else round(min(1e9, max(0, now-self.last)), 1))
         if self.gga and now-self.gga[0] <= 15:
-            data['fix_quality'], data['satellites_used'] = self.gga[1:]
+            data['fix_quality'], data['satellites_used'], data['hdop'] = self.gga[1:]
         if self.gsa and now-self.gsa[0] <= 15:
             data['fix_mode'] = self.gsa[1]
         fresh = {k: v for k, v in self.completed.items() if now-v[0] <= 15}
@@ -3495,13 +3572,37 @@ def atomic_write(path, data, mode, uid, gid):
             os.unlink(temporary)
 
 
+def adapter_ids():
+    """USB IDs only, no USB serial strings or receiver probing/auto-claiming."""
+    result = set()
+    for tty in SYSFS_TTY.glob('*/device'):
+        for parent in [tty.resolve(), *tty.resolve().parents]:
+            try:
+                value = (parent/'idVendor').read_text().strip()+':'+(parent/'idProduct').read_text().strip()
+            except OSError:
+                continue
+            if re.fullmatch(r'[0-9a-fA-F]{4}:[0-9a-fA-F]{4}', value):
+                result.add(value.lower())
+            break
+        if len(result) >= 8:
+            break
+    return sorted(result)
+
+
 def report(state, message, diagnostics=None):
+    global LAST_LOG
     diagnostics = diagnostics if diagnostics is not None else NMEADiagnostics().snapshot(time.monotonic())
     message += '; '+ ' '.join(k+'='+('unknown' if v is None else str(v)) for k, v in diagnostics.items())
-    print(message, flush=True)
+    adapters = adapter_ids()
+    if state == 'gps-missing':
+        message += '; serial adapter IDs seen: '+(', '.join(adapters) or 'none')
+    now = time.monotonic()
+    if LAST_LOG is None or now-LAST_LOG >= 60 or state == 'gps-fix':
+        print(message, flush=True)
+        LAST_LOG = now
     # Fixed public vocabulary only, never NMEA/device contents or node identity.
     data = dict(schema_version=1, state=state, written_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                status_interval_secs=5, gps=diagnostics)
+                status_interval_secs=5, gps=diagnostics, usb_adapter_ids=adapters)
     parent = STARTUP.parent.stat()
     if STARTUP.parent.is_symlink() or parent.st_mode & 0o022 or not stat.S_ISDIR(parent.st_mode):
         raise ValueError('unsafe startup status directory')
@@ -3691,6 +3792,191 @@ GPS_SEED_EOF
   run chown root:root "$GPS_SEED"
 fi
 
+# GPS_RUNTIME_INSTALL_BEGIN
+if [[ $DRY_RUN -eq 0 ]]; then
+  atomic_install 0755 root root /usr/local/libexec/brrdfeeder-gps-runtime <<'GPS_RUNTIME_EOF'
+#!/usr/bin/python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+"""BRRDfeeder GPS runtime transport: exact device grant, bounded hotplug recovery.
+
+Never opens a serial port or discovers/claims adapters. A stable character inode
+survives USB removal between ExecStartPre and Podman's device stat. /dev/null is
+the absent transport: termios rejects it, so it cannot masquerade as live GPS.
+"""
+import fcntl
+import datetime
+import grp
+import json
+import os
+import re
+from pathlib import Path
+import stat
+import subprocess
+import sys
+import time
+import yaml
+
+ROOT = Path('/run/brrdfeeder-gps')
+DEVICE = Path('/dev/cybrrd_gps')
+CONFIG = Path('/etc/brrdfeeder/config.yaml')
+UNIT = 'brrdfeeder-engine.service'
+STATUS = Path('/var/lib/brrdfeeder-status')
+
+
+def status():
+    try:
+        record = json.loads((STATUS/'startup.json').read_text())
+        stamp = datetime.datetime.fromisoformat(record['written_at'])
+        age = (datetime.datetime.now(datetime.timezone.utc)-stamp).total_seconds()
+        if not 0 <= age <= 15:
+            print('GPS startup status is stale; current GPS state unknown.')
+            return
+        state = record.get('state')
+        if state == 'gps-missing':
+            ids = record.get('usb_adapter_ids', [])
+            ids = [s for s in ids[:8] if isinstance(s, str) and re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', s)]
+            print('No GPS device found; serial adapter IDs seen: '+(', '.join(ids) or 'none')+'.')
+        elif state == 'gps-waiting':
+            gps = record.get('gps', {})
+            def number(key):
+                value = gps.get(key)
+                return str(value) if type(value) in (int, float) and 0 <= value <= 999 else 'unknown'
+            print('GPS device present, no fix yet; satellites='+number('satellites_used')+' HDOP='+number('hdop')+'.')
+        else:
+            print('GPS first-fix startup is waiting; inspect the local console for details.')
+    except FileNotFoundError:
+        try:
+            record = json.loads((STATUS/'status.json').read_text())
+            stamp = datetime.datetime.fromisoformat(record['written_at'].replace('Z', '+00:00'))
+            age = (datetime.datetime.now(datetime.timezone.utc)-stamp).total_seconds()
+            if record.get('heartbeat', {}).get('os_clock_trusted') is False:
+                print('Last engine report: saved position preserved; clock untrusted, report freshness unverified.'+
+                      (' GPS not live.' if record.get('heartbeat', {}).get('gps', {}).get('state') != 'healthy' else ''))
+            elif not 0 <= age <= 3*record['status_interval_secs']:
+                print('Engine status is stale; current GPS state unknown.')
+            elif record.get('heartbeat', {}).get('gps', {}).get('state') != 'healthy':
+                print('Engine running on saved position: position preserved, GPS not live.')
+            else:
+                print('GPS reports a live fix; see the console for position and time trust.')
+        except (OSError, ValueError, KeyError, TypeError):
+            print('GPS status not available yet.')
+    except (OSError, ValueError, KeyError, TypeError):
+        print('GPS status is invalid; current GPS state unknown.')
+
+
+def identity():
+    try:
+        value = DEVICE.stat()
+        if stat.S_ISCHR(value.st_mode):
+            return [value.st_dev, value.st_ino, value.st_rdev, value.st_ctime_ns]
+    except OSError:
+        pass
+    return None
+
+
+def prepare(state, current):
+    temporary = ROOT/'device.new'
+    temporary.unlink(missing_ok=True)
+    if current is None:
+        # Unlike a USB symlink, /dev/null cannot disappear on receiver removal.
+        os.symlink('/dev/null', temporary)
+    else:
+        os.mknod(temporary, stat.S_IFCHR | 0o660, current[2])
+        os.chown(temporary, 0, grp.getgrnam('dialout').gr_gid)
+        os.chmod(temporary, 0o660)
+    os.replace(temporary, ROOT/'device')
+    state['mapped'] = current
+    state['attempted'] = current
+
+
+def should_restart(state, current, now):
+    # Removal never restarts. Each new present identity gets at most one attempt;
+    # flapping is bounded to three attempts per ten minutes and one per minute.
+    attempts = [t for t in state.get('restarts', []) if 0 <= now-t < 600]
+    state['restarts'] = attempts
+    if current is None or current == state.get('mapped') or current == state.get('attempted'):
+        return False
+    if len(attempts) >= 3 or (attempts and now-attempts[-1] < 60):
+        return False
+    state['attempted'] = current
+    attempts.append(now)
+    return True
+
+
+def save(state):
+    temporary = ROOT/'state.new'
+    with open(temporary, 'w', encoding='utf-8') as output:
+        json.dump(state, output)
+    os.replace(temporary, ROOT/'state.json')
+
+
+def main():
+    global DEVICE
+    if sys.argv[1:] == ['status']:
+        status()
+        return
+    os.umask(0o077)
+    config = yaml.safe_load(CONFIG.read_text())
+    device = config.get('sensors', {}).get('gps', {}).get('device', '/dev/cybrrd_gps')
+    if not isinstance(device, str) or not device.startswith('/dev/'):
+        raise ValueError('GPS device must be under /dev')
+    DEVICE = Path(device)
+    ROOT.mkdir(mode=0o700, exist_ok=True)
+    info = ROOT.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        raise ValueError('unsafe GPS runtime directory')
+    with open(ROOT/'lock', 'a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        path = ROOT/'state.json'
+        state = json.loads(path.read_text()) if path.exists() else {}
+        current = identity()
+        if sys.argv[1:] == ['prepare']:
+            prepare(state, current)
+            save(state)
+            print('GPS transport: '+('device present' if current else 'absent; position preserved, GPS not live'), flush=True)
+        elif sys.argv[1:] == ['check']:
+            # Never interrupt a first-fix ExecStartPre, intentional stop, update,
+            # or failed service. --no-block avoids waiting on prepare's lock.
+            active = subprocess.run(['systemctl', 'is-active', '--quiet', UNIT], timeout=5)
+            if active.returncode == 0 and should_restart(state, current, time.monotonic()):
+                save(state)  # Persist attempt before calling the restart effector.
+                print('GPS appeared/replaced: requesting one bounded engine restart to attach the exact device', flush=True)
+                subprocess.run(['systemctl', 'try-restart', '--no-block', UNIT], check=True, timeout=10)
+        else:
+            raise ValueError('expected prepare or check')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as error:
+        print('GPS runtime refused ('+type(error).__name__+'); inspect configuration/runtime ownership.', flush=True)
+        raise SystemExit(1)
+GPS_RUNTIME_EOF
+  atomic_install 0644 root root /etc/systemd/system/brrdfeeder-gps-runtime.service <<'GPS_RUNTIME_SERVICE_EOF'
+# BRRDfeeder GPS runtime transport
+[Unit]
+Description=Attach a returned GPS with a bounded engine restart
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/brrdfeeder-gps-runtime check
+TimeoutStartSec=20
+GPS_RUNTIME_SERVICE_EOF
+  atomic_install 0644 root root /etc/systemd/system/brrdfeeder-gps-runtime.timer <<'GPS_RUNTIME_TIMER_EOF'
+# BRRDfeeder GPS runtime transport
+[Unit]
+Description=Check for a returned configured GPS
+[Timer]
+OnBootSec=15s
+OnUnitInactiveSec=5s
+AccuracySec=1s
+[Install]
+WantedBy=timers.target
+GPS_RUNTIME_TIMER_EOF
+fi
+# GPS_RUNTIME_INSTALL_END
+
 QUADLET_DIR="$(dirname "$QUADLET_FILE")"
 public_directories /etc/containers "$QUADLET_DIR"
 
@@ -3734,7 +4020,8 @@ Pull=never
 # USB device passthrough — explicit src:dest preserves the udev
 # symlink name inside the container (otherwise podman resolves the
 # symlink to the underlying ttyACM* target).
-AddDevice=/dev/${GPS_SYMLINK}:/dev/${GPS_SYMLINK}:rw
+AddDevice=/run/brrdfeeder-gps/device:/dev/${GPS_SYMLINK}:rw
+Environment=BRRDFEEDER_GPS_TRANSPORT=/dev/${GPS_SYMLINK}
 AddDevice=/dev/rfkill:/dev/rfkill:rw
 
 # Bind-mount config + creds (read-only) at CANONICAL paths.
@@ -3767,6 +4054,7 @@ RuntimeDirectory=brrdfeeder-identity
 RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=no
 ExecStartPre=${GPS_SEED}
+ExecStartPre=/usr/local/libexec/brrdfeeder-gps-runtime prepare
 ExecStartPre=-/usr/local/libexec/brrdfeeder-image-identity prepare %t/brrdfeeder-identity
 ExecStartPost=-/usr/local/libexec/brrdfeeder-image-identity resolve %t/brrdfeeder-identity %t/%N.cid
 Restart=always
@@ -3956,6 +4244,7 @@ fi
 gate services "Step 8 — daemon-reload + start brrdfeeder-engine.service"
 
 run systemctl daemon-reload
+run systemctl enable --now brrdfeeder-gps-runtime.timer
 # BLE ownership is established before queuing the engine. The helper saves the
 # prior bluetoothd state for uninstall, and preserves explicit operator config.
 if [[ $DRY_RUN -eq 1 ]]; then

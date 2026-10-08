@@ -3077,6 +3077,7 @@ gps_candidate_tty() {
 }
 
 gps_declared_usb_id=""
+GPS_USB_ID_FLAG=${GPS_USB_ID_FLAG-}
 if [[ -n $GPS_USB_ID_FLAG ]]; then
   gps_declared_usb_id=$GPS_USB_ID_FLAG
 elif configured=$(gps_declared_id); then

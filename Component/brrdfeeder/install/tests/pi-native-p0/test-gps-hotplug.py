@@ -76,7 +76,9 @@ class Contract(unittest.TestCase):
     def rules(self):
         block = SOURCE.split('# Verbatim aviary hardened block.', 1)[1].split('\n)\n', 1)[0]+'\n)\n'
         block = block[block.index('\n'):]
-        command = 'set -eu\nGPS_SYMLINK=cybrrd_gps; BLE_SYMLINK=cybrrd_ble\n'+CONSTANTS+block+'\nprintf "%s\\n" "$NEW_UDEV_CONTENT"\n'
+        command = ('set -eu\nGPS_SYMLINK=cybrrd_gps; BLE_SYMLINK=cybrrd_ble; '
+                   'gps_declared_usb_id=\"\"; GPS_USB_ID_FLAG=\"\"; GPS_USB_ID_PRESENT=0\n'
+                   +CONSTANTS+block+'\nprintf \"%s\\n\" \"$NEW_UDEV_CONTENT\"\n')
         result = subprocess.run(['bash', '-c', command], text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout
@@ -111,7 +113,9 @@ class Contract(unittest.TestCase):
             (device/'idProduct').write_text(usb_id.split(':')[1]+'\n')
             tty = sysfs/'class/tty/ttyACM0'; tty.mkdir(parents=True)
             (tty/'device').symlink_to(device/'interface')
-            script = 'set -eu\n'+CONSTANTS+f'GPS_SYMLINK=cybrrd_gps; FIXTURE_ID={usb_id}\n'+'''
+            script = 'set -eu\n'+CONSTANTS+f'''GPS_SYMLINK=cybrrd_gps; FIXTURE_ID={usb_id}
+gps_declared_usb_id=""; GPS_USB_ID_FLAG=""; GPS_USB_ID_PRESENT=0; GPS_PROMPT_NEEDED=0; HAVE_UBLOX=0
+''' + '''
 say() { echo "$*"; }
 ok() { echo "$*"; }
 warn() { echo "$*"; }
@@ -139,7 +143,15 @@ lsusb() {
                 output = self.inventory(usb_id)
                 self.assertIn('supported=0', output)
                 self.assertIn(usb_id, output)
-                self.assertIn('not a supported GPS', output)
+                # The CP2102N (10c4:ea60) is the Adafruit #746 bridge: it gets
+                # the dedicated recognition notice instead of the generic
+                # not-a-supported-GPS warning, and it still maps nothing
+                # without opt-in.
+                if usb_id == '10c4:ea60':
+                    self.assertIn('Not mapping without opt-in', output)
+                    self.assertIn('Adafruit Ultimate GPS (#746)', output)
+                else:
+                    self.assertIn('not a supported GPS', output)
                 samples.append(output)
         if os.environ.get('P0_EVIDENCE'):
             (Path(os.environ['P0_EVIDENCE'])/'gps-unsupported-inventory.log').write_text('\n'.join(samples))

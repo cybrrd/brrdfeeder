@@ -13,7 +13,24 @@ yes=${5:-0}
 [[ $stage == plan || $stage == confirm ]] && [[ $yes =~ ^[01]$ ]] || exit 2
 log() { printf '[brrdfeeder-uninstall] %s\n' "$*"; }
 notice() { if declare -F log_event >/dev/null; then log_event NOTICE "$*"; else log "$*"; fi; }
-die() { log "REFUSED: $*" >&2; exit 1; }
+die() {
+  log "REFUSED: $*" >&2
+  local reason="$*" path quoted kind owner empty=not-applicable
+  if [[ $reason != *'type='* && $reason =~ (/[^[:space:]\;\,\)]+) ]]; then
+    path=${BASH_REMATCH[1]}
+    kind=$(stat -c %F -- "$path" 2>/dev/null) || kind=unavailable
+    owner=$(stat -c %u:%g -- "$path" 2>/dev/null) || owner=unavailable
+    if [[ -d $path && ! -L $path ]]; then
+      if [[ -z $(find -P "$path" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null) ]]; then empty=empty; else empty=non-empty; fi
+    elif [[ -f $path && ! -L $path ]]; then
+      if [[ -s $path ]]; then empty=non-empty; else empty=empty; fi
+    fi
+    printf -v quoted %q "$path"
+    log "Found: type=$kind owner=$owner emptiness=$empty. Inspect with: sudo stat -- $quoted" >&2
+  fi
+  log 'Next step: keep unverified data; run sudo brrdfeeder uninstall --dry-run to review the refusal. Correct only verified package ownership/state, then run sudo brrdfeeder uninstall again. If ownership is uncertain, share this refusal with support.' >&2
+  exit 1
+}
 [[ $EUID == 0 ]] || die 'Run with sudo.'
 exists() { [[ -e $1 || -L $1 ]]; }
 act() {
@@ -269,6 +286,33 @@ safe_tree() {
   no_mounts "$1"
 }
 
+refuse_entry() {
+  local path=$1 reason=$2 kind owner empty=not-applicable quoted
+  kind=$(stat -c %F -- "$path" 2>/dev/null) || kind=unavailable
+  owner=$(stat -c %u:%g -- "$path" 2>/dev/null) || owner=unavailable
+  if [[ -d $path && ! -L $path ]]; then
+    if [[ -z $(find -P "$path" -mindepth 1 -maxdepth 1 -print -quit) ]]; then empty=empty; else empty=non-empty; fi
+  elif [[ -f $path && ! -L $path ]]; then
+    if [[ -s $path ]]; then empty=non-empty; else empty=empty; fi
+  fi
+  printf -v quoted %q "$path"
+  die "$reason: $path (type=$kind owner=$owner emptiness=$empty). Next step: sudo stat -- $quoted; review and move any confirmed unrelated content outside the service home before retrying sudo brrdfeeder uninstall."
+}
+
+service_home_residue() {
+  local root=$1 entry relative
+  safe_tree "$root"
+  # These are directory-only skeletons made by service-user/systemd/Podman
+  # initialization. The engine is rootful: no rootless storage DATA belongs here.
+  while IFS= read -r -d '' entry; do
+    relative=${entry#/var/lib/brrdfeeder/}
+    case $relative in .config|.config/systemd|.config/systemd/user|.local|.local/share|.local/share/containers|.cache) ;;
+      *) refuse_entry "$entry" 'unrecognised service-home residue';; esac
+    [[ -d $entry && ! -L $entry && $(stat -c %u "$entry") == "${uid[brrdfeeder]:-absent}" ]] \
+      || refuse_entry "$entry" 'unsafe service-home residue'
+  done < <(find -P "$root" -xdev -print0)
+}
+
 declare -A uid=() gid=()
 for user in brrdfeeder brrdhouse; do
   home=/var/lib/$user
@@ -345,6 +389,9 @@ files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
   /etc/chrony/conf.d/10-brrdfeeder.conf /etc/chrony/conf.d/10-pack.conf
   /usr/local/libexec/brrdfeeder-image-identity /usr/local/libexec/brrdfeeder-provision-status
   /usr/local/libexec/brrdfeeder-gps-seed
+  /usr/local/libexec/brrdfeeder-gps-runtime
+  /etc/systemd/system/brrdfeeder-gps-runtime.service
+  /etc/systemd/system/brrdfeeder-gps-runtime.timer
   /usr/local/libexec/brrdfeeder-bluetooth /etc/brrdfeeder/.bluetooth-prior.json
   /usr/local/bin/brrdfeeder-updater.sh /run/brrdfeeder-engine.cid /run/brrdfeeder-engine.service.cid)
 shopt -s nullglob dotglob
@@ -398,6 +445,9 @@ for pair in \
   '/usr/local/libexec/brrdfeeder-image-identity|Host-side Quadlet lifecycle helper.' \
   '/usr/local/libexec/brrdfeeder-provision-status|BRRDhouse status provisioning:' \
   '/usr/local/libexec/brrdfeeder-gps-seed|BRRDfeeder GPS location seed' \
+  '/usr/local/libexec/brrdfeeder-gps-runtime|BRRDfeeder GPS runtime transport' \
+  '/etc/systemd/system/brrdfeeder-gps-runtime.service|BRRDfeeder GPS runtime transport' \
+  '/etc/systemd/system/brrdfeeder-gps-runtime.timer|BRRDfeeder GPS runtime transport' \
   '/usr/local/libexec/brrdfeeder-bluetooth|BRRDfeeder Bluetooth ownership:' \
   '/usr/local/bin/brrdfeeder-updater.sh|# BRRDfeeder signed-update installer.|#185 Drop 2'; do
   file=${pair%%|*}; signature=${pair#*|}
@@ -413,6 +463,17 @@ for tree in /etc/brrdfeeder /var/lib/brrdfeeder-status /run/brrdfeeder-identity 
 done
 [[ ! -d /etc/brrdfeeder || $(stat -c %u /etc/brrdfeeder) == 0 ]] || die 'config tree is not root-owned'
 [[ ! -d /run/brrdfeeder-identity || $(stat -c %u /run/brrdfeeder-identity) == 0 ]] || die 'wrong runtime identity owner'
+safe_tree /run/brrdfeeder-gps
+if [[ -d /run/brrdfeeder-gps ]]; then
+  [[ $(stat -c %u:%a /run/brrdfeeder-gps) == 0:700 ]] || die 'unsafe GPS runtime directory'
+  for entry in /run/brrdfeeder-gps/*; do
+    case ${entry##*/} in
+      device|device.new) [[ $(stat -c %u:%h "$entry") == 0:1 && ( ( ! -L $entry && -c $entry ) || ( -L $entry && $(readlink "$entry") == /dev/null ) ) ]] || die "unsafe GPS runtime device: $entry";;
+      lock|state.json|state.new) safe_file "$entry";;
+      *) die "unexpected GPS runtime entry: $entry";;
+    esac
+  done
+fi
 if [[ -d /var/lib/brrdfeeder-status ]]; then
   owner=$(stat -c %u /var/lib/brrdfeeder-status)
   [[ $owner == 0 || $owner == "${uid[brrdfeeder]:-absent}" ]] || die 'wrong status-directory owner'
@@ -433,8 +494,9 @@ done
 for entry in /var/lib/brrdfeeder/*; do
   case ${entry##*/} in policy_state.json|pending_update.json|pending_update.failed|update_outcome.json|update_transaction.json|release_currency.json|*.tmp|.update-*|.pending-*) ;;
     upward) safe_tree "$entry"; continue;;
-    *) die "unrecognised engine state: $entry";; esac
-  [[ -f $entry && ! -L $entry ]] || die "unsafe engine state: $entry"
+    .config|.local|.cache) service_home_residue "$entry"; continue;;
+    *) refuse_entry "$entry" 'unrecognised engine state';; esac
+  [[ -f $entry && ! -L $entry ]] || refuse_entry "$entry" 'unsafe engine state'
 done
 for entry in /var/lib/brrdfeeder-updater/*; do
   case ${entry##*/} in state.json|lock|launch.lock|host-state.json|host-transaction.json|pending_update.json|pending.failed.json|rejected.json|.update-*) safe_file "$entry";;
@@ -452,7 +514,7 @@ done
 for unit in /etc/systemd/system/brrdfeeder-engine.service /etc/systemd/system/brrdhouse.service; do
   ! exists "$unit" || die "unexpected native override of generated unit: $unit"
 done
-for unit in brrdfeeder-engine.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
+for unit in brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
   ! exists "/etc/systemd/system/$unit.d" || die "unexpected unit overrides: $unit.d"
 done
 console_links=()
@@ -512,6 +574,8 @@ stop_unit() {
 confirm_removal
 progress_phase 'Stopping services'
 stop_unit system brrdfeeder-release-poll.timer
+stop_unit system brrdfeeder-gps-runtime.timer
+stop_unit system brrdfeeder-gps-runtime.service
 stop_unit system brrdfeeder-host-update.timer
 stop_unit system brrdfeeder-host-update.service
 stop_unit system brrdfeeder-release-poll.service
@@ -677,7 +741,7 @@ remove_tree() {
     else find -P "$path" -xdev -depth -delete; log "REMOVED tree: $path"; fi
   else absent "$path"; fi
 }
-for tree in /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /var/lib/brrdfeeder-updater; do remove_tree "$tree"; done
+for tree in /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater; do remove_tree "$tree"; done
 progress_phase 'Removing service accounts'
 for user in brrdhouse brrdfeeder; do
   if [[ -n ${uid[$user]:-} ]]; then
@@ -685,6 +749,11 @@ for user in brrdhouse brrdfeeder; do
     act loginctl disable-linger "$user"
     act systemctl stop "user@${uid[$user]}.service" "user-runtime-dir@${uid[$user]}.service"
     if (( ! dry )) && pgrep -u "${uid[$user]}" >/dev/null; then die "processes still run as $user; account retained"; fi
+    if [[ $user == brrdfeeder ]]; then
+      for residue in /var/lib/brrdfeeder/.config /var/lib/brrdfeeder/.local /var/lib/brrdfeeder/.cache; do
+        ! exists "$residue" || service_home_residue "$residue"
+      done
+    fi
     remove_tree "/var/lib/$user"
     act userdel "$user"  # never -r: home was separately checked, no guessed directories
     if getent group "$user" >/dev/null; then act groupdel "$user"; else absent "group $user"; fi

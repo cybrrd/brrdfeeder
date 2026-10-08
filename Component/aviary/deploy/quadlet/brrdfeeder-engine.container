@@ -23,7 +23,8 @@ AddCapability=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_TIME
 Volume=/etc/brrdfeeder/config.yaml:/etc/brrdfeeder/config.yaml:ro,Z
 Volume=/etc/brrdfeeder/secrets:/etc/brrdfeeder/secrets:ro,Z
 Volume=/var/lib/brrdfeeder:/var/lib/brrdfeeder:rw,Z
-AddDevice=/dev/cybrrd_gps:/dev/cybrrd_gps:rw
+AddDevice=/run/brrdfeeder-gps/device:/dev/cybrrd_gps:rw
+Environment=BRRDFEEDER_GPS_TRANSPORT=/dev/cybrrd_gps
 # Remove this mapping if rfkill support is not provisioned. It does not enable
 # unblock: sensors.rid_ble.unblock_rfkill remains explicitly false by default.
 AddDevice=/dev/rfkill:/dev/rfkill:rw
@@ -47,6 +48,7 @@ Notify=false
 ReadOnly=true
 
 [Service]
+ExecStartPre=/usr/local/libexec/brrdfeeder-gps-runtime prepare
 RuntimeDirectory=brrdfeeder-identity
 RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=no

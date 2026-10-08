@@ -391,8 +391,15 @@ mod tests {
             ("live", Some(fix(now())), PositionState::Current),
             ("stale", Some(fix(now() - 3_600_000)), PositionState::Stale),
             ("no_fix", None, PositionState::NoFix),
+            ("unplugged", Some(fix(now())), PositionState::SensorUnavailable),
+            ("absent", None, PositionState::NoFix),
             ("recovering", Some(fix(now())), PositionState::Current),
         ] {
+            let mut sample_health = (**health.load()).clone();
+            sample_health.state = if matches!(name, "unplugged" | "absent") {
+                SensorState::Failed
+            } else { SensorState::Healthy };
+            health.store(Arc::new(sample_health));
             latest.store(Arc::new(sample));
             let radio = RadioState::new();
             radio.set(if name == "recovering" {
@@ -420,6 +427,10 @@ mod tests {
             );
             let bytes = serde_json::to_vec_pretty(&hb).unwrap();
             let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            if matches!(name, "unplugged" | "absent") {
+                assert_eq!(value["gps"]["state"], "failed");
+                assert_eq!(value["configured_position"]["latitude"], 41.0);
+            }
             for key in ["engine_version", "image_digest", "build_seq", "policy_ack"] {
                 assert!(value.get(key).is_none(), "D26 field fabricated: {key}");
             }

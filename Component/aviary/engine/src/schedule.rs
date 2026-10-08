@@ -511,6 +511,29 @@ mod tests {
     }
 
     #[test]
+    fn installer_template_uses_preset_without_explicit_overrides() {
+        let installer = include_str!("../../../brrdfeeder/install/brrdfeeder-install.sh");
+        let template = installer
+            .split("<<'CFGEOF'\n")
+            .nth(1)
+            .unwrap()
+            .split("\nCFGEOF")
+            .next()
+            .unwrap();
+        let config: serde_yaml::Value = serde_yaml::from_str(template).unwrap();
+        let hunter: HunterYaml =
+            serde_yaml::from_value(config["capture"]["hunter"].clone()).unwrap();
+        let plan = HunterPlan::from_yaml(&hunter);
+        assert_eq!(plan.preset, HunterPreset::Social);
+        assert_eq!(plan.lock_on_duration_ms, 0);
+        assert!(
+            plan.explicit_fields.is_empty(),
+            "explicit_overrides={:?}",
+            plan.explicit_fields
+        );
+    }
+
+    #[test]
     fn social_defaults_give_social_channels_long_share() {
         let plan = social_plan();
         assert_eq!(plan.preset, HunterPreset::Social);

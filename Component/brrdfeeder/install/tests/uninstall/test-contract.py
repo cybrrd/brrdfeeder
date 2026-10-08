@@ -93,6 +93,14 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
         # Explicit GPS/P0 exceptions; enrollment internals, image pins/pulls,
         # account creation, host config, updater and other confinement stay equal.
         def normalize(text):
+            # Public-directory traversal is independently exercised under
+            # uutils parent semantics in directory-modes/test-contract.py.
+            text=text.replace('public_directories /usr/local /usr/local/libexec',
+                              'run install -d -m 0755 -o root -g root /usr/local/libexec')
+            text=text.replace('public_directories /etc/containers "$QUADLET_DIR"',
+                              '[[ -d "$QUADLET_DIR" ]] || run install -d -m 0755 "$QUADLET_DIR"')
+            text=text.replace('public_directories /etc/containers /etc/containers/systemd /etc/containers/systemd/users \\\n    "/etc/containers/systemd/users/$CONSOLE_UID"',
+                              'run install -d -m 0755 -o root -g root "/etc/containers/systemd/users/$CONSOLE_UID"')
             text=text.split('gate pre-flight "Pre-flight"\n',1)[1]
             # 2026-09-28 item 3: final verification and power/clock blocks have
             # behavioral coverage in installer-vcgencmd; preserve all other
@@ -177,6 +185,9 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
             a = text.index(marker); b = text.index('  exit 0\n', a)
             text = text[:a]+text[b:]
             regions=[('if [[ -n "$INSTALL_INTERFACE$INSTALL_LATITUDE$INSTALL_LONGITUDE" ]]', '# Service identity'),
+                     # Lock-on migration is independently exercised against
+                     # exact-byte/custom-value fixtures in lock-on/test-contract.py.
+                     ('# Remove only the exact old template pair;', '# Step 1b — immutable image pull'),
                      # D44 revival replaces only this explicitly registered
                      # updater region; package tests execute its replacement.
                      ('# Step 5.5 — Install ', '# Step 6 — image already verified'),
@@ -196,7 +207,17 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
                     continue  # P0-6 new block, separately exercised by test-ble.py
                 a=text.index(start); b=text.index(end,a)
                 text=text[:a]+text[b:]
-            for line in ['ExecStartPre=${GPS_SEED}\n','TimeoutStartSec=infinity\n','NotifyAccess=all\n','GPS_WAITING=0\n']:
+            # GPS-runtime transport/status are executed independently by the
+            # missing-device container, restart policy and first-fix fixtures.
+            text=text.replace('AddDevice=/run/brrdfeeder-gps/device:', 'AddDevice=/dev/${GPS_SYMLINK}:')
+            text=text.replace('''  if [[ -x /usr/local/libexec/brrdfeeder-gps-runtime ]]; then
+    /usr/local/libexec/brrdfeeder-gps-runtime status
+  fi
+''', '')
+            for line in ['ExecStartPre=/usr/local/libexec/brrdfeeder-gps-runtime prepare\n',
+                         'Environment=BRRDFEEDER_GPS_TRANSPORT=/dev/${GPS_SYMLINK}\n',
+                         'run systemctl enable --now brrdfeeder-gps-runtime.timer\n',
+                         'ExecStartPre=${GPS_SEED}\n','TimeoutStartSec=infinity\n','NotifyAccess=all\n','GPS_WAITING=0\n']:
                 text=text.replace(line,'')
             text=text.replace('( $entry == "$directory/status.json" || $entry == "$directory/startup.json" )', '$entry == "$directory/status.json"')
             # P0 tests independently execute both helpers and the rendered Quadlet.

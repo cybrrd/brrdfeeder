@@ -27,6 +27,21 @@ GSA = 'GPGSA,A,3,04,05,09,12,24,25,29,31,,,,,1.8,1.0,1.5'
 
 
 class Diagnostics(unittest.TestCase):
+    def test_hdop_and_waiter_log_rate(self):
+        d=self.make(); d.observe(sentence(GGA),10)
+        self.assertEqual(d.snapshot(10)['hdop'],0.9)
+        self.assertIsNone(d.snapshot(26)['hdop'])
+        with tempfile.TemporaryDirectory() as folder, patch.object(gps,'STARTUP',Path(folder)/'startup.json'), patch.object(gps,'LAST_LOG',None), patch.object(gps,'adapter_ids',return_value=['10c4:ea60']):
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output):
+                for now in range(0,65,5):
+                    with patch.object(gps.time,'monotonic',return_value=now):
+                        gps.report('gps-missing','GPS not detected')
+            self.assertEqual(len(output.getvalue().splitlines()),2)
+            record=json.loads((Path(folder)/'startup.json').read_text())
+            self.assertEqual(record['usb_adapter_ids'],['10c4:ea60'])
+            self.assertIn('10c4:ea60',output.getvalue())
+
     def make(self):
         self.assertTrue(hasattr(gps, 'NMEADiagnostics'), 'GPS diagnostics not implemented')
         return gps.NMEADiagnostics()

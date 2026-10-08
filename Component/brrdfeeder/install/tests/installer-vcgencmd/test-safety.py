@@ -180,6 +180,8 @@ class Ownership(unittest.TestCase):
 gate() { :; }; ok() { :; }; say() { :; }
 fatal() { echo "$*"; exit 1; }
 atomic_install() { cat > "$4"; }
+# Parent modes have a separate real-filesystem fixture; never touch /etc here.
+public_directories() { :; }
 run() { if [[ $1 == systemctl || $1 == install ]]; then :; else "$@"; fi; }
 stat() { echo 0; }
 '''+block

@@ -44,6 +44,28 @@ use sensor_gps::{GpsFix, NmeaGps};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
+// Grace is a diagnostic cadence, never a deadline for process survival. The
+// caller keeps heartbeat/status tasks alive and handles shutdown while waiting.
+async fn wait_for_gps(mut readiness: impl FnMut() -> (bool, bool), grace: std::time::Duration) {
+    let mut deadline = std::time::Instant::now() + grace;
+    loop {
+        let (healthy, timed) = readiness();
+        if healthy && timed {
+            return;
+        }
+        if std::time::Instant::now() >= deadline {
+            eprintln!(
+                "[gps] Position preserved, GPS not live or time not trusted \
+                 (gps_healthy={} time_trusted={}); heartbeat/status remain active; \
+                 operational publishing still gated. Check GPS connection and sky view.",
+                healthy, timed
+            );
+            deadline = std::time::Instant::now() + grace;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Legacy signed-policy cryptographic pre-flight. Run as a
@@ -353,7 +375,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         substrate_audit: substrate_audit_tx.clone(),
     };
     // Wave 7.4 — config-driven NmeaGps from cfg.sensors.gps.
-    let mut gps = NmeaGps::new(&cfg.sensors.gps.device);
+    // The installer maps the configured host device onto a stable, narrow
+    // container transport. Direct/native deployments retain their config path.
+    let gps_device = std::env::var("BRRDFEEDER_GPS_TRANSPORT")
+        .unwrap_or_else(|_| cfg.sensors.gps.device.clone());
+    let mut gps = NmeaGps::new(gps_device);
     gps.baud = cfg.sensors.gps.baud;
     gps.stale_after = std::time::Duration::from_secs(cfg.sensors.gps.stale_after_secs);
     let mut gps_handle = gps.start(gps_ctx.clone());
@@ -506,39 +532,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // trust accumulation against such frames).
     if cfg.sensors.gps.required {
         let grace_secs = cfg.sensors.gps.startup_grace_secs;
-        let grace = std::time::Duration::from_secs(grace_secs);
-        let deadline = std::time::Instant::now() + grace;
+        let grace = std::time::Duration::from_secs(grace_secs.max(60));
+        let mut stop = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+        let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
         println!(
-            "[gps] sensors.gps.required=true — waiting up to {}s for first 3D fix \
+            "[gps] sensors.gps.required=true — waiting steadily for first 3D fix \
              AND GPS-disciplined system time (#183) before operational publishing",
-            grace_secs
         );
-        loop {
-            let healthy = gps_handle_health.load().state == SensorState::Healthy;
-            let timed = time_trust.is_trusted();
-            if healthy && timed {
-                println!(
-                    "[+] required GPS Healthy + system time GPS-disciplined; engine proceeding"
-                );
-                break;
+        let ready = tokio::select! {
+            _ = wait_for_gps(|| (gps_handle_health.load().state == SensorState::Healthy,
+                                time_trust.is_trusted()), grace) => true,
+            _ = stop.recv() => false,
+            _ = interrupt.recv() => false,
+        };
+        if !ready {
+            gps_cancel.cancel();
+            upward_cancel.cancel();
+            heartbeat_task.abort();
+            if let Some(source) = status_cleanup {
+                let _ = tokio::time::timeout(std::time::Duration::from_secs(5), source.shutdown()).await;
             }
-            if std::time::Instant::now() > deadline {
-                eprintln!(
-                    "[-] FATAL: sensors.gps.required=true but did not reach \
-                     GPS-Healthy + trusted-time within {}s (gps_healthy={} time_trusted={}).\n\
-                     [-] Engine refuses to start — operator must either:\n\
-                     [-]   (a) verify the GPS receiver at {} is connected with sky view, or\n\
-                     [-]   (b) ensure the container has CAP_SYS_TIME so the clock can be \
-                     stepped from GPS (or restore NTP), or\n\
-                     [-]   (c) set `sensors.gps.required: false` in config.yaml \
-                     (DEV MODE — frames tagged node_position_source: config_static and \
-                     rejected by downstream Reputation Gravity)",
-                    grace_secs, healthy, timed, cfg.sensors.gps.device
-                );
-                std::process::exit(1);
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            return Ok(());
         }
+        println!("[+] required GPS Healthy + system time GPS-disciplined; engine proceeding");
     } else {
         println!(
             "[gps] sensors.gps.required=false (DEV MODE) — engine will start without GPS lock \
@@ -749,5 +765,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
             std::process::exit(exit_code);
         }
+    }
+}
+
+#[cfg(test)]
+mod gps_startup_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn saved_position_wait_survives_grace_and_requires_both_trust_dimensions() {
+        let healthy = Arc::new(AtomicBool::new(false));
+        let timed = Arc::new(AtomicBool::new(false));
+        let (h, t) = (healthy.clone(), timed.clone());
+        let task = tokio::spawn(async move {
+            wait_for_gps(|| (h.load(Ordering::Relaxed), t.load(Ordering::Relaxed)), Duration::from_millis(10)).await;
+        });
+        tokio::time::sleep(Duration::from_millis(550)).await;
+        assert!(!task.is_finished(), "missing GPS must not terminate after grace");
+        healthy.store(true, Ordering::Relaxed);
+        tokio::time::sleep(Duration::from_millis(550)).await;
+        assert!(!task.is_finished(), "GPS position must not bypass time trust");
+        timed.store(true, Ordering::Relaxed);
+        tokio::time::timeout(Duration::from_secs(2), task).await.unwrap().unwrap();
     }
 }

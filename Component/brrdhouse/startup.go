@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -21,9 +23,13 @@ type startupGPS struct {
 	MaxSNR         *float64 `json:"snr_max_dbhz"`
 	AvgSNR         *float64 `json:"snr_avg_dbhz"`
 	NMEAAge        *float64 `json:"nmea_age_secs"`
+	HDOP           *float64 `json:"hdop"`
 }
 
 func (g *startupGPS) validate() {
+	if g.HDOP != nil && !validHDOP(*g.HDOP) {
+		g.HDOP = nil
+	}
 	if g.SatellitesUsed != nil && *g.SatellitesUsed > 99 {
 		g.SatellitesUsed = nil
 	}
@@ -71,6 +77,7 @@ func readStartup(statusPath string, now time.Time) (view, bool) {
 		WrittenAt time.Time   `json:"written_at"`
 		Interval  uint64      `json:"status_interval_secs"`
 		GPS       *startupGPS `json:"gps"`
+		Adapters  []string    `json:"usb_adapter_ids"`
 	}
 	if err != nil || len(data) > 4096 || json.Unmarshal(data, &s) != nil || s.Schema != 1 || s.Interval != 5 || s.WrittenAt.IsZero() {
 		return v, true
@@ -83,6 +90,17 @@ func readStartup(statusPath string, now time.Time) (view, bool) {
 	switch s.State {
 	case "gps-missing":
 		v.Reason = "GPS not detected: plug in the GPS."
+		if len(s.Adapters) <= 8 {
+			var ids []string
+			for _, id := range s.Adapters {
+				if regexp.MustCompile(`^[0-9a-f]{4}:[0-9a-f]{4}$`).MatchString(id) {
+					ids = append(ids, id)
+				}
+			}
+			if len(ids) > 0 {
+				v.Reason += " Serial adapter IDs seen: " + strings.Join(ids, ", ") + ". These are not automatically claimed as GPS."
+			}
+		}
 	case "gps-waiting":
 		v.Reason = "Waiting for GPS fix. Place the antenna with a clear view of the sky."
 	case "gps-busy":

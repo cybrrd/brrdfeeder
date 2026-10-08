@@ -8,7 +8,7 @@
 //! the subset relevant to the capture loop and the wire-format `Node` block.
 
 use cybrrd_rid_protocol::models::{Node, NodeLocation, PositionSource};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 const DEFAULT_NODE_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "-ce");
@@ -320,11 +320,81 @@ fn valid_hex_identity(value: &str, count: usize, width: usize) -> bool {
             .all(|p| p.len() == width && p.bytes().all(|b| b.is_ascii_hexdigit()))
 }
 
-#[derive(Debug, Deserialize)]
+/// Optional PMTK initialization for MTK-family receivers. `pmtk: false`
+/// (the default) sends nothing — the module's power-on defaults stand.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
+pub struct GpsInitYaml {
+    /// Master gate: nothing is sent unless this is true.
+    #[serde(default)]
+    pub pmtk: bool,
+    /// PMTK_API_SET_NMEA_OUTPUT frequency, 1..=10 Hz. None = leave default.
+    #[serde(default)]
+    pub update_rate_hz: Option<u32>,
+    /// Comma list of NMEA sentence types to emit (e.g. "gga,rmc,gsa").
+    /// None = leave default set.
+    #[serde(default)]
+    pub nmea_set: Option<String>,
+    /// PMK_API_SET_SBAS_ENABLE (1=on, 0=off). None = leave default.
+    #[serde(default)]
+    pub sbas: Option<bool>,
+}
+
+impl GpsInitYaml {
+    /// Render the enabled PMTK sentences (checksummed). Empty when off.
+    pub fn sentences(&self) -> Vec<String> {
+        if !self.pmtk {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        if let Some(hz) = self.update_rate_hz {
+            out.push(format!(
+                "$PMTK220,{}",
+                (1000 / hz.clamp(1, 10))
+            ));
+        }
+        if let Some(set) = &self.nmea_set {
+            let cleaned: String = set
+                .split(',')
+                .map(|s| s.trim().to_ascii_lowercase())
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>()
+                .join(",");
+            if !cleaned.is_empty() {
+                out.push(format!("$PMTK314,{}", cleaned));
+            }
+        }
+        if let Some(sbas) = self.sbas {
+            out.push(format!("$PMTK313,{}", if sbas { 1 } else { 0 }));
+        }
+        out.into_iter().map(|s| pmtk_checksum(&s)).collect()
+    }
+}
+
+/// Compute + append the NMEA XOR checksum (`$PMTK220,100*1F`).
+fn pmtk_checksum(sentence: &str) -> String {
+    let body: &str = sentence.strip_prefix('$').unwrap_or(sentence);
+    let body = body.split('*').next().unwrap_or(body);
+    let mut v: u8 = 0;
+    for ch in body.bytes() {
+        v ^= ch;
+    }
+    format!("{}*{:02X}", sentence, v)
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GpsYaml {
     #[serde(default)]
     pub clock: ClockYaml,
+    /// Optional receiver initialization (Adafruit Ultimate GPS #746 and other
+    /// GlobalTop/MTK-family modules). Everything here is OFF by default: the
+    /// stock 9600-baud 1 Hz GGA/RMC/GSA output already satisfies the reader.
+    /// Sentences are sent once per serial open with correct NMEA checksums;
+    /// a deliberate NO-OP default means an absent block never touches the
+    /// port. PMTK baud-change commands are EXCLUDED by design — a wrong
+    /// command bricks the port until power cycle (operator ruling).
+    #[serde(default)]
+    pub init: GpsInitYaml,
     /// CDC-ACM device path. Default `/dev/ttyACM1` matches the test-node-2
     /// hardware layout (u-blox 7 on the Anker hub Port 1, 2026-05-26).
     #[serde(default = "default_gps_device")]
@@ -360,6 +430,7 @@ impl Default for GpsYaml {
     fn default() -> Self {
         GpsYaml {
             clock: ClockYaml::default(),
+            init: GpsInitYaml::default(),
             device: default_gps_device(),
             baud: default_gps_baud(),
             required: default_gps_required(),
@@ -534,7 +605,7 @@ impl SavefileYaml {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ClockYaml {
     pub consistent_fixes: u32,
@@ -898,5 +969,45 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
             cfg.sensors.gps.device, "/dev/cybrrd_gps",
             "REQ-BRRD-001: omitted gps.device must default to the udev symlink"
         );
+    }
+}
+
+#[cfg(test)]
+mod gps_init_tests {
+    use super::*;
+
+    #[test]
+    fn init_off_by_default_sends_nothing() {
+        let y: GpsYaml = serde_yaml::from_str("").unwrap();
+        assert!(y.init.sentences().is_empty());
+        let y2: GpsYaml =
+            serde_yaml::from_str("init: {update_rate_hz: 10}").unwrap();
+        // pmtk master gate false => nothing sent even with fields set.
+        assert!(y2.init.sentences().is_empty());
+    }
+
+    #[test]
+    fn init_renders_checksummed_sentences() {
+        let y: GpsYaml = serde_yaml::from_str(
+            "init: {pmtk: true, update_rate_hz: 10, nmea_set: \"GGA, RMC ,gsa\", sbas: true}",
+        )
+        .unwrap();
+        let s = y.init.sentences();
+        assert_eq!(s.len(), 3, "{:?}", s);
+        assert_eq!(s[0], "$PMTK220,100*2F");
+        assert_eq!(s[1], "$PMTK314,gga,rmc,gsa*70");
+        assert_eq!(s[2], "$PMTK313,1*2E");
+        for sent in &s {
+            let body = &sent[1..sent.len() - 3];
+            let v = body.bytes().fold(0u8, |a, b| a ^ b);
+            assert_eq!(format!("*{:02X}", v), &sent[sent.len() - 3..]);
+        }
+    }
+
+    #[test]
+    fn init_update_rate_clamps_to_receiver_limits() {
+        let y: GpsYaml = serde_yaml::from_str("init: {pmtk: true, update_rate_hz: 50}")
+            .unwrap();
+        assert_eq!(y.init.sentences(), vec!["$PMTK220,100*2F".to_string()]);
     }
 }

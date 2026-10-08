@@ -71,6 +71,11 @@ pub struct NmeaGps {
     /// If no fresh fix within this, transition Healthy → Degraded.
     /// Default 30s (u-blox 7 cold-start outdoors ~30s; warm-start <5s).
     pub stale_after: Duration,
+    /// Optional receiver-init sentences (PMTK etc.), checksummed by the
+    /// config layer. Empty (the default) = the reader never writes to the
+    /// port. Sent once per serial open; module ack sentences are ordinary
+    /// unknown-type NMEA lines the parser skips.
+    pub init_sentences: Vec<String>,
 }
 
 impl NmeaGps {
@@ -79,6 +84,7 @@ impl NmeaGps {
             device: device.into(),
             baud: 9600,
             stale_after: Duration::from_secs(30),
+            init_sentences: Vec::new(),
         }
     }
 }
@@ -153,6 +159,17 @@ async fn run_ublox_gps(
             }
         };
 
+        // Optional receiver initialization (once per open; logged; the
+        // default empty vec means nothing is ever written).
+        for sentence in &cfg.init_sentences {
+            match port.try_write(format!("{}\r\n", sentence).as_bytes()) {
+                Ok(_) => println!("[gps] init sent: {}", sentence),
+                Err(e) => {
+                    println!("[gps] init write failed (continuing): {}", e);
+                    set_state(&health, SensorState::Degraded, Some(format!("init write: {}", e)));
+                }
+            }
+        }
         let mut parser = Nmea::default();
         let mut last_fix_ms: Option<i64> = None;
         let reader = BufReader::new(&mut port);

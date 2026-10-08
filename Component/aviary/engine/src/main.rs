@@ -383,6 +383,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut gps = NmeaGps::new(gps_device);
     gps.baud = cfg.sensors.gps.baud;
     gps.stale_after = std::time::Duration::from_secs(cfg.sensors.gps.stale_after_secs);
+    gps.init_sentences = cfg.sensors.gps.init.sentences();
     let mut gps_handle = gps.start(gps_ctx.clone());
     // Clone the health ArcSwap up-front so the heartbeat emitter
     // (declared further down) can capture it without re-borrowing

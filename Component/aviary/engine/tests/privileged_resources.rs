@@ -195,11 +195,11 @@ fn customer_udev_is_the_verbatim_hardened_block() {
     // P0-4 deliberately replaced the legacy single GPS ID with the tested
     // supported-family generator. Keep checking every other hardened byte.
     let gps = "# u-blox 7 GPS / GNSS receiver\nSUBSYSTEM==\"tty\", ATTRS{idVendor}==\"${UBLOX_VENDOR}\", ATTRS{idProduct}==\"${UBLOX_PRODUCT}\", SYMLINK+=\"${GPS_SYMLINK}\", GROUP=\"dialout\", MODE=\"0660\"";
-    let reference = reference.replace(gps, "# Supported u-blox USB family; one connected GPS, no wildcard clone probing.\n${GPS_UDEV_RULES}");
+    let reference = reference.replace(gps, "# Supported u-blox USB family; one connected GPS, no wildcard clone probing.\n${GPS_UDEV_RULES}\n# Operator-declared, NMEA-confirmed non-u-blox GPS (sensors.gps.usb_id).\n${GPS_DECLARED_RULE}");
     assert_eq!(rules, reference, "customer non-GPS udev hardening drifted");
     let products = "readonly -a UBLOX_PRODUCTS=(01a5 01a6 01a7 01a8 01a9)";
     assert_eq!(CUSTOMER_INSTALLER.matches(products).count(), 1);
-    let generator = heredoc(CUSTOMER_INSTALLER, "GPS_UDEV_RULES=$(", "\nNEW_UDEV_CONTENT=");
+    let generator = heredoc(CUSTOMER_INSTALLER, "GPS_UDEV_RULES=$(", "\n# Operator-declared");
     assert_eq!(generator, "for product in \"${UBLOX_PRODUCTS[@]}\"; do\n  printf 'SUBSYSTEM==\"tty\", ATTRS{idVendor}==\"%s\", ATTRS{idProduct}==\"%s\", SYMLINK+=\"%s\", GROUP=\"dialout\", MODE=\"0660\"\\n' \"$UBLOX_VENDOR\" \"$product\" \"$GPS_SYMLINK\"\ndone)");
     // Execute only this exact constant-checked generator: no hardware/effectors.
     let generated = std::process::Command::new("bash").arg("-c").arg(format!(

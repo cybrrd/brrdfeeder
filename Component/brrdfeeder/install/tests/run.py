@@ -50,6 +50,7 @@ BASELINES = [
     'self-update-2026-09-29/test-integration.py',
 ]
 MUTATIONS = [
+    'installer-ux/test-mutations.py',
     'lock-on/test-mutations.py',
     'github-scaffold/test-mutations.py',
     'source-date/test-mutations.py',
@@ -148,6 +149,10 @@ for group in groups:
         base = ['podman','run','--rm','--pull=never','--network=none','-v',str(ROOT)+':/repo:ro',
                 '-e','PYTHONDONTWRITEBYTECODE=1']
         run('uninstall-wtmpdb',base+[image,'python3','/repo/Component/brrdfeeder/install/tests/uninstall-wtmpdb/test-history.py'])
+        run('installer-ux-sudoers',base+['-e','BRRD_INSTALLER_UX_CONTAINER=1',image,
+            'python3','/repo/Component/brrdfeeder/install/tests/installer-ux/test-sudoers.py'])
+        run('installer-ux-full',base+['-e','BRRD_INSTALLER_UX_CONTAINER=1',image,
+            'python3','/repo/Component/brrdfeeder/install/tests/installer-ux/test-full-install.py'])
         run('interrupted-install',base+['-e','BRRD_INTERRUPTED_CONTAINER=1',image,
             'python3','/repo/Component/brrdfeeder/install/tests/interrupted-install/test-container.py'])
         run('naming-compat',base+['-e','BRRD_NAMING_CONTAINER=1','-e','NAMING_ROOT=/repo',

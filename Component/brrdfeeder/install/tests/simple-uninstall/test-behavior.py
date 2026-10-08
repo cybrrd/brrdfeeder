@@ -145,6 +145,7 @@ class Confirmation(unittest.TestCase):
             code+='\n'.join(function(n) for n in ['log','notice','die','confirm_removal'])
             code+=f'\nstage=confirm; dry={int(dry)}; yes={int(yes)}\n'
             code+='for ((n=0;n<80;n++)); do log "WOULD: fixture-item-$n"; done\nconfirm_removal\n'
+            code+='echo "The unit files have no installation config (WantedBy=fixture)"\n'
             code+=f'if (( ! dry )); then touch {applied}; fi\n'
             child.write_text(code)
             runner=directory/'runner.py'
@@ -154,7 +155,7 @@ spec=importlib.util.spec_from_file_location('logger',{str(INSTALL/'install-log.p
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 m.LOG_DIR=Path({str(directory/'logs')!r});m.CREDS=Path({str(directory/'absent')!r})
 m.environment=lambda **kw: 'offline fixture'
-sys.exit(m.supervise({str(child)!r},['--uninstall','--no-verbose']))
+sys.exit(m.supervise({str(child)!r},{['--uninstall', '--dry-run'] if dry else ['--uninstall']!r}))
 ''')
             if answer is None:
                 result=subprocess.run([sys.executable,str(runner)],text=True,capture_output=True,start_new_session=True,timeout=10)
@@ -176,11 +177,15 @@ sys.exit(m.supervise({str(child)!r},['--uninstall','--no-verbose']))
                     else: os.kill(pid,9); self.fail('confirmation timed out')
                 finally: os.close(fd)
                 _,status=os.waitpid(pid,0); rc=os.waitstatus_to_exitcode(status); terminal=data.decode()
-            logs=list((directory/'logs').glob('uninstall-*.log'))
+            logs=list((directory/'logs').glob(('dryrun' if dry else 'uninstall')+'-*.log'))
             self.assertEqual(len(logs),1,terminal)
             log=logs[0].read_text()
             self.assertEqual(log.split('==== RESULT ====')[0].count('WOULD: fixture-item-'),80)
-            self.assertNotIn('WOULD:',terminal)
+            if dry: self.assertIn('WOULD: fixture-item-79',terminal)
+            else:
+                self.assertNotIn('WOULD:',terminal)
+                self.assertNotIn('The unit files have no installation config',terminal)
+                if rc == 0: self.assertIn('The unit files have no installation config',log)
             summary=terminal.split('BRRDfeeder removal plan:',1)[1].split('Remove BRRDfeeder from this Pi?',1)[0]
             # The seven plan lines; failure summary is counted separately.
             self.assertLessEqual(len([l for l in summary.splitlines() if l.startswith('  ')]),11)
@@ -204,5 +209,37 @@ sys.exit(m.supervise({str(child)!r},['--uninstall','--no-verbose']))
                 rc,out,log,applied=self.run_fixture(yes=yes,dry=dry)
                 self.assertEqual(rc,0,out); self.assertEqual(applied,not dry)
                 self.assertNotIn('Remove BRRDfeeder from this Pi?',out)
+
+class Cleanup(unittest.TestCase):
+    def test_local_udev_rule_reasserts_link_and_no_rule_leaves_it_alone(self):
+        block=HELPER.split('if (( had_udev )); then\n',1)[1].split('(( ! had_chrony ))',1)[0]
+        block='if (( had_udev )); then\n'+block
+        for had_rule in (0,1):
+            with self.subTest(had_rule=had_rule), tempfile.TemporaryDirectory() as tmp:
+                link=Path(tmp)/'gps'; link.symlink_to('/dev/null')
+                fixture=r'''set -euo pipefail
+had_udev=$1; link=$2
+absent() { :; }
+remove_file() { if [[ $1 == /dev/cybrrd_gps ]]; then rm -f -- "$link"; fi; }
+act() { if [[ $* == 'udevadm trigger --subsystem-match=tty --action=change' ]]; then ln -sfn /dev/zero "$link"; fi; }
+'''
+                result=subprocess.run(['bash','-c',fixture+block,'fixture',str(had_rule),str(link)],capture_output=True,text=True)
+                self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+                self.assertTrue(link.is_symlink(),'uninstall deleted a local-rule GPS link')
+                self.assertEqual(os.readlink(link),'/dev/zero' if had_rule else '/dev/null')
+
+    def test_failed_unit_reset_is_scoped_and_errors_are_not_hidden(self):
+        self.assertIn('reset_failed_unit() {',HELPER)
+        # Stub only systemd observations, execute the actual cleanup function.
+        fixture='''set -euo pipefail
+dry=0; declare -A uid=()
+log() { echo "$*"; }; die() { echo "$*"; exit 1; }
+manager() { if [[ $2 == is-failed ]]; then return "$FAILED_RC"; fi; }
+act() { printf '%s\\n' "$*"; return "${RESET_RC:-0}"; }
+'''
+        for failed,reset,expected in [(0,0,0),(1,0,0),(0,1,1)]:
+            result=subprocess.run(['bash','-c',fixture+function('reset_failed_unit')+'\nreset_failed_unit system brrdfeeder-host-update.service'],env=dict(os.environ,FAILED_RC=str(failed),RESET_RC=str(reset)),capture_output=True,text=True)
+            self.assertEqual(result.returncode,expected,result.stdout+result.stderr)
+            self.assertEqual('reset-failed brrdfeeder-host-update.service' in result.stdout,failed==0)
 
 if __name__=='__main__': unittest.main(verbosity=2)

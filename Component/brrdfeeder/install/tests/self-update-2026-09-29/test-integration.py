@@ -13,9 +13,12 @@ class Integration(unittest.TestCase):
     def test_ending_names_and_explains_self_update(self):
         text=(INSTALL/'install-log.py').read_text()
         ending=text.split('def final_install_screen(',1)[1].split('\nclass Progress:',1)[0]
-        self.assertIn('Self-Update',ending)
-        self.assertRegex(ending,r'signed updates')
-        self.assertRegex(ending,r'previous version|rolls back')
+        self.assertIn('SELF_UPDATE_STATUS',ending)
+        self.assertIn('Self-Update is installed but not yet active',text)
+        self.assertIn('this version does not update itself.',text)
+        self.assertIn('To move to a newer release today: sudo brrdfeeder uninstall, then run the install command again',text)
+        self.assertIn('(you will link the sensor to your account again).',text)
+        self.assertNotRegex(ending,r'checks signed updates automatically|restores the previous')
         self.assertNotRegex(ending,r'\b(?:D44|D40|Pack|Drop|effector|NotValidYet)\b')
 
     def test_new_updater_messages_are_customer_words(self):

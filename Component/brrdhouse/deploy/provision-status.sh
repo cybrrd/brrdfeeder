@@ -36,4 +36,6 @@ fi
 install -d -m 0755 -o "$service_uid" -g "$service_gid" "$directory"
 [[ $(stat -c '%u:%g:%a' "$directory") == "$service_uid:$service_gid:755" ]] || fail 'Directory ownership/mode verification failed.'
 printf 'Provisioned %s owner=%s:%s mode=0755; engine RW, console RO.\n' "$directory" "$service_uid" "$service_gid"
-printf 'Next: follow README unit setup to mount it in the engine and enable node.status_file.\n'
+if [[ ${BRRDFEEDER_INSTALLER:-0} != 1 ]]; then
+  printf 'Next: follow README unit setup to mount it in the engine and enable node.status_file.\n'
+fi

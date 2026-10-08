@@ -13,6 +13,7 @@ import contextlib
 from collections import deque
 import datetime as dt
 import functools
+import grp
 import hashlib
 import io
 import json
@@ -33,6 +34,7 @@ import time
 
 LOG_DIR = Path('/var/log/brrdfeeder')
 CREDS = Path('/etc/brrdfeeder/secrets/brrdfeeder.creds')
+SYS_NET = Path('/sys/class/net')
 ENDPOINTS = [('ingest.cybrrd.com', 4222), ('hospitality.cybrrd.com', 443),
              ('ghcr.io', 443), ('globe.cybrrd.com', 443)]
 ANSI = re.compile(r'\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\x1b[@-_]')
@@ -46,6 +48,7 @@ class Redactor:
     def __init__(self):
         self.known = {}
         self.nats = False
+        self.legacy_network = False
 
     def remember(self, kind, value):
         if value:
@@ -62,6 +65,22 @@ class Redactor:
             value = value.replace(secret, self.known[secret])
         lines = []
         for line in value.split('\n'):
+            # Old installer logs contained whole-host iw/ip inventories. Drop
+            # those sections when exporting a bundle, including SSID/channel/MAC.
+            if re.match(r'^(?:net|route|phys|wireless_devices)=', line):
+                self.legacy_network = True
+                lines.append('[REDACTED:unscoped-network-inventory]')
+                continue
+            if self.legacy_network:
+                if re.match(r'^(?:[a-z_]+=|====|\d{4}-\d\d-\d\dT)', line):
+                    self.legacy_network = False
+                else:
+                    continue
+            # Also cover a truncated old inventory or an incidental tool error.
+            if re.search(r'(?i)\b(?:ssid|essid|bssid)\b\s*[:= ]', line):
+                lines.append('[REDACTED:wireless-network-name]')
+                continue
+            line = re.sub(r'(?i)\b[0-9a-f]{2}(?::[0-9a-f]{2}){5}\b', '[REDACTED:mac-address]', line)
             if re.search(r'-+BEGIN (?:NATS USER JWT|USER NKEY SEED)-+', line):
                 self.nats = True
             if self.nats:
@@ -173,14 +192,53 @@ def reachability():
     return '\n'.join(lines)
 
 
+def designated_capture():
+    """Fail-closed stdlib projection of the installer's literal interface key.
+
+    No YAML evaluator/dependency during bootstrap. Complex/duplicate mappings
+    omit wireless diagnostics. A config entry alone cannot claim built-in Wi-Fi:
+    the sysfs device ancestry must also establish a USB adapter.
+    """
+    try:
+        source = read_text('/etc/brrdfeeder/config.yaml')
+        in_capture, interfaces = False, []
+        for line in source.splitlines():
+            if line and not line[0].isspace() and not line.startswith('#'):
+                in_capture = bool(re.fullmatch(r'capture:\s*(?:#.*)?', line))
+            elif in_capture:
+                match = re.fullmatch(r'''  interface:\s*(["']?)([A-Za-z0-9_][A-Za-z0-9_.:-]{0,14})\1\s*(?:#.*)?''', line)
+                if match:
+                    interfaces.append(match[2])
+        if len(interfaces) != 1:
+            return None
+        iface = interfaces[0]
+        device = (SYS_NET/iface/'device').resolve(strict=True)
+        for parent in [device, *device.parents]:
+            try:
+                vendor = read_text(parent/'idVendor', 32).strip()
+                product = read_text(parent/'idProduct', 32).strip()
+            except OSError:
+                continue
+            if re.fullmatch(r'[0-9a-fA-F]{4}', vendor) and re.fullmatch(r'[0-9a-fA-F]{4}', product):
+                return iface
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def environment(probe=False):
     result = [f'collected={now()}', f'host={os.uname().nodename}', f'uid={os.geteuid()}']
     commands = [('uname', ['uname', '-a']), ('kernel', ['uname', '-r']), ('arch', ['uname', '-m']),
                 ('memory', ['free', '-m']), ('disk', ['df', '-h']),
                 ('podman', ['podman', '--version']),
-                ('clock', ['timedatectl']), ('usb', ['lsusb']),
-                ('net', ['ip', '-brief', 'address']), ('route', ['ip', 'route']),
-                ('phys', ['iw', 'phy']), ('wireless_devices', ['iw', 'dev'])]
+                ('clock', ['timedatectl']), ('usb', ['lsusb'])]
+    iface = designated_capture()
+    if iface:
+        commands += [('capture_address', ['ip', '-brief', 'address', 'show', 'dev', iface]),
+                     ('capture_route', ['ip', 'route', 'show', 'dev', iface]),
+                     ('capture_wireless', ['iw', 'dev', iface, 'info'])]
+    else:
+        result.append('capture_wireless=omitted (no verified configured USB capture adapter)')
     for label, path in [('os', '/etc/os-release'), ('uptime_s', '/proc/uptime'),
                         ('board', '/proc/device-tree/model'), ('cpu', '/proc/cpuinfo'),
                         ('dns_resolver', '/etc/resolv.conf')]:
@@ -213,8 +271,8 @@ class Log:
             self.safe_parent(self.path.parent)
             self.fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o640)
             os.fchmod(self.fd, 0o640)
-        except OSError:
-            self.fallback()
+        except OSError as exc:
+            self.fallback(exc)
         if mode != 'dryrun' and self.path.parent == LOG_DIR:
             try:
                 latest = LOG_DIR/'install-latest.log'
@@ -234,11 +292,26 @@ class Log:
             if part.exists():
                 info = part.stat()
                 sticky_root = info.st_uid == 0 and info.st_mode & stat.S_ISVTX
-                if info.st_uid not in (0, os.geteuid()) or (info.st_mode & 0o022 and not sticky_root):
-                    raise OSError('unsafe log parent')
+                # Ubuntu uses root:syslog 0775 for /var/log. Trust only that
+                # named system logging group, at this exact system ancestor;
+                # never extend the exception to the product dir or overrides.
+                system_log_parent = False
+                if part == Path('/var/log') and os.geteuid() == 0 and info.st_uid == 0 and info.st_mode & 0o7777 == 0o775:
+                    try:
+                        system_log_parent = info.st_gid == grp.getgrnam('syslog').gr_gid
+                    except KeyError:
+                        pass
+                if info.st_uid not in (0, os.geteuid()) or (info.st_mode & 0o022 and not sticky_root and not system_log_parent):
+                    raise OSError(f'unsafe log parent {part} (mode {info.st_mode & 0o7777:04o}, uid {info.st_uid}, gid {info.st_gid})')
         parent.mkdir(mode=0o750, parents=True, exist_ok=True)
+        if parent == LOG_DIR and os.geteuid() == 0:
+            os.chown(parent, 0, 0, follow_symlinks=False)
+            parent.chmod(0o750)
+            info = parent.stat()
+            if (info.st_uid, info.st_gid, info.st_mode & 0o7777) != (0, 0, 0o750):
+                raise OSError('product log directory must be 0750 root:root')
 
-    def fallback(self):
+    def fallback(self, reason):
         try:
             self.fd, path = tempfile.mkstemp(prefix=f'brrdfeeder-{self.mode}-{self.run_id}-', suffix='.log', dir='/tmp')
             self.path = Path(path)
@@ -247,8 +320,15 @@ class Log:
             self.fd = None
             self.path = Path('/tmp/LOG-UNAVAILABLE')
         if not self.warned:
-            print(f'[brrdfeeder-install] logging degraded to {self.path}' +
-                  (' (no writable log file; retain terminal output)' if self.fd is None else ''), flush=True)
+            detail = Redactor().text(str(reason)).replace('\n', ' ')[:500]
+            message = f'[brrdfeeder-install] logging degraded to {self.path}: {detail}' + \
+                      (' (no writable log file; retain terminal output)' if self.fd is None else '')
+            print(message, flush=True)
+            if self.fd is not None:
+                try:
+                    os.write(self.fd, (message+'\n').encode())
+                except OSError:
+                    pass
             self.warned = True
 
     def write(self, safe):
@@ -259,9 +339,9 @@ class Log:
             data = safe.encode('utf-8', 'replace')
             while data:
                 data = data[os.write(self.fd, data):]
-        except OSError:
+        except OSError as exc:
             os.close(self.fd)
-            self.fallback()
+            self.fallback(exc)
             if self.fd is not None:
                 try:
                     os.write(self.fd, ''.join(self.history).encode())
@@ -279,6 +359,7 @@ def bundle(run_id, redactor):
                 'caps=newest 10 install logs; 500 journal/container lines; 48 KiB per member']
     def add(name, raw):
         redactor.nats = False
+        redactor.legacy_network = False
         safe = redactor.text(raw).encode('utf-8')
         if len(safe) > 49152:
             safe = safe[-49000:]
@@ -514,12 +595,18 @@ def wait_engine(context, progress, timeout=60):
     return result
 
 
+# Canonical user-facing update status. Switch only when automatic updates ship.
+SELF_UPDATE_STATUS = ('Self-Update is installed but not yet active — this version does not update itself. '
+                      'To move to a newer release today: sudo brrdfeeder uninstall, then run the install command again '
+                      '(you will link the sensor to your account again).')
+
+
 def final_install_screen(context, readiness, log_path, run_id):
     title = ('BRRDfeeder is installed and running.' if readiness['running'] else
              'BRRDfeeder is installed. Engine startup is still waiting for GPS.')
     return '\n'.join([title, 'Node ID: '+context['node_id'], 'Console: '+context['console_url'],
                       *(key+': '+readiness['states'][key] for key in SYSTEMS),
-                      'Self-Update checks signed updates automatically and restores the previous version if an update fails its health checks.',
+                      SELF_UPDATE_STATUS,
                       'Status: sudo brrdfeeder status', 'Support: sudo brrdfeeder support-bundle',
                       'Uninstall: sudo brrdfeeder uninstall', f'Log: {log_path}  (run {run_id})'])
 
@@ -597,7 +684,7 @@ def supervise(script, args):
                     display_fd = terminal.fileno()
                     stack.enter_context(contextlib.redirect_stdout(terminal))
             except OSError:
-                pass  # No display: child keeps the manual-creds fallback.
+                pass  # No TTY: link and code remain visible on stdout.
         progress = Progress()
         stack.callback(progress.close)
         return _supervise(script, args, display_fd, tty_fd, progress)
@@ -617,7 +704,9 @@ def _supervise(script, args, display_fd, tty_fd, progress):
     if args == ['--support-bundle']:
         return bundle(run_id, redactor)
     mode = 'dryrun' if '--dry-run' in args else 'uninstall' if '--uninstall' in args else 'verify' if '--verify' in args or '--status' in args else 'install'
-    quiet = '--no-verbose' in args and (mode == 'install' or '--uninstall' in args)
+    # Ordinary removal is compact even when invoked through the local command
+    # without bootstrap flags. Dry-run still displays its full validated plan.
+    quiet = mode == 'uninstall' or ('--no-verbose' in args and mode == 'install')
     progress.start('Installing BRRDfeeder (usually about 2–5 min; downloads can take longer)' if mode == 'install'
                    else 'Preparing '+('removal' if '--uninstall' in args else mode)+' and collecting diagnostics')
     override = next((a.split('=', 1)[1] for a in args if a.startswith('--audit-log=')), '')
@@ -724,6 +813,12 @@ def _supervise(script, args, display_fd, tty_fd, progress):
                 safe = redactor.text(payload)
                 progress.notice(safe)
                 log.write(f'{now()} [INFO]  {safe}\n')
+            elif kind == 'DETAIL':
+                detail = base64.b64decode(payload).decode('utf-8', 'replace')
+                log.write(f'{now()} [DETAIL] {redactor.text(detail)}\n')
+            elif kind == 'UPDATE_STATUS':
+                progress.notice(SELF_UPDATE_STATUS)
+                log.write(f'{now()} [INFO]  {SELF_UPDATE_STATUS}\n')
             elif kind == 'INSTALL_CONTEXT' and mode == 'install':
                 try:
                     value = json.loads(payload)

@@ -18,7 +18,8 @@ module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
 
 class Friday(unittest.TestCase):
     def test_public_unchanged_and_variants(self):
-        # Authorized item 3 integration: only its installer pin may differ.
+        # Frozen wrapper includes the approved sudo/log UX changes. Only its
+        # installer pin may differ; real sudoers behavior has separate coverage.
         base = (HERE/'fixtures/bootstrap.sh').read_text()
         public = (module.INSTALL/'bootstrap.sh').read_text()
         normalize = lambda s: re.sub(r'^INSTALLER_SHA256="[a-f0-9]{64}"$', 'INSTALLER_SHA256="<verified below>"', s, flags=re.M)

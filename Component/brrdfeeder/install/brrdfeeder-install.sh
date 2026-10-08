@@ -107,15 +107,18 @@ if [[ -z ${BRRDFEEDER_LOG_CHILD:-} ]]; then
       case $LOG_ARG in --uninstall) LOG_MODE=uninstall;; --verify) LOG_MODE=verify;; esac
     done
     for LOG_ARG in "$@"; do [[ $LOG_ARG != --dry-run ]] || LOG_MODE=dryrun; done
+    LOG_REASON=''
     LOG_PATH="/var/log/brrdfeeder/$LOG_MODE-$LOG_STAMP-$RUN_ID.log"
     umask 027
-    if [[ -L /var/log/brrdfeeder ]] || ! mkdir -p /var/log/brrdfeeder 2>/dev/null || ! (set -C; : > "$LOG_PATH") 2>/dev/null; then
+    if [[ -L /var/log/brrdfeeder ]] || ! install -d -m 0750 -o root -g root /var/log/brrdfeeder 2>/dev/null || [[ $(stat -c '%u:%g:%a' /var/log/brrdfeeder) != 0:0:750 ]] || ! (set -C; : > "$LOG_PATH") 2>/dev/null; then
       LOG_PATH="/tmp/brrdfeeder-$LOG_MODE-$LOG_STAMP-$RUN_ID-$$.log"
-      printf '[brrdfeeder-install] logging degraded to %s\n' "$LOG_PATH"
+      LOG_REASON='Cannot create a root-owned 0750 log directory or exclusive log file (Python unavailable).'
+      printf '[brrdfeeder-install] logging degraded to %s: %s\n' "$LOG_PATH" "$LOG_REASON"
       (set -C; : > "$LOG_PATH") 2>/dev/null || LOG_PATH=/dev/null
     fi
     {
       printf '==== BRRDFEEDER INSTALL LOG ====\nrun_id=%s\nmode=%s\n' "$RUN_ID" "$LOG_MODE"
+      [[ -z ${LOG_REASON:-} ]] || printf 'Logging fallback: %s\n' "$LOG_REASON"
       printf '==== ENVIRONMENT ====\npython3=absent\n==== BOOTSTRAP ====\nnotes=not collected without redactor\n==== TRANSCRIPT ====\n'
       printf '%s [FAIL] step=preflight/python3 rc=127\n' "$LOG_STAMP"
       printf '==== RESULT ====\nresult=FAILED\nfailed_phase=preflight\nfailed_step=preflight/python3\nexit_code=127\nlast_output=\n    Install Python 3: sudo apt install python3 then re-run.\nlog=%s\n' "$LOG_PATH"
@@ -140,6 +143,7 @@ import contextlib
 from collections import deque
 import datetime as dt
 import functools
+import grp
 import hashlib
 import io
 import json
@@ -160,6 +164,7 @@ import time
 
 LOG_DIR = Path('/var/log/brrdfeeder')
 CREDS = Path('/etc/brrdfeeder/secrets/brrdfeeder.creds')
+SYS_NET = Path('/sys/class/net')
 ENDPOINTS = [('ingest.cybrrd.com', 4222), ('hospitality.cybrrd.com', 443),
              ('ghcr.io', 443), ('globe.cybrrd.com', 443)]
 ANSI = re.compile(r'\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\x1b[@-_]')
@@ -173,6 +178,7 @@ class Redactor:
     def __init__(self):
         self.known = {}
         self.nats = False
+        self.legacy_network = False
 
     def remember(self, kind, value):
         if value:
@@ -189,6 +195,22 @@ class Redactor:
             value = value.replace(secret, self.known[secret])
         lines = []
         for line in value.split('\n'):
+            # Old installer logs contained whole-host iw/ip inventories. Drop
+            # those sections when exporting a bundle, including SSID/channel/MAC.
+            if re.match(r'^(?:net|route|phys|wireless_devices)=', line):
+                self.legacy_network = True
+                lines.append('[REDACTED:unscoped-network-inventory]')
+                continue
+            if self.legacy_network:
+                if re.match(r'^(?:[a-z_]+=|====|\d{4}-\d\d-\d\dT)', line):
+                    self.legacy_network = False
+                else:
+                    continue
+            # Also cover a truncated old inventory or an incidental tool error.
+            if re.search(r'(?i)\b(?:ssid|essid|bssid)\b\s*[:= ]', line):
+                lines.append('[REDACTED:wireless-network-name]')
+                continue
+            line = re.sub(r'(?i)\b[0-9a-f]{2}(?::[0-9a-f]{2}){5}\b', '[REDACTED:mac-address]', line)
             if re.search(r'-+BEGIN (?:NATS USER JWT|USER NKEY SEED)-+', line):
                 self.nats = True
             if self.nats:
@@ -300,14 +322,53 @@ def reachability():
     return '\n'.join(lines)
 
 
+def designated_capture():
+    """Fail-closed stdlib projection of the installer's literal interface key.
+
+    No YAML evaluator/dependency during bootstrap. Complex/duplicate mappings
+    omit wireless diagnostics. A config entry alone cannot claim built-in Wi-Fi:
+    the sysfs device ancestry must also establish a USB adapter.
+    """
+    try:
+        source = read_text('/etc/brrdfeeder/config.yaml')
+        in_capture, interfaces = False, []
+        for line in source.splitlines():
+            if line and not line[0].isspace() and not line.startswith('#'):
+                in_capture = bool(re.fullmatch(r'capture:\s*(?:#.*)?', line))
+            elif in_capture:
+                match = re.fullmatch(r'''  interface:\s*(["']?)([A-Za-z0-9_][A-Za-z0-9_.:-]{0,14})\1\s*(?:#.*)?''', line)
+                if match:
+                    interfaces.append(match[2])
+        if len(interfaces) != 1:
+            return None
+        iface = interfaces[0]
+        device = (SYS_NET/iface/'device').resolve(strict=True)
+        for parent in [device, *device.parents]:
+            try:
+                vendor = read_text(parent/'idVendor', 32).strip()
+                product = read_text(parent/'idProduct', 32).strip()
+            except OSError:
+                continue
+            if re.fullmatch(r'[0-9a-fA-F]{4}', vendor) and re.fullmatch(r'[0-9a-fA-F]{4}', product):
+                return iface
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def environment(probe=False):
     result = [f'collected={now()}', f'host={os.uname().nodename}', f'uid={os.geteuid()}']
     commands = [('uname', ['uname', '-a']), ('kernel', ['uname', '-r']), ('arch', ['uname', '-m']),
                 ('memory', ['free', '-m']), ('disk', ['df', '-h']),
                 ('podman', ['podman', '--version']),
-                ('clock', ['timedatectl']), ('usb', ['lsusb']),
-                ('net', ['ip', '-brief', 'address']), ('route', ['ip', 'route']),
-                ('phys', ['iw', 'phy']), ('wireless_devices', ['iw', 'dev'])]
+                ('clock', ['timedatectl']), ('usb', ['lsusb'])]
+    iface = designated_capture()
+    if iface:
+        commands += [('capture_address', ['ip', '-brief', 'address', 'show', 'dev', iface]),
+                     ('capture_route', ['ip', 'route', 'show', 'dev', iface]),
+                     ('capture_wireless', ['iw', 'dev', iface, 'info'])]
+    else:
+        result.append('capture_wireless=omitted (no verified configured USB capture adapter)')
     for label, path in [('os', '/etc/os-release'), ('uptime_s', '/proc/uptime'),
                         ('board', '/proc/device-tree/model'), ('cpu', '/proc/cpuinfo'),
                         ('dns_resolver', '/etc/resolv.conf')]:
@@ -340,8 +401,8 @@ class Log:
             self.safe_parent(self.path.parent)
             self.fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o640)
             os.fchmod(self.fd, 0o640)
-        except OSError:
-            self.fallback()
+        except OSError as exc:
+            self.fallback(exc)
         if mode != 'dryrun' and self.path.parent == LOG_DIR:
             try:
                 latest = LOG_DIR/'install-latest.log'
@@ -361,11 +422,26 @@ class Log:
             if part.exists():
                 info = part.stat()
                 sticky_root = info.st_uid == 0 and info.st_mode & stat.S_ISVTX
-                if info.st_uid not in (0, os.geteuid()) or (info.st_mode & 0o022 and not sticky_root):
-                    raise OSError('unsafe log parent')
+                # Ubuntu uses root:syslog 0775 for /var/log. Trust only that
+                # named system logging group, at this exact system ancestor;
+                # never extend the exception to the product dir or overrides.
+                system_log_parent = False
+                if part == Path('/var/log') and os.geteuid() == 0 and info.st_uid == 0 and info.st_mode & 0o7777 == 0o775:
+                    try:
+                        system_log_parent = info.st_gid == grp.getgrnam('syslog').gr_gid
+                    except KeyError:
+                        pass
+                if info.st_uid not in (0, os.geteuid()) or (info.st_mode & 0o022 and not sticky_root and not system_log_parent):
+                    raise OSError(f'unsafe log parent {part} (mode {info.st_mode & 0o7777:04o}, uid {info.st_uid}, gid {info.st_gid})')
         parent.mkdir(mode=0o750, parents=True, exist_ok=True)
+        if parent == LOG_DIR and os.geteuid() == 0:
+            os.chown(parent, 0, 0, follow_symlinks=False)
+            parent.chmod(0o750)
+            info = parent.stat()
+            if (info.st_uid, info.st_gid, info.st_mode & 0o7777) != (0, 0, 0o750):
+                raise OSError('product log directory must be 0750 root:root')
 
-    def fallback(self):
+    def fallback(self, reason):
         try:
             self.fd, path = tempfile.mkstemp(prefix=f'brrdfeeder-{self.mode}-{self.run_id}-', suffix='.log', dir='/tmp')
             self.path = Path(path)
@@ -374,8 +450,15 @@ class Log:
             self.fd = None
             self.path = Path('/tmp/LOG-UNAVAILABLE')
         if not self.warned:
-            print(f'[brrdfeeder-install] logging degraded to {self.path}' +
-                  (' (no writable log file; retain terminal output)' if self.fd is None else ''), flush=True)
+            detail = Redactor().text(str(reason)).replace('\n', ' ')[:500]
+            message = f'[brrdfeeder-install] logging degraded to {self.path}: {detail}' + \
+                      (' (no writable log file; retain terminal output)' if self.fd is None else '')
+            print(message, flush=True)
+            if self.fd is not None:
+                try:
+                    os.write(self.fd, (message+'\n').encode())
+                except OSError:
+                    pass
             self.warned = True
 
     def write(self, safe):
@@ -386,9 +469,9 @@ class Log:
             data = safe.encode('utf-8', 'replace')
             while data:
                 data = data[os.write(self.fd, data):]
-        except OSError:
+        except OSError as exc:
             os.close(self.fd)
-            self.fallback()
+            self.fallback(exc)
             if self.fd is not None:
                 try:
                     os.write(self.fd, ''.join(self.history).encode())
@@ -406,6 +489,7 @@ def bundle(run_id, redactor):
                 'caps=newest 10 install logs; 500 journal/container lines; 48 KiB per member']
     def add(name, raw):
         redactor.nats = False
+        redactor.legacy_network = False
         safe = redactor.text(raw).encode('utf-8')
         if len(safe) > 49152:
             safe = safe[-49000:]
@@ -641,12 +725,18 @@ def wait_engine(context, progress, timeout=60):
     return result
 
 
+# Canonical user-facing update status. Switch only when automatic updates ship.
+SELF_UPDATE_STATUS = ('Self-Update is installed but not yet active — this version does not update itself. '
+                      'To move to a newer release today: sudo brrdfeeder uninstall, then run the install command again '
+                      '(you will link the sensor to your account again).')
+
+
 def final_install_screen(context, readiness, log_path, run_id):
     title = ('BRRDfeeder is installed and running.' if readiness['running'] else
              'BRRDfeeder is installed. Engine startup is still waiting for GPS.')
     return '\n'.join([title, 'Node ID: '+context['node_id'], 'Console: '+context['console_url'],
                       *(key+': '+readiness['states'][key] for key in SYSTEMS),
-                      'Self-Update checks signed updates automatically and restores the previous version if an update fails its health checks.',
+                      SELF_UPDATE_STATUS,
                       'Status: sudo brrdfeeder status', 'Support: sudo brrdfeeder support-bundle',
                       'Uninstall: sudo brrdfeeder uninstall', f'Log: {log_path}  (run {run_id})'])
 
@@ -724,7 +814,7 @@ def supervise(script, args):
                     display_fd = terminal.fileno()
                     stack.enter_context(contextlib.redirect_stdout(terminal))
             except OSError:
-                pass  # No display: child keeps the manual-creds fallback.
+                pass  # No TTY: link and code remain visible on stdout.
         progress = Progress()
         stack.callback(progress.close)
         return _supervise(script, args, display_fd, tty_fd, progress)
@@ -744,7 +834,9 @@ def _supervise(script, args, display_fd, tty_fd, progress):
     if args == ['--support-bundle']:
         return bundle(run_id, redactor)
     mode = 'dryrun' if '--dry-run' in args else 'uninstall' if '--uninstall' in args else 'verify' if '--verify' in args or '--status' in args else 'install'
-    quiet = '--no-verbose' in args and (mode == 'install' or '--uninstall' in args)
+    # Ordinary removal is compact even when invoked through the local command
+    # without bootstrap flags. Dry-run still displays its full validated plan.
+    quiet = mode == 'uninstall' or ('--no-verbose' in args and mode == 'install')
     progress.start('Installing BRRDfeeder (usually about 2–5 min; downloads can take longer)' if mode == 'install'
                    else 'Preparing '+('removal' if '--uninstall' in args else mode)+' and collecting diagnostics')
     override = next((a.split('=', 1)[1] for a in args if a.startswith('--audit-log=')), '')
@@ -851,6 +943,12 @@ def _supervise(script, args, display_fd, tty_fd, progress):
                 safe = redactor.text(payload)
                 progress.notice(safe)
                 log.write(f'{now()} [INFO]  {safe}\n')
+            elif kind == 'DETAIL':
+                detail = base64.b64decode(payload).decode('utf-8', 'replace')
+                log.write(f'{now()} [DETAIL] {redactor.text(detail)}\n')
+            elif kind == 'UPDATE_STATUS':
+                progress.notice(SELF_UPDATE_STATUS)
+                log.write(f'{now()} [INFO]  {SELF_UPDATE_STATUS}\n')
             elif kind == 'INSTALL_CONTEXT' and mode == 'install':
                 try:
                     value = json.loads(payload)
@@ -976,7 +1074,12 @@ fi
 # These are action-level commands. Read-only predicates/captured queries remain
 # ordinary shell code; their visible output is still captured by the supervisor.
 LOG_PHASE=pre-flight
-log_event() { printf '\036%s\t%s\t%s\n' "$BRRDFEEDER_LOG_TOKEN" "$1" "$2"; }
+log_event() {
+  local payload=$2
+  # A diagnostic may contain newlines. Keep the entire record log-only.
+  if [[ $1 == DETAIL ]]; then payload=$(printf '%s' "$payload" | base64 -w0); fi
+  printf '\036%s\t%s\t%s\n' "$BRRDFEEDER_LOG_TOKEN" "$1" "$payload"
+}
 log_secret() {
   local encoded
   encoded=$(printf '%s' "$2" | base64 -w0)
@@ -1918,6 +2021,16 @@ stop_unit() {
     log "$unit: generated; removal of Quadlet + daemon-reload revokes WantedBy"
   else manager "$scope" disable "$unit" || die "cannot disable $unit"; fi
 }
+reset_failed_unit() {
+  local scope=$1 unit=$2
+  if (( dry )); then log "WOULD reset-failed $scope unit $unit if failed"; return; fi
+  if [[ $scope == user && ( -z ${uid[brrdhouse]:-} || ! -S /run/user/${uid[brrdhouse]}/bus ) ]]; then return; fi
+  # A removed unit can remain not-found/failed. Query failure state rather than
+  # LoadState; never reset unrelated units or treat an absent healthy unit as an error.
+  if manager "$scope" is-failed --quiet "$unit"; then
+    act manager "$scope" reset-failed "$unit" || die "cannot clear failed state for $unit"
+  fi
+}
 confirm_removal
 progress_phase 'Stopping services'
 stop_unit system brrdfeeder-release-poll.timer
@@ -1955,11 +2068,14 @@ remove_file() {
 progress_phase 'Removing service definitions'
 for file in /etc/systemd/system/brrdfeeder-updater.path /etc/systemd/system/brrdfeeder-updater.service /etc/containers/systemd/brrdfeeder-engine.container /etc/systemd/system/brrdfeeder-release-poll.timer /etc/systemd/system/brrdfeeder-release-poll.service /etc/systemd/system/brrdfeeder-release-recover.service /etc/systemd/system/brrdfeeder-host-update.service /etc/systemd/system/brrdfeeder-host-update.timer; do remove_file "$file"; done
 for file in "${console_links[@]}"; do remove_file "$file"; done
+for file in /etc/systemd/system/brrdfeeder-gps-runtime.timer /etc/systemd/system/brrdfeeder-gps-runtime.service; do remove_file "$file"; done
 [[ ${#console_links[@]} -gt 0 ]] || absent '/etc/containers/systemd/users/<console-uid>/brrdhouse.container'
 remove_file /etc/brrdfeeder/brrdhouse.container
 act systemctl daemon-reload
 if [[ -n ${uid[brrdhouse]:-} && -S /run/user/${uid[brrdhouse]}/bus ]]; then act user_command systemctl --user daemon-reload;
 else log 'nothing to do: no active console user manager to reload; teardown order requires Quadlet removal before account deletion'; fi
+for unit in brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.timer brrdfeeder-host-update.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-engine.service brrdfeeder-gps-runtime.timer brrdfeeder-gps-runtime.service; do reset_failed_unit system "$unit"; done
+reset_failed_unit user brrdhouse.service
 
 # Only package containers and exclusive package image IDs. Never force rmi/prune.
 pod() {
@@ -2072,11 +2188,14 @@ for file in "${files[@]}"; do
   remove_file "$file"
 done
 if (( had_udev )); then
+  # Remove old names BEFORE triggering remaining rules. Local rules may own the
+  # same aliases; let udev reassert them and never delete them after that point.
+  for device in /dev/cybrrd_gps /dev/cybrrd_ble; do remove_file "$device"; done
   act udevadm control --reload-rules
   act udevadm trigger --subsystem-match=tty --action=change
   act udevadm trigger --subsystem-match=misc --sysname-match=rfkill --action=change
+  act udevadm settle --timeout=10
 else absent 'package udev rule; no reload required'; fi
-for device in /dev/cybrrd_gps /dev/cybrrd_ble; do remove_file "$device"; done
 (( ! had_chrony )) || act systemctl try-restart chrony.service
 (( ! had_journal )) || act systemctl try-restart systemd-journald.service
 
@@ -2309,6 +2428,30 @@ if [[ $DRY_RUN -eq 0 && $VERIFY_ONLY -eq 0 ]]; then
 fi
 
 # Never resolve a registry tag here, and never use re-install as an update path.
+retained_engine_version() {
+  command -v python3 >/dev/null || return 0
+  python3 - "$1" <<'RETAINED_ENGINE_VERSION_PY'
+import json, os, re, stat, sys
+try:
+    fd = os.open('/var/lib/brrdfeeder-status/status.json', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'r') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 1048576:
+            raise ValueError('invalid status file')
+        record = json.load(stream)
+    heartbeat = record.get('heartbeat', {})
+    version = heartbeat.get('product_version', '')
+    # Last-reported version is useful only for the exact image being retained.
+    # No registry query, guessed version, or workload invocation.
+    if (record.get('schema_version') == 1 and heartbeat.get('image_digest') == sys.argv[1].split('@')[-1]
+            and isinstance(version, str) and len(version) <= 64
+            and re.fullmatch(r'\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', version)):
+        print(version)
+except (OSError, ValueError, TypeError, AttributeError):
+    pass
+RETAINED_ENGINE_VERSION_PY
+}
+
 valid_image_pin() {
   local repository=${2:-$IMAGE_REPOSITORY}
   [[ $1 == "$repository"@sha256:* && ${1#"$repository"@sha256:} =~ ^[a-f0-9]{64}$ ]]
@@ -2320,7 +2463,14 @@ if [[ -f "$QUADLET_FILE" ]]; then
   # A newer one-liner repairs host setup with the installed workload pins.
   # Explicit direct-installer digest changes still belong to the signed updater.
   [[ -z "$REQUESTED_IMAGE" || "$REQUESTED_IMAGE" == "$INSTALLED_IMAGE" || $BOOT_PREPARE -eq 1 ]] || fatal "Refusing to replace the installed digest: updates belong to the signed release poller. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
-  if [[ $BOOT_PREPARE -eq 1 && "$REQUESTED_IMAGE" != "$INSTALLED_IMAGE" ]]; then say 'Repairing host setup; retaining the installed engine digest for signed Self-Update.'; fi
+  if [[ ${VERIFY_ONLY:-0} -eq 0 ]]; then
+    RETAINED_ENGINE_VERSION=$(retained_engine_version "$INSTALLED_IMAGE")
+    if [[ -n "$RETAINED_ENGINE_VERSION" ]]; then
+      say "Engine was NOT updated; version $RETAINED_ENGINE_VERSION remains installed (last reported by this image). This run repairs host setup only."
+    else
+      say 'Engine was NOT updated; the installed image is unchanged. Its version is unavailable from matching local status; check the console when it is reporting.'
+    fi
+  fi
   CONTAINER_IMAGE=$INSTALLED_IMAGE
 fi
 valid_image_pin "$CONTAINER_IMAGE" || fatal "Fresh install requires --image ${IMAGE_REPOSITORY}@sha256:<approved-release-digest>; tags are not accepted."
@@ -2535,14 +2685,7 @@ fi
 # ZITADEL_DEVICE_FLOW_HOOK — implemented 2026-06-10 (Option A exchange).
 # Flow: device_authorization → user approves in browser → poll token
 # endpoint → exchange access_token at flock for scoped NATS .creds.
-# Manual scp remains the fallback if flock v0 is not yet deployed or the
-# install is non-interactive.
-
-enrollment_display_available() {
-  # The supervisor relays output and preserves a real terminal fd across setsid.
-  # Check the descriptor, not a boolean inherited from the caller's environment.
-  [[ -t 1 ]] || { [[ ${BRRDFEEDER_DISPLAY_FD:-} =~ ^[0-9]+$ ]] && [[ -t $BRRDFEEDER_DISPLAY_FD ]]; }
-}
+# Manual scp remains a fallback. Approval needs a browser, not terminal input.
 
 manual_creds_instructions() {
   warn "Manual provisioning fallback:"
@@ -2564,11 +2707,21 @@ zitadel_device_flow() {
   local B="" Y="" G="" R=""
   if [[ -t 1 ]]; then B=$'\033[1m'; Y=$'\033[1;33m'; G=$'\033[1;32m'; R=$'\033[0m'; fi
 
-  gate enrollment "Zitadel Device Flow — binding this feeder to your cyBRRD account"
+  gate enrollment "Linking to your cyBRRD account"
+  log_event DETAIL 'Zitadel OAuth Device Flow enrollment'
+  local attempt last_outcome="" access_token="" refresh_token=""
+  poll_outcome() {
+    if [[ $last_outcome != "$1" ]]; then
+      log_event DETAIL "device-flow outcome=$1 attempt=$attempt"
+      last_outcome=$1
+    fi
+  }
+  for attempt in 1 2 3; do
+  access_token=""; refresh_token=""; last_outcome=""
 
   # ---- Step 1: request device authorization --------------------------
   local auth_resp
-  auth_resp=$(curl -sf -X POST "${OAUTH_ISSUER}/oauth/v2/device_authorization" \
+  auth_resp=$(curl -sf --connect-timeout 15 --max-time 30 -X POST "${OAUTH_ISSUER}/oauth/v2/device_authorization" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     --data-urlencode "client_id=${OAUTH_CLIENT_ID}" \
     --data-urlencode "scope=${OAUTH_SCOPE}") \
@@ -2576,12 +2729,15 @@ zitadel_device_flow() {
 
   local device_code user_code verification_uri_complete expires_in interval
   device_code=$(jq -re '.device_code' <<<"$auth_resp")                         || { warn "bad device_authorization response"; _restore_xtrace; return 1; }
-  user_code=$(jq -re '.user_code' <<<"$auth_resp")
+  user_code=$(jq -re '.user_code' <<<"$auth_resp") || { warn 'Account linking returned an incomplete code.'; _restore_xtrace; return 1; }
   log_secret device-code "$device_code"
   log_secret device-code "$user_code"
-  verification_uri_complete=$(jq -re '.verification_uri_complete // .verification_uri' <<<"$auth_resp")
+  verification_uri_complete=$(jq -re '.verification_uri_complete // .verification_uri' <<<"$auth_resp") || { warn 'Account linking returned no approval link.'; _restore_xtrace; return 1; }
   expires_in=$(jq -re '.expires_in // 300' <<<"$auth_resp")
   interval=$(jq -re '.interval // 5' <<<"$auth_resp")
+  if [[ ! $expires_in =~ ^[1-9][0-9]{0,4}$ || ! $interval =~ ^(0|[1-9][0-9]{0,3})$ ]]; then
+    warn 'Account linking returned an invalid time limit.'; _restore_xtrace; return 1
+  fi
 
   # ---- Step 2: prompt the operator (BIG, unmissable, install is PAUSED) -
   printf '\n\n'
@@ -2599,21 +2755,22 @@ zitadel_device_flow() {
   echo "        (This binds the feeder to you + your leaderboard score.)"
   echo
   echo "     The install will continue ${G}automatically${R} the moment you approve."
-  echo "     No need to come back to this screen. Code expires in $((expires_in / 60)) min."
+  echo "     Code $attempt of 3: $expires_in seconds remaining. Expired codes refresh here automatically."
   echo
-  printf '     Waiting for your approval'
 
   # ---- Step 3: poll the token endpoint (quiet spinner, no trace) ------
   local deadline=$(( $(date +%s) + expires_in ))
-  local token_resp http_code body err access_token refresh_token
+  local token_resp http_code body err remaining wait_seconds
   while true; do
-    if (( $(date +%s) >= deadline )); then
-      echo; warn "device code expired before approval — re-run the script for a fresh code"
-      _restore_xtrace; return 1
-    fi
-    run sleep "$interval"
+    remaining=$((deadline - $(date +%s)))
+    (( remaining > 0 )) || break
+    printf '     Waiting for your approval — %s seconds remaining.\n' "$remaining"
+    wait_seconds=$interval
+    (( wait_seconds <= remaining )) || wait_seconds=$remaining
+    sleep "$wait_seconds"
+    (( $(date +%s) < deadline )) || break
 
-    token_resp=$(curl -s -w '\n%{http_code}' -X POST "${OAUTH_ISSUER}/oauth/v2/token" \
+    token_resp=$(curl -s --connect-timeout 15 --max-time 30 -w '\n%{http_code}' -X POST "${OAUTH_ISSUER}/oauth/v2/token" \
       -H "Content-Type: application/x-www-form-urlencoded" \
       --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
       --data-urlencode "device_code=${device_code}" \
@@ -2622,8 +2779,11 @@ zitadel_device_flow() {
     body=$(sed '$d' <<<"$token_resp")
 
     if [[ "$http_code" == "200" ]]; then
-      access_token=$(jq -re '.access_token' <<<"$body") || { echo; warn "token response missing access_token"; _restore_xtrace; return 1; }
+      access_token=$(jq -re '.access_token' <<<"$body") || { poll_outcome exchange-failed; warn "Account linking returned no access token."; _restore_xtrace; return 1; }
       refresh_token=$(jq -r '.refresh_token // empty' <<<"$body")
+      log_secret access-token "$access_token"
+      [[ -z $refresh_token ]] || log_secret refresh-token "$refresh_token"
+      poll_outcome approved
       printf '\n\n'
       echo "  ${G}${B}✓ Approved — thank you. Continuing the install…${R}"
       echo
@@ -2632,19 +2792,29 @@ zitadel_device_flow() {
 
     err=$(jq -r '.error // "unknown_error"' <<<"$body" 2>/dev/null || echo "unparseable")
     case "$err" in
-      authorization_pending) printf '.' ;;                       # quiet progress
-      slow_down)             interval=$(( interval + 5 )) ;;     # RFC 8628 §3.5
-      expired_token)         echo; warn "code expired — re-run for a fresh one"; _restore_xtrace; return 1 ;;
-      access_denied)         echo; warn "authorization DENIED in the browser"; _restore_xtrace; return 1 ;;
-      *)                     echo; warn "token endpoint error: $err"; _restore_xtrace; return 1 ;;
+      authorization_pending) poll_outcome pending ;;
+      slow_down)             poll_outcome slow_down; interval=$(( interval + 5 )) ;; # RFC 8628 §3.5
+      expired_token)         break ;;
+      access_denied)         poll_outcome denied; warn "Account linking was declined in the browser."; _restore_xtrace; return 1 ;;
+      *)                     poll_outcome poll-failed; warn "Could not check account approval. Check your connection and retry."; _restore_xtrace; return 1 ;;
     esac
+  done
+  [[ -z $access_token ]] || break
+  poll_outcome expired
+  if (( attempt < 3 )); then
+    say 'That code expired. Getting a fresh code here — no need to restart the install.'
+  else
+    warn 'All three codes expired. Re-run from a terminal when you are ready to approve in your browser.'
+    _restore_xtrace; return 1
+  fi
   done
 
   # ---- Step 4/5: Option A exchange — access_token → NATS .creds -------
-  gate enrollment "Exchanging token at flock for NATS credentials"
+  gate enrollment "Finishing account linking"
+  log_event DETAIL 'Exchanging access token at flock for scoped NATS credentials'
   local creds_resp creds_code creds_body hdrs
   hdrs=$(mktemp)
-  creds_resp=$(curl -s -D "$hdrs" -w '\n%{http_code}' -X POST "$FLOCK_ENROLL_URL" \
+  creds_resp=$(curl -s --connect-timeout 15 --max-time 30 -D "$hdrs" -w '\n%{http_code}' -X POST "$FLOCK_ENROLL_URL" \
     -H "Authorization: Bearer ${access_token}" \
     -H "Content-Type: application/json" \
     -d "{\"node_hostname\":\"$(hostname)\"}") || true
@@ -2652,13 +2822,15 @@ zitadel_device_flow() {
   creds_body=$(sed '$d' <<<"$creds_resp")
 
   if [[ "$creds_code" != "200" ]]; then
-    warn "flock enrollment endpoint returned HTTP ${creds_code:-none} — flock v0 may not be deployed yet"
+    poll_outcome exchange-failed
+    warn "Account approval succeeded, but the feeder could not finish linking. Please retry."
     run rm -f "$hdrs"; _restore_xtrace; return 1
   fi
 
   # Expect the raw .creds file body (-----BEGIN NATS USER JWT----- ...)
   if ! grep -q "BEGIN NATS USER JWT" <<<"$creds_body"; then
-    warn "flock response does not look like a NATS .creds file"
+    poll_outcome exchange-failed
+    warn "Account approval succeeded, but the returned feeder credentials were invalid. Please retry."
     run rm -f "$hdrs"; _restore_xtrace; return 1
   fi
 
@@ -2687,17 +2859,13 @@ zitadel_device_flow() {
 
 if [[ ! -f "$CREDS_PATH" ]]; then
   if [[ $DRY_RUN -eq 1 ]]; then
-    say "[dry-run] would run Zitadel Device Flow enrollment"
-  elif enrollment_display_available; then
-    if ! zitadel_device_flow; then
-      warn "Device Flow enrollment did not complete."
-      manual_creds_instructions
-      fatal "creds required — enroll (re-run) or provision manually, then re-run."
-    fi
+    say "[dry-run] would link this feeder to your cyBRRD account"
   else
-    warn "NATS creds not found and no visible terminal for Device Flow."
-    manual_creds_instructions
-    fatal "creds required — provision and re-run."
+    if ! zitadel_device_flow; then
+      warn "Account linking did not complete."
+      manual_creds_instructions
+      fatal "Credentials required — re-run from a terminal to link your account, or provision manually and re-run."
+    fi
   fi
 fi
 run chmod 0640 "$CREDS_PATH"
@@ -2801,13 +2969,13 @@ if [[ $VERIFY_ONLY -eq 1 ]]; then
   systemctl is-active chrony >/dev/null 2>&1 && ok "chrony ACTIVE" || warn "chrony NOT active"
   VSC="$(get_storage_class "$CONFIG_PATH")"
   [[ -z "$VSC" ]] && VSC="(unset, defaults persistent)"
-  say "config node.storage_class = $VSC"
+  log_event DETAIL "config node.storage_class = $VSC"
   if [[ -f "$JOURNALD_DROPIN" ]]; then
     ok "journald drop-in present (BRRDfeeder hardening installed)"
   elif [[ -f "$JOURNALD_DROPIN_LEGACY" ]]; then
     warn "legacy journald drop-in present — re-run the installer to migrate it to $JOURNALD_DROPIN"
   else
-    say "journald drop-in absent (persistent storage_class — disk journal)"
+    say "System logs are kept on disk."
   fi
   systemctl is-active brrdfeeder-engine.service >/dev/null 2>&1 \
     && ok "brrdfeeder-engine.service is ACTIVE" \
@@ -2900,7 +3068,8 @@ fi
 # ----------------------------------------------------------------------
 # Step 1b — immutable image pull, BEFORE writing/activating the deployment
 # ----------------------------------------------------------------------
-gate images "Immutable image preflight (inspect-and-assert; no signature claim)"
+gate images "Checking the downloaded images match the approved versions"
+log_event DETAIL 'Immutable image preflight: inspect-and-assert; no signature claim'
 if [[ $DRY_RUN -eq 1 ]]; then
   say "[dry-run] would pull if absent and assert RepoDigests contains $CONTAINER_IMAGE"
 else
@@ -2913,7 +3082,8 @@ else
     || fatal "Cannot inspect the pinned image; deployment not changed."
   printf '%s\n' "$IMAGE_REPO_DIGESTS" | grep -qxF "$CONTAINER_IMAGE" \
     || fatal "Pinned image RepoDigests mismatch; deployment not changed."
-  ok "image integrity bound to installer/operator-approved digest (NOT signature verified)"
+  ok "Downloaded engine image matches the approved version"
+  log_event DETAIL 'RepoDigests matches installer/operator-approved digest (NOT signature verified)'
 fi
 
 # ----------------------------------------------------------------------
@@ -2930,7 +3100,7 @@ console_run() {
 console_memory_policy() {
   CONSOLE_MEMORY_ARGS=""
   if [[ $DRY_RUN -eq 1 ]]; then
-    say "console_memory_limit=deferred reason=dry-run; would inspect the running console user's delegated cgroup"
+    log_event DETAIL "console_memory_limit=deferred reason=dry-run; would inspect the running console user's delegated cgroup"
     return
   fi
   local group controllers reason=delegation-unavailable
@@ -2943,13 +3113,13 @@ console_memory_policy() {
         reason=delegation-not-writable
         if console_run test -w "/sys/fs/cgroup$group/cgroup.subtree_control"; then
           CONSOLE_MEMORY_ARGS=" --memory=96m --memory-swap=96m"
-          say "console_memory_limit=96m reason=memory-delegated cgroup=$group"
+          log_event DETAIL "console_memory_limit=96m reason=memory-delegated cgroup=$group"
           return
         fi
       fi
     fi
   fi
-  warn "console_memory_limit=omitted reason=$reason cgroup=${group:-unknown}; console has no memory cap; other hardening is retained"
+  log_event DETAIL "console_memory_limit=omitted reason=$reason cgroup=${group:-unknown}; console has no memory cap; other hardening is retained"
 }
 
 if [[ $DRY_RUN -eq 1 ]]; then
@@ -3038,12 +3208,14 @@ fi
 install -d -m 0755 -o "$service_uid" -g "$service_gid" "$directory"
 [[ $(stat -c '%u:%g:%a' "$directory") == "$service_uid:$service_gid:755" ]] || fail 'Directory ownership/mode verification failed.'
 printf 'Provisioned %s owner=%s:%s mode=0755; engine RW, console RO.\n' "$directory" "$service_uid" "$service_gid"
-printf 'Next: follow README unit setup to mount it in the engine and enable node.status_file.\n'
+if [[ ${BRRDFEEDER_INSTALLER:-0} != 1 ]]; then
+  printf 'Next: follow README unit setup to mount it in the engine and enable node.status_file.\n'
+fi
 STATUS_PROVISIONER_EOF
   run chmod 0755 "$STATUS_PROVISIONER"
   run chown root:root "$STATUS_PROVISIONER"
-  "$STATUS_PROVISIONER"
-  say "Continuing the provisioner's mount/config steps automatically; no manual console setup is needed."
+  BRRDFEEDER_INSTALLER=1 "$STATUS_PROVISIONER"
+  say "Setting up the local console automatically."
   # Preserve all user settings except this package-owned status destination.
   run python3 - "$CONFIG_PATH" "$STATUS_DIR/status.json" <<'STATUS_CONFIG_PY'
 import os, pathlib, sys, tempfile, yaml
@@ -3193,11 +3365,11 @@ fi
 # ----------------------------------------------------------------------
 # Step 4 — BRRDfeeder MicroSD hardening (storage_class=ephemeral)
 # ----------------------------------------------------------------------
-gate storage "Step 4 — BRRDfeeder hardware protection (storage_class)"
+gate storage "Step 4 — protecting the storage device"
 
 STORAGE_CLASS="$(get_storage_class "$CONFIG_PATH")"
 [[ -z "$STORAGE_CLASS" ]] && STORAGE_CLASS="persistent"
-say "config-declared node.storage_class=$STORAGE_CLASS"
+log_event DETAIL "config-declared node.storage_class=$STORAGE_CLASS"
 
 if [[ "$STORAGE_CLASS" == "ephemeral" ]]; then
   JOURNALD_DROPIN_DIR="$(dirname "$JOURNALD_DROPIN")"
@@ -3253,7 +3425,7 @@ JEOF
   say "BRRDfeeder journald hardening active (engine logs land in RAM, NOT on SD)"
   say "Note: PCAP capture tmpfs is INSIDE the container (Tmpfs= directive in Quadlet)"
 else
-  ok "storage_class=$STORAGE_CLASS — skipping ephemeral hardening (persistent disk keeps journal)"
+  ok "Persistent storage: keeping system logs on disk"
 fi
 
 # ----------------------------------------------------------------------
@@ -4198,8 +4370,8 @@ RELEASE_CONFIG_PY
   "$UPDATE_HELPER" install --config "$UPDATE_STAGE/config.json"
   rm -f "$UPDATE_STAGE/brrdfeeder-release" "$UPDATE_STAGE/config.json"
   rmdir "$UPDATE_STAGE"
-  ok "Self-Update checks signed updates and restores the previous version if an update fails its health checks"
-  warn "Update notifications require server-side permissions and streams; this installer does not provision them."
+  log_event UPDATE_STATUS ''
+  log_event DETAIL "Update notifications require server-side permissions and streams; this installer does not provision them."
 fi
 
 # ----------------------------------------------------------------------

@@ -28,7 +28,7 @@ class Package(unittest.TestCase):
     def test_shipped_provisioner_is_embedded_byte_for_byte(self):
         self.assertEqual(heredoc('STATUS_PROVISIONER_EOF') + '\n',
                          (ROOT / 'Component/brrdhouse/deploy/provision-status.sh').read_text())
-        self.assertIn('\n  "$STATUS_PROVISIONER"\n', TEXT)
+        self.assertIn('\n  BRRDFEEDER_INSTALLER=1 "$STATUS_PROVISIONER"\n', TEXT)
 
     def test_identity_helper_unchanged(self):
         self.assertEqual(heredoc('IDENTITY_SH_EOF') + '\n',

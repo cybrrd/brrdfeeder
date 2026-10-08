@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 """No privileges/network: redaction and supervisor contract with bounded stubs."""
 import contextlib
+import grp
 import importlib.util
 import io
 import os
@@ -13,6 +14,7 @@ import tempfile
 import tarfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 ROOT=Path(__file__).resolve().parents[5]
 INSTALL=ROOT/'Component/brrdfeeder/install'
@@ -21,6 +23,106 @@ log=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(log)
 
 class Contract(unittest.TestCase):
+    def test_single_update_status_uses_approved_uninstall_reinstall_and_relink_wording(self):
+        self.assertEqual(log.SELF_UPDATE_STATUS,
+            'Self-Update is installed but not yet active — this version does not update itself. '
+            'To move to a newer release today: sudo brrdfeeder uninstall, then run the install command again '
+            '(you will link the sensor to your account again).')
+
+    def test_new_log_does_not_persist_legacy_wireless_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script=Path(directory)/'fixture.sh'; script.write_text('exit 0\n')
+            private='PRIVATE-HOME-SSID-DO-NOT-RECORD'
+            raw='wireless_devices= rc=0 dur=0.1s\n\tInterface wlan0\n\t\tssid '+private+'\npower=unavailable\n'
+            with patch.object(log,'LOG_DIR',Path(directory)/'logs'), patch.object(log,'environment',return_value=raw), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(log.supervise(str(script),[]),0)
+            saved=next((Path(directory)/'logs').glob('install-*.log')).read_text()
+            self.assertNotIn(private,saved)
+            self.assertNotIn('Interface wlan0',saved)
+            self.assertIn('result=OK',saved)
+
+    def test_only_configured_usb_capture_adapter_is_queried(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder); sysnet=root/'net'; sysnet.mkdir()
+            usb=root/'usb'; usb.mkdir(); (usb/'idVendor').write_text('0e8d'); (usb/'idProduct').write_text('7612')
+            builtin=root/'sdio'; builtin.mkdir()
+            for name,device in [('wlan1',usb),('wlan0',builtin)]:
+                (sysnet/name).mkdir(); (sysnet/name/'device').symlink_to(device)
+            real=log.read_text
+            for iface in ['wlan1','wlan0']:
+                def read(path,*args,**kwargs):
+                    if str(path)=='/etc/brrdfeeder/config.yaml': return 'capture:\n  interface: '+iface+'\n'
+                    if Path(path).is_relative_to(root): return real(path,*args,**kwargs)
+                    return 'fixture'
+                with patch.object(log,'SYS_NET',sysnet), patch.object(log,'read_text',side_effect=read), \
+                     patch.object(log,'capture',return_value=(0,'fixture',0)) as capture, \
+                     patch.object(log,'power_check',return_value=('unavailable','','')):
+                    log.environment()
+                wireless=[c.args[0] for c in capture.call_args_list if c.args[0][0]=='iw']
+                self.assertEqual(wireless,[['iw','dev','wlan1','info']] if iface=='wlan1' else [])
+
+    def test_wireless_environment_never_collects_unscoped_interfaces(self):
+        private='PRIVATE-HOME-SSID-DO-NOT-RECORD'
+        commands=[]
+        def capture(args, **kwargs):
+            commands.append(args)
+            if args==['iw','dev']:
+                return 0,'phy#0\n\tInterface wlan0\n\t\taddr aa:bb:cc:dd:ee:ff\n\t\tssid '+private+'\n',0
+            return 0,'fixture',0
+        with patch.object(log,'capture',side_effect=capture), patch.object(log,'read_text',return_value='fixture'), patch.object(log,'power_check',return_value=('unavailable','','')):
+            raw=log.environment()
+        self.assertNotIn(private,raw)
+        for command in [['iw','dev'],['iw','phy'],['ip','-brief','address'],['ip','route']]:
+            self.assertNotIn(command,commands)
+
+    def test_legacy_wifi_private_values_never_enter_support_bundle(self):
+        private='PRIVATE-HOME-SSID-DO-NOT-RECORD'
+        legacy='mode=uninstall\nwireless_devices= rc=0 dur=0.1s\nphy#0\n\tInterface wlan0\n\t\taddr aa:bb:cc:dd:ee:ff\n\t\tssid '+private+'\n\t\tchannel 6 (2437 MHz)\npower=unavailable\nresult=OK\n'
+        safe=log.Redactor().text(legacy)
+        self.assertNotIn(private,safe)
+        self.assertNotIn('aa:bb:cc:dd:ee:ff',safe)
+        self.assertNotIn('channel 6',safe)
+        self.assertIn('result=OK',safe)
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder); (root/'uninstall-fixture.log').write_text(legacy)
+            actual=log.read_text
+            def read(path,*args,**kwargs):
+                if Path(path).is_relative_to(root): return actual(path,*args,**kwargs)
+                raise FileNotFoundError(str(path))
+            output=io.StringIO()
+            with patch.object(log,'LOG_DIR',root), patch.object(log,'read_text',side_effect=read), \
+                 patch.object(log,'environment',return_value='fixture'), patch.object(log,'reachability',return_value='fixture'), \
+                 patch.object(log,'power_check',return_value=('unavailable','','')), patch.object(log,'capture',return_value=(1,'fixture',0)), \
+                 patch.object(log.pwd,'getpwnam',side_effect=KeyError), contextlib.redirect_stdout(output):
+                self.assertEqual(log.bundle('11223344',log.Redactor()),0)
+            archive_path=Path(re.search(r'Support bundle: (\S+)',output.getvalue())[1])
+            try:
+                with tarfile.open(archive_path) as archive:
+                    for member in archive.getmembers():
+                        content=archive.extractfile(member).read().decode()
+                        self.assertNotIn(private,content)
+                        self.assertNotIn('aa:bb:cc:dd:ee:ff',content)
+            finally: archive_path.unlink()
+
+    def test_ubuntu_syslog_parent_is_accepted_without_relaxing_other_paths(self):
+        original_stat = Path.stat
+        def check(mode, uid=0, gid=104, path='/var/log'):
+            def info(item, *args, **kwargs):
+                if str(item) == path:
+                    return SimpleNamespace(st_mode=mode, st_uid=uid, st_gid=gid)
+                if str(item) in ('/', '/var', '/var/log'):
+                    return SimpleNamespace(st_mode=0o40755, st_uid=0, st_gid=0)
+                return original_stat(item, *args, **kwargs)
+            with patch.object(Path, 'stat', info), patch.object(Path, 'mkdir'), \
+                 patch.object(os, 'geteuid', return_value=0), \
+                 patch.object(grp, 'getgrnam', return_value=SimpleNamespace(gr_gid=104)):
+                log.Log.safe_parent(Path(path)/'fixture-log-parent')
+        check(0o40775)
+        for kwargs in ({'mode':0o40777}, {'mode':0o40775, 'uid':1000},
+                       {'mode':0o40775, 'gid':1000}, {'mode':0o40775, 'path':'/var'}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(OSError):
+                check(**kwargs)
+
     def test_embedded(self):
         source=(INSTALL/'brrdfeeder-install.sh').read_text()
         embedded=source.split("<<'INSTALL_LOG_PY'\n",1)[1].split('\nINSTALL_LOG_PY\n',1)[0]+'\n'
@@ -41,6 +143,21 @@ class Contract(unittest.TestCase):
         self.assertEqual(r.text('\x1b[31mhello\x1b[0m\x1b]0;title\x07'),'hello')
         self.assertIn('[REDACTED:token]',r.text('Authorization: Bearer token-value'))
         self.assertNotIn('a'*40,r.text('password: '+ 'a'*40))
+
+    def test_multiline_detail_is_log_only_and_redacted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script=Path(directory)/'fixture.sh'
+            script.write_text('set -eu\nsource '+str(INSTALL/'log-events.sh')+'\n'
+                              'log_secret device-code FIXTURE-CODE\n'
+                              "log_event DETAIL $'first\\nsecond FIXTURE-CODE'\n")
+            output=io.StringIO()
+            with patch.object(log,'LOG_DIR',Path(directory)/'logs'), patch.object(log,'environment',return_value='fixture=true'), contextlib.redirect_stdout(output):
+                self.assertEqual(log.supervise(str(script),[]),0)
+            text=next((Path(directory)/'logs').glob('install-*.log')).read_text()
+            self.assertIn('first\nsecond [REDACTED:device-code]',text)
+            self.assertNotIn('first',output.getvalue())
+            self.assertNotIn('second',output.getvalue())
+            self.assertNotIn('FIXTURE-CODE',text)
 
     def test_forced_failure_last_40_and_terminal(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -114,7 +231,9 @@ class Contract(unittest.TestCase):
             item.write('redacted diagnostic\n'); os.close(item.fd)
             self.assertTrue(str(item.path).startswith('/tmp/brrdfeeder-verify-11223344-'))
             self.assertEqual(output.getvalue().count('logging degraded'),1)
-            self.assertEqual(item.path.read_text(),'redacted diagnostic\n')
+            self.assertIn('read-only filesystem', output.getvalue())
+            self.assertIn('read-only filesystem', item.path.read_text())
+            self.assertTrue(item.path.read_text().endswith('redacted diagnostic\n'))
         finally:
             item.path.unlink()
 

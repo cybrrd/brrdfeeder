@@ -19,12 +19,13 @@ type status struct {
 	WrittenAt time.Time `json:"written_at"`
 	Interval  uint64    `json:"status_interval_secs"`
 	Heartbeat struct {
-		ProductVersion string `json:"product_version"`
-		Revision       string `json:"engine_version"`
-		Build          uint64 `json:"build_seq"`
-		Digest         string `json:"image_digest"`
-		Radio          string `json:"radio_status"`
-		ClockTrusted   *bool  `json:"os_clock_trusted"`
+		Memory         *memoryStatus `json:"memory"`
+		ProductVersion string        `json:"product_version"`
+		Revision       string        `json:"engine_version"`
+		Build          uint64        `json:"build_seq"`
+		Digest         string        `json:"image_digest"`
+		Radio          string        `json:"radio_status"`
+		ClockTrusted   *bool         `json:"os_clock_trusted"`
 	} `json:"heartbeat"`
 	Inventory struct {
 		Capture []struct {
@@ -67,8 +68,15 @@ type blockObservation struct {
 	Observed string `json:"observed_at"`
 }
 
+type memoryStatus struct {
+	EngineRSS  *uint64 `json:"engine_rss_bytes"`
+	ConsoleRSS *uint64 `json:"console_rss_bytes"`
+	Events     *uint64 `json:"memory_cap_events"`
+}
+
 type repair struct{ Problem, Action string }
 type view struct {
+	Memory                               *memoryStatus
 	Live                                 bool
 	Reason                               string
 	Checked                              string
@@ -99,10 +107,16 @@ func sanitize(s string) string {
 }
 
 func readStatus(path string, now time.Time) view {
+	return readStatusWithMemory(path, now, readHostMemory("/run/brrdfeeder-memory/host.json", "/proc/sys/kernel/random/boot_id", "/proc/uptime"))
+}
+
+func readStatusWithMemory(path string, now time.Time, hostMemory *memoryStatus) view {
 	if v, present := readStartup(path, now); present {
+		v.Memory = hostMemory
+		memoryRepair(&v)
 		return v
 	}
-	v := view{Checked: now.UTC().Format(time.RFC3339), Reason: "The engine status file is missing or unreadable."}
+	v := view{Memory: hostMemory, Checked: now.UTC().Format(time.RFC3339), Reason: "The engine status file is missing or unreadable."}
 	// Reopen the path: the engine atomically renames new files into this directory.
 	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 	if err != nil {
@@ -166,8 +180,17 @@ func readStatus(path string, now time.Time) view {
 	s.Links.NATS, s.Links.Published, s.Links.LastFrame =
 		sanitize(s.Links.NATS), sanitize(s.Links.Published), sanitize(s.Links.LastFrame)
 	v.Live, v.Status = true, s
+	if v.Memory == nil {
+		v.Memory = s.Heartbeat.Memory
+	}
+	if v.Memory != nil && s.Heartbeat.Memory != nil {
+		memory := *v.Memory
+		memory.EngineRSS = s.Heartbeat.Memory.EngineRSS
+		v.Memory = &memory
+	}
 	v.Reason = "The engine is reporting current status."
 	add := func(problem, action string) { v.Repairs = append(v.Repairs, repair{problem, action}) }
+	memoryRepair(&v)
 	v.Radio = "Not confirmed"
 	switch s.Heartbeat.Radio {
 	case "up":
@@ -234,5 +257,6 @@ func readStatus(path string, now time.Time) view {
 
 func offline(v view) view {
 	v.Repairs = []repair{{"Engine offline or status unavailable.", "Check the unit's power and network. If this persists, ask your installer to check the engine and its status-file setup. This page cannot restart it."}}
+	memoryRepair(&v)
 	return v
 }

@@ -177,6 +177,7 @@ impl FrameActivity {
 
 #[derive(Debug, Clone, PartialEq)]
 struct Meaningful {
+    memory_cap_events: Option<u64>,
     radio: RadioStatus,
     nats: String,
     // GPS is currently the only error counter in the serialized schema.
@@ -196,6 +197,11 @@ struct Meaningful {
 impl StatusPayload<'_> {
     fn meaningful(&self) -> Meaningful {
         Meaningful {
+            memory_cap_events: self
+                .heartbeat
+                .memory
+                .as_ref()
+                .and_then(|m| m.memory_cap_events),
             radio: self.heartbeat.radio_status,
             nats: self.links.nats_state.clone(),
             gps: self

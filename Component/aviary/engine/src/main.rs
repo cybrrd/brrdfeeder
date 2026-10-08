@@ -16,6 +16,7 @@ mod forensic;
 mod heartbeat;
 mod hunter;
 mod identity;
+mod memory;
 mod nats_publisher; // #178 — single multiplexed, supervised NATS connection
 mod nl80211;
 mod node_config;

@@ -14,7 +14,8 @@ directory. This is **not an engine heartbeat**: `gps-missing`, `gps-waiting` and
 interval has a three-interval freshness budget. A stale, invalid or future-dated
 record remains offline, even if an old engine report is still fresh. The helper
 removes it before launching the engine. Neither file exposes account identifiers;
-the console still has only the existing read-only mount and no control interface.
+the console retains no control interface. Since 0.8.29 it also reads a separate
+credential-free, read-only host memory snapshot; see [memory observations](../aviary/deploy/memory/README.md).
 The startup view also projects numeric receiver observations: satellites used/in
 view, fix quality/mode, maximum/average SNR and last valid NMEA age at report time.
 Missing/expired observations are unknown, not zero. Complete GSV cycles supply

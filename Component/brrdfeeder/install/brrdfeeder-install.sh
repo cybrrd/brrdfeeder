@@ -1823,6 +1823,8 @@ if exists /usr/local/sbin/brrdfeeder; then
 fi
 
 files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
+  /usr/local/libexec/brrdfeeder-host-memory
+  /etc/systemd/system/brrdfeeder-memory.service /etc/systemd/system/brrdfeeder-memory.timer
   /etc/brrdfeeder/updater.json /etc/brrdfeeder/.updater-helper.sha256
   /usr/local/libexec/brrdfeeder-release
   /usr/local/libexec/brrdfeeder-release-launch
@@ -1877,6 +1879,9 @@ if [[ -f /usr/local/libexec/brrdfeeder-release.previous ]]; then
   [[ $(sha256sum /usr/local/libexec/brrdfeeder-release.previous | cut -d' ' -f1) == "$prior_hash" ]] || die 'retained updater checksum mismatch'
 fi
 for pair in \
+  '/usr/local/libexec/brrdfeeder-host-memory|Read-only host observations; only stop mode writes a durable OOM receipt.' \
+  '/etc/systemd/system/brrdfeeder-memory.service|BRRDfeeder read-only host memory observations' \
+  '/etc/systemd/system/brrdfeeder-memory.timer|BRRDfeeder periodic host memory observations' \
   '/etc/containers/systemd/brrdfeeder-engine.container|Installed by brrdfeeder-install.sh.' \
   '/etc/brrdfeeder/brrdhouse.container|Description=BRRDhouse intrinsic read-only LAN status console' \
   '/etc/systemd/system/brrdfeeder-updater.path|# BRRDfeeder signed-update watcher.|#185 Drop 2' \
@@ -1908,7 +1913,7 @@ done
 for backup in /etc/containers/systemd/brrdfeeder-engine.container.bak.*; do
   grep -qF 'Installed by brrdfeeder-install.sh.' "$backup" || die "unrecognised backup content: $backup"
 done
-for tree in /etc/brrdfeeder /var/lib/brrdfeeder-status /run/brrdfeeder-identity /var/lib/brrdfeeder-updater; do
+for tree in /etc/brrdfeeder /var/lib/brrdfeeder-status /run/brrdfeeder-identity /var/lib/brrdfeeder-updater /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do
   safe_tree "$tree"
 done
 [[ ! -d /etc/brrdfeeder || $(stat -c %u /etc/brrdfeeder) == 0 ]] || die 'config tree is not root-owned'
@@ -1924,6 +1929,13 @@ if [[ -d /run/brrdfeeder-gps ]]; then
     esac
   done
 fi
+for tree in /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do
+  [[ ! -d $tree || $(stat -c %u "$tree") == 0 ]] || die 'wrong memory observer owner'
+  for entry in "$tree"/*; do
+    case ${entry##*/} in events.json|host.json|.lock|.memory-*) safe_file "$entry";;
+      *) die "unrecognised memory state: $entry";; esac
+  done
+done
 if [[ -d /var/lib/brrdfeeder-status ]]; then
   owner=$(stat -c %u /var/lib/brrdfeeder-status)
   [[ $owner == 0 || $owner == "${uid[brrdfeeder]:-absent}" ]] || die 'wrong status-directory owner'
@@ -1964,7 +1976,7 @@ done
 for unit in /etc/systemd/system/brrdfeeder-engine.service /etc/systemd/system/brrdhouse.service; do
   ! exists "$unit" || die "unexpected native override of generated unit: $unit"
 done
-for unit in brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
+for unit in brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-memory.service brrdfeeder-memory.timer brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
   ! exists "/etc/systemd/system/$unit.d" || die "unexpected unit overrides: $unit.d"
 done
 console_links=()
@@ -2033,6 +2045,8 @@ reset_failed_unit() {
 }
 confirm_removal
 progress_phase 'Stopping services'
+stop_unit system brrdfeeder-memory.timer
+stop_unit system brrdfeeder-memory.service
 stop_unit system brrdfeeder-release-poll.timer
 stop_unit system brrdfeeder-gps-runtime.timer
 stop_unit system brrdfeeder-gps-runtime.service
@@ -2066,6 +2080,8 @@ remove_file() {
   else absent "$1"; fi
 }
 progress_phase 'Removing service definitions'
+remove_file /etc/systemd/system/brrdfeeder-memory.service
+remove_file /etc/systemd/system/brrdfeeder-memory.timer
 for file in /etc/systemd/system/brrdfeeder-updater.path /etc/systemd/system/brrdfeeder-updater.service /etc/containers/systemd/brrdfeeder-engine.container /etc/systemd/system/brrdfeeder-release-poll.timer /etc/systemd/system/brrdfeeder-release-poll.service /etc/systemd/system/brrdfeeder-release-recover.service /etc/systemd/system/brrdfeeder-host-update.service /etc/systemd/system/brrdfeeder-host-update.timer; do remove_file "$file"; done
 for file in "${console_links[@]}"; do remove_file "$file"; done
 for file in /etc/systemd/system/brrdfeeder-gps-runtime.timer /etc/systemd/system/brrdfeeder-gps-runtime.service; do remove_file "$file"; done
@@ -2207,7 +2223,7 @@ remove_tree() {
     else find -P "$path" -xdev -depth -delete; log "REMOVED tree: $path"; fi
   else absent "$path"; fi
 }
-for tree in /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater; do remove_tree "$tree"; done
+for tree in /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do remove_tree "$tree"; done
 progress_phase 'Removing service accounts'
 for user in brrdhouse brrdfeeder; do
   if [[ -n ${uid[$user]:-} ]]; then
@@ -3497,6 +3513,247 @@ IDENTITY_SH_EOF
   run chown root:root "$IDENTITY_INSTALL"
 fi
 
+# Host memory observations are separate from engine-writable status/state.
+if [[ $DRY_RUN -eq 1 ]]; then
+  say '[dry-run] would install the BRRDfeeder host memory observer and timer'
+else
+  atomic_install 0755 root root /usr/local/libexec/brrdfeeder-host-memory <<'MEMORY_HELPER_EOF'
+#!/usr/bin/python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+"""Read-only host observations; only stop mode writes a durable OOM receipt.
+
+No network, Podman socket, subprocesses, journal content, or engine-writable
+input. Metrics are observations, not health or release authority.
+"""
+import fcntl
+import json
+import os
+from pathlib import Path
+import pwd
+import re
+import stat
+import sys
+import tempfile
+import time
+
+STATE = Path('/var/lib/brrdfeeder-memory')
+RUNTIME = Path('/run/brrdfeeder-memory')
+PROC = Path('/proc')
+JOURNAL = Path('/run/log/journal')
+MAX_BYTES = 16384
+
+
+def read(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise ValueError('not regular')
+        raw = stream.read(MAX_BYTES + 1)
+        if len(raw) > MAX_BYTES:
+            raise ValueError('oversize')
+        return raw.decode('ascii')
+
+
+def protected_dir(path):
+    info = path.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o022:
+        raise ValueError('unprotected directory')
+
+
+def atomic(path, doc, durable=False):
+    protected_dir(path.parent)
+    fd, name = tempfile.mkstemp(prefix='.memory-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            os.fchmod(stream.fileno(), 0o644)
+            json.dump(doc, stream, sort_keys=True)
+            stream.write('\n')
+            stream.flush()
+            if durable:
+                os.fsync(stream.fileno())
+        os.replace(name, path)
+        if durable:
+            directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def counter(state):
+    try:
+        doc = json.loads(read(state / 'events.json'))
+    except FileNotFoundError:
+        return {'schema_version': 1, 'memory_cap_events': 0, 'last_invocation': None}
+    if (not isinstance(doc, dict) or type(doc.get('schema_version')) is not int
+            or doc.get('schema_version') != 1 or type(doc.get('memory_cap_events')) is not int
+            or not 0 <= doc['memory_cap_events'] < 2**64
+            or not isinstance(doc.get('last_invocation'), str)
+            or not re.fullmatch('[a-f0-9]{32}', doc['last_invocation'])):
+        raise ValueError('invalid counter; refusing reset')
+    return doc
+
+
+def record_stop(state, result, invocation):
+    protected_dir(state)
+    if result != 'oom-kill':
+        return False
+    if not re.fullmatch('[a-f0-9]{32}', invocation):
+        raise ValueError('invalid invocation')
+    fd = os.open(state / '.lock', os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        doc = counter(state)
+        if doc['last_invocation'] == invocation:
+            return False
+        if doc['memory_cap_events'] == 2**64 - 1:
+            raise ValueError('counter exhausted')
+        doc.update(memory_cap_events=doc['memory_cap_events'] + 1, last_invocation=invocation)
+        atomic(state / 'events.json', doc, durable=True)
+        print('BRRDfeeder memory event: service_result=oom-kill memory_cap_events=' +
+              str(doc['memory_cap_events']) + ' invocation=' + invocation, flush=True)
+        return True
+
+
+def kib(text, key):
+    matches = [line.split() for line in text.splitlines() if line.startswith(key + ':')]
+    if len(matches) != 1 or len(matches[0]) != 3 or matches[0][2] != 'kB':
+        return None
+    value = matches[0][1]
+    return int(value) * 1024 if value.isascii() and value.isdecimal() and int(value) < 2**54 else None
+
+
+def console_rss(proc, uid):
+    # Exact dedicated UID + systemd unit membership; never attribute another
+    # user's similarly named process. Sum only the console executable, not conmon.
+    total, found = 0, False
+    for index, process in enumerate(proc.iterdir()):
+        if index > 65536:
+            return None
+        if not process.name.isdecimal():
+            continue
+        try:
+            if process.stat().st_uid != uid:
+                continue
+            group = read(process / 'cgroup')
+            if not any(line.startswith('0::') and 'brrdhouse.service' in line[3:].split('/') for line in group.splitlines()):
+                continue
+            if read(process / 'comm').strip() != 'brrdhouse':
+                continue
+            value = kib(read(process / 'status'), 'VmRSS')
+            if value is None:
+                return None
+            total += value
+            found = True
+        except (OSError, ValueError):
+            continue
+    return total if found else None
+
+
+def journal_bytes(root):
+    # Allocated blocks, not file contents or persistent /var/log/journal usage.
+    if not root.is_dir() or root.is_symlink():
+        return None
+    total, entries = 0, 0
+    def fail(error):
+        raise error
+    for directory, dirs, files in os.walk(root, followlinks=False, onerror=fail):
+        dirs[:] = [name for name in dirs if not (Path(directory) / name).is_symlink()]
+        for name in files:
+            entries += 1
+            if entries > 8192:
+                return None
+            info = (Path(directory) / name).lstat()
+            if stat.S_ISREG(info.st_mode) and (name.endswith('.journal') or name.endswith('.journal~')):
+                total += info.st_blocks * 512
+    return total
+
+
+def sample(proc, journal, state, console_uid):
+    doc = {'schema_version': 1, 'boot_id': read(proc / 'sys/kernel/random/boot_id').strip(),
+           'sampled_boottime_secs': int(time.clock_gettime(time.CLOCK_BOOTTIME))}
+    try:
+        meminfo = read(proc / 'meminfo')
+        doc['host_mem_total_bytes'] = kib(meminfo, 'MemTotal')
+        doc['host_mem_available_bytes'] = kib(meminfo, 'MemAvailable')
+    except (OSError, ValueError):
+        pass
+    for key, observe in (
+        ('console_rss_bytes', lambda: console_rss(proc, console_uid) if console_uid is not None else None),
+        ('volatile_journal_bytes', lambda: journal_bytes(journal)),
+        ('memory_cap_events', lambda: counter(state)['memory_cap_events']),
+    ):
+        try:
+            doc[key] = observe()
+        except (OSError, ValueError):
+            print('BRRDfeeder memory observation unavailable: ' + key, file=sys.stderr)
+    return {key: value for key, value in doc.items() if value is not None}
+
+
+def main():
+    if os.geteuid() != 0 or sys.argv[1:] not in (['sample'], ['stop']):
+        raise ValueError('root-only sample|stop')
+    protected_dir(STATE)
+    protected_dir(RUNTIME)
+    if sys.argv[1] == 'stop':
+        record_stop(STATE, os.environ.get('SERVICE_RESULT', ''), os.environ.get('INVOCATION_ID', ''))
+    try:
+        uid = pwd.getpwnam('brrdhouse').pw_uid
+    except KeyError:
+        uid = None
+    atomic(RUNTIME / 'host.json', sample(PROC, JOURNAL, STATE, uid))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, KeyError) as error:
+        print('BRRDfeeder memory helper failed: ' + type(error).__name__, file=sys.stderr)
+        raise SystemExit(1)
+MEMORY_HELPER_EOF
+  atomic_install 0644 root root /etc/systemd/system/brrdfeeder-memory.service <<'MEMORY_SERVICE_EOF'
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[Unit]
+Description=BRRDfeeder read-only host memory observations
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/brrdfeeder-host-memory sample
+StateDirectory=brrdfeeder-memory
+StateDirectoryMode=0755
+RuntimeDirectory=brrdfeeder-memory
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+TimeoutStartSec=10
+MemoryMax=64M
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX
+MEMORY_SERVICE_EOF
+  atomic_install 0644 root root /etc/systemd/system/brrdfeeder-memory.timer <<'MEMORY_TIMER_EOF'
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[Unit]
+Description=BRRDfeeder periodic host memory observations
+
+[Timer]
+OnBootSec=10
+OnUnitInactiveSec=30
+AccuracySec=1
+Unit=brrdfeeder-memory.service
+
+[Install]
+WantedBy=timers.target
+MEMORY_TIMER_EOF
+fi
+
 gate quadlets "Step 5 — system-mode Quadlet (rootful container, non-root engine)"
 
 if [[ $DRY_RUN -eq 1 ]]; then
@@ -4171,10 +4428,16 @@ Description=cyBRRD BRRDfeeder engine (containerized)
 Documentation=https://github.com/cybrrd/brrdfeeder
 After=network-online.target chrony.service
 Wants=network-online.target
+Wants=brrdfeeder-memory.service brrdfeeder-memory.timer
+After=brrdfeeder-memory.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
 
 [Container]
 Image=${CONTAINER_IMAGE}
 ContainerName=brrdfeeder-engine
+PodmanArgs=--cgroups=split
+Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro
 
 # Rootful container, non-root process. IDs come from the dedicated host account.
 User=${TARGET_UID}:${TARGET_GID}
@@ -4223,6 +4486,11 @@ Notify=false
 
 [Service]
 RuntimeDirectory=brrdfeeder-identity
+MemoryAccounting=yes
+MemoryMax=256M
+MemorySwapMax=0
+OOMPolicy=kill
+ExecStopPost=/usr/local/libexec/brrdfeeder-host-memory stop
 RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=no
 ExecStartPre=${GPS_SEED}
@@ -4260,7 +4528,7 @@ else
   fi
 fi
 
-# The console's only data mount is the dedicated credential-free status directory.
+# The console reads only credential-free status and host memory observations.
 # Its authoritative pin is root-owned; the user generator follows this root-owned link.
 console_memory_policy
 if [[ $DRY_RUN -eq 1 ]]; then
@@ -4287,6 +4555,7 @@ ReadOnly=true
 ReadOnlyTmpfs=false
 Pull=never
 Volume=${STATUS_DIR}:${STATUS_DIR}:ro
+Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro
 Exec=--listen=${CONSOLE_LISTEN} --allowed-hosts=${CONSOLE_LISTEN},${UNIT_HOSTNAME}:${CONSOLE_PORT},${UNIT_HOSTNAME}.local:${CONSOLE_PORT} --status-file=${STATUS_DIR}/status.json
 PodmanArgs=--pids-limit=64${CONSOLE_MEMORY_ARGS}
 

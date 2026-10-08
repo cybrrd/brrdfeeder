@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[Unit]
+Description=BRRDfeeder read-only host memory observations
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/brrdfeeder-host-memory sample
+StateDirectory=brrdfeeder-memory
+StateDirectoryMode=0755
+RuntimeDirectory=brrdfeeder-memory
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+TimeoutStartSec=10
+MemoryMax=64M
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX

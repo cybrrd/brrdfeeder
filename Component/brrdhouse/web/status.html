@@ -16,6 +16,7 @@
 <dt>Average SNR</dt><dd>{{if .AvgSNR}}{{.AvgSNR}} dB-Hz{{else}}Unknown{{end}}</dd>
 <dt>Last valid NMEA age</dt><dd>{{if .NMEAAge}}{{.NMEAAge}} seconds at report{{else}}Unknown (no valid sentence received){{end}}</dd>
 </dl><p>Quality 0 means no fix; modes 1/2/3 mean no fix / 2D / 3D. Satellites in view without a fix means the receiver sees satellites but has not locked. An increasing NMEA age means the receiver is no longer reporting valid sentences. SNR uses reported values from complete satellite-view cycles, not blank readings.</p></section>{{end}}
+{{with .Memory}}<section class="card"><p class="eyebrow">MEMORY</p><h2>Memory observations</h2><dl><dt>Engine RSS (bytes)</dt><dd>{{if .EngineRSS}}{{.EngineRSS}}{{else}}Not reported{{end}}</dd><dt>Console RSS (bytes)</dt><dd>{{if .ConsoleRSS}}{{.ConsoleRSS}}{{else}}Not reported{{end}}</dd><dt>Memory-cap events</dt><dd>{{if .Events}}{{.Events}}{{else}}Not reported{{end}}</dd></dl><p>OOM events under the configured service cap; historical count since installation. Host-wide memory pressure can also cause an OOM death.</p></section>{{end}}
 {{if .Live}}
 <div class="grid">
 <section class="card"><p class="eyebrow">RADIOS</p><h2>{{.Radio}}</h2>

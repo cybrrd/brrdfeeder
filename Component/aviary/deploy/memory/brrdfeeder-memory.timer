@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[Unit]
+Description=BRRDfeeder periodic host memory observations
+
+[Timer]
+OnBootSec=10
+OnUnitInactiveSec=30
+AccuracySec=1
+Unit=brrdfeeder-memory.service
+
+[Install]
+WantedBy=timers.target

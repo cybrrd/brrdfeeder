@@ -73,6 +73,9 @@ func TestConsoleQuarantineSurvivesNewReleaseMetadata(t *testing.T) {
 	m.BuildSeq = 1
 	m.ConsoleDigest = newDigest
 	m.ConsoleBuild = 2
+	// The candidate is truthfully identified but deliberately unhealthy; a false
+	// revision is now refused before switching and cannot serve as rollback proof.
+	m.ConsoleVersion = newVersion
 	for i := 0; i < 3; i++ {
 		m.Sequence++
 		m.Salt = fmt.Sprintf("salt-%d", i)

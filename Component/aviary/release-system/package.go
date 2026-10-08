@@ -181,6 +181,7 @@ func (u *Updater) pull(console bool, target string) (Image, error) {
 	return im, nil
 }
 func (u *Updater) apply() error {
+	started := u.now().UTC() // wall time, without Go's process-local monotonic part
 	raw, e := readBounded(u.pending(), maxDocument)
 	if os.IsNotExist(e) {
 		return nil
@@ -247,6 +248,13 @@ func (u *Updater) apply() error {
 	ec := !contains(im.RepoDigests, req.Target)
 	cc := !contains(ci.RepoDigests, consoleRepository+"@"+m.ConsoleDigest)
 	ni, nc := im, ci
+	if e = u.resourceCheck(); e != nil {
+		return e
+	}
+	u.phase("pull")
+	if u.attempt != nil && (ec || cc) {
+		u.attempt.NetworkAttempted = true
+	}
 	// Both downloads complete before either service is disturbed.
 	if ec {
 		ni, e = u.pull(false, req.Target)
@@ -260,7 +268,31 @@ func (u *Updater) apply() error {
 			return e
 		}
 	}
+	// Labels are read from the digest-verified local image, not a caller-supplied
+	// receipt. Verify unchanged components too: otherwise a bogus console build
+	// could poison its independent floor without ever restarting that component.
+	u.phase("identity")
+	if e = u.verifyImageTuple(false, ni, m.Digest, m.Version, m.BuildSeq); e != nil {
+		return e
+	}
+	if e = u.verifyImageTuple(true, nc, m.ConsoleDigest, m.ConsoleVersion, m.ConsoleBuild); e != nil {
+		return e
+	}
+	if u.attempt != nil {
+		u.attempt.ConsoleDigest, u.attempt.ConsoleRevision, u.attempt.ConsoleBuild = m.ConsoleDigest, m.ConsoleVersion, m.ConsoleBuild
+	}
+	if e = u.resourceCheck(); e != nil {
+		return e
+	}
+	// Slow downloads/inspection must not outlive the authorization decision.
+	if _, e = u.releaseRequest(raw); e != nil {
+		return e
+	}
+	if u.now().UTC().Before(started) {
+		return errors.New("release clock moved backward during download")
+	}
 	anchor := "brrdfeeder-rollback-" + req.Hash[:16]
+	u.phase("anchor")
 	u.point("downloads")
 	ca := "brrdhouse-rollback-" + req.Hash[:16]
 	if ec {
@@ -275,7 +307,16 @@ func (u *Updater) apply() error {
 	}
 	tx := &Transaction{Request: req, Previous: old, PreviousID: im.ID, PreviousDigest: im.Digest, PreviousBuild: s.Heartbeat.Build, PreviousVersion: s.Heartbeat.Version, Quadlet: quad, Anchor: anchor, Phase: "prepared", Started: u.now(), EngineChanged: ec, Console: &Checkpoint{Quadlet: cq, Previous: ci, Next: nc, Anchor: ca, Changed: cc}}
 	u.point("anchors")
+	// Anchor creation may itself wait on the container engine. Revalidate again
+	// immediately before journaling; no pins have been touched yet.
+	if _, e = u.releaseRequest(raw); e != nil {
+		return e
+	}
+	if u.now().UTC().Before(started) {
+		return errors.New("release clock moved backward before transaction")
+	}
 	u.state.Active = tx
+	u.phase("journal")
 	u.state.Seen = Seen{m.Sequence, contentHash(m.canonical())}
 	if e = u.save(); e != nil {
 		return e
@@ -292,13 +333,18 @@ func (u *Updater) apply() error {
 	if e = u.beginWatch(); e != nil {
 		return u.failedUpdate()
 	}
+	u.phase("health")
 	u.point("switching")
 	if ec {
 		q, re := repin(quad, req.Target)
 		if re != nil {
 			return re
 		}
-		if e = atomicFile(u.cfg.Quadlet, q, 0644); e == nil {
+		u.phase("pin")
+		if e = u.writeFile(u.cfg.Quadlet, q, 0644); e != nil {
+			return errors.Join(e, u.recoverBoot())
+		} else {
+			u.phase("health")
 			u.point("engine-pin")
 			e = u.restart()
 			u.point("engine-restart")
@@ -318,7 +364,11 @@ func (u *Updater) apply() error {
 		if re != nil {
 			return re
 		}
-		if e = atomicFile(u.cfg.ConsoleQuadlet, q, 0644); e == nil {
+		u.phase("pin")
+		if e = u.writeFile(u.cfg.ConsoleQuadlet, q, 0644); e != nil {
+			return errors.Join(e, u.recoverBoot())
+		} else {
+			u.phase("health")
 			u.point("console-pin")
 			e = u.consoleRestart()
 			u.point("console-restart")
@@ -438,7 +488,7 @@ func (u *Updater) recoverWithReadiness(boot bool) error {
 	// never prevent attempting to recover the engine.
 	var faults []error
 	{
-		e := atomicFile(u.cfg.ConsoleQuadlet, tx.Console.Quadlet, 0644)
+		e := u.writeFile(u.cfg.ConsoleQuadlet, tx.Console.Quadlet, 0644)
 		if e == nil {
 			u.point("rollback-console-pin")
 			im, err := u.consoleCurrent()
@@ -455,7 +505,7 @@ func (u *Updater) recoverWithReadiness(boot bool) error {
 		}
 	}
 	{
-		e := atomicFile(u.cfg.Quadlet, tx.Quadlet, 0644)
+		e := u.writeFile(u.cfg.Quadlet, tx.Quadlet, 0644)
 		if e == nil {
 			u.point("rollback-engine-pin")
 			im, err := u.current()

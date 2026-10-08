@@ -40,7 +40,24 @@ type fakeHost struct {
 
 func (h *fakeHost) Run(bin string, args ...string) ([]byte, error) {
 	h.events = append(h.events, bin+" "+strings.Join(args, " "))
-	data := func(v any) ([]byte, error) { b, e := json.Marshal(v); return b, e }
+	data := func(v any) ([]byte, error) {
+		if images, ok := v.([]Image); ok {
+			var result []map[string]any
+			for _, im := range images {
+				revision, build := newVersion, "2"
+				if im.Digest == oldDigest {
+					revision, build = oldVersion, "1"
+				}
+				label := "com.macawi.brrdfeeder.build_seq"
+				if contains(im.RepoDigests, consoleRepository+"@"+im.Digest) {
+					label = "com.macawi.brrdhouse.build_seq"
+				}
+				result = append(result, map[string]any{"Id": im.ID, "Digest": im.Digest, "RepoDigests": im.RepoDigests, "Labels": map[string]string{"org.opencontainers.image.revision": revision, label: build}})
+			}
+			return json.Marshal(result)
+		}
+		return json.Marshal(v)
+	}
 	if bin == "runuser" {
 		bin, args = args[6], args[7:]
 		if bin == "systemctl" {
@@ -66,6 +83,8 @@ func (h *fakeHost) Run(bin string, args ...string) ([]byte, error) {
 			return nil, nil
 		}
 		switch args[0] {
+		case "info":
+			return []byte(h.u.cfg.PrivateDir), nil
 		case "inspect":
 			id := h.consoleActive.ID
 			if held, ok := h.anchors[args[len(args)-1]]; ok {
@@ -105,6 +124,8 @@ func (h *fakeHost) Run(bin string, args ...string) ([]byte, error) {
 		return nil, nil
 	}
 	switch args[0] {
+	case "info":
+		return []byte(h.u.cfg.PrivateDir), nil
 	case "inspect":
 		if id, ok := h.anchors[args[len(args)-1]]; ok {
 			return data([]map[string]any{{"Image": id, "State": map[string]bool{"Running": true}}})

@@ -241,6 +241,11 @@ func TestRealPodmanLifecycleAndPrune(t *testing.T) {
 				recipe = "FROM scratch\nCOPY brrdhouse /brrdhouse\nLABEL fixture.build=" + tc.seq + "\nENTRYPOINT [\"/brrdhouse\"]\n"
 			}
 		}
+		buildLabel := "com.macawi.brrdfeeder.build_seq"
+		if tc.console {
+			buildLabel = "com.macawi.brrdhouse.build_seq"
+		}
+		recipe += "LABEL org.opencontainers.image.revision=" + tc.version + " " + buildLabel + "=" + tc.seq + "\n"
 		if e := os.WriteFile(filepath.Join(context, "Containerfile"), []byte(recipe), 0644); e != nil {
 			t.Fatal(e)
 		}

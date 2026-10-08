@@ -142,6 +142,12 @@ func atomicJSON(path string, v any, mode os.FileMode) error {
 	}
 	return atomicFile(path, b, mode)
 }
+func (u *Updater) writeFile(path string, raw []byte, mode os.FileMode) error {
+	if u.write != nil {
+		return u.write(path, raw, mode)
+	}
+	return atomicFile(path, raw, mode)
+}
 func (u *Updater) statePath() string { return filepath.Join(u.cfg.PrivateDir, "state.json") }
 func (u *Updater) pending() string   { return filepath.Join(u.cfg.PrivateDir, "pending_update.json") }
 func (u *Updater) marker() string    { return filepath.Join(u.cfg.StateDir, "update_transaction.json") }
@@ -185,7 +191,7 @@ func (u *Updater) save() error {
 	if len(b) > 256*1024 {
 		return errors.New("update journal exceeds bound")
 	}
-	if e = atomicFile(u.statePath(), b, 0600); e != nil {
+	if e = u.writeFile(u.statePath(), b, 0600); e != nil {
 		return e
 	}
 	var checked *time.Time

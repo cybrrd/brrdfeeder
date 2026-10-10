@@ -23,6 +23,7 @@ INSTALL = ROOT/'Component/brrdfeeder/install'
 RELEASE = ROOT/'Component/aviary/release-system'
 BASELINES = [
     'gps-runtime/test-contract.py',
+    'gps-usb-id/test-contract.py',
     'directory-modes/test-contract.py',
     'lock-on/test-contract.py',
     'role-language/test-contract.py',

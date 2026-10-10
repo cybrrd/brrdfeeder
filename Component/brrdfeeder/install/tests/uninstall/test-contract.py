@@ -146,6 +146,16 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
     warn "Clock correction settings absent; re-run the installer."
   fi''','''  [[ -f "$CHRONY_DROPIN" ]]     && ok "chrony makestep hardening present"     || warn "chrony hardening ABSENT"''')
             text=text.replace('https://get.cybrrd.com | bash','https://get.cybrrd.com | sudo bash')
+            # Non-u-blox GPS opt-in scope (2026-10-08): the preflight
+            # machinery (declared-id helpers, NMEA confirm, prompt) and the
+            # config persistence step are independently exercised by the
+            # gps-usb-id suite; only the frozen flow's ordering matters here.
+            a = text.index('gps_declared_id() {')
+            b = text.index('gps_usb_preflight\n', a)
+            text = text[:a] + text[b:]
+            a = text.index('# --- persist a confirmed non-u-blox GPS declaration')
+            b = text.index('  run python3 - \"$CONFIG_PATH\" \"$STATUS_DIR/status.json\"', a)
+            text = text[:a] + text[b:]
             # BLE-rfkill packet: independently exercised summary and durable hints.
             # One-liner rework keeps the same health summary visible in quiet mode.
             text=text.replace('  log_event NOTICE "RID.BLE Waiting:', '  say "RID.BLE Waiting:')

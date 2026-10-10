@@ -20,6 +20,7 @@ if [[ ${1:-} == --help || ${1:-} == -h ]]; then
   printf '%s\n' \
     'Usage: brrdfeeder [status|uninstall|support-bundle] [options]' \
     'Installer: brrdfeeder-install.sh [--image DIGEST --console-image DIGEST --console-listen IP:PORT --interface IFACE]' \
+    '                           [--gps-usb-id VID:PID]   Explicit non-u-blox GPS opt-in (headless)' \
     '  --verify / --status       Check installed state' \
     '  --uninstall [--dry-run]   Remove package, or show the removal plan' \
     '  --yes                    Confirm removal for automation' \
@@ -1379,6 +1380,7 @@ INSTALL_INTERFACE=""
 INSTALL_LATITUDE=""
 INSTALL_LONGITUDE=""
 INSTALL_RING=""
+GPS_USB_ID_FLAG=""
 ORIGINAL_ARGS="$*"
 while [[ $# -gt 0 ]]; do
   arg=$1
@@ -1395,7 +1397,7 @@ while [[ $# -gt 0 ]]; do
       echo "FATAL: --audit-log requires a path. Example: --audit-log=/var/log/brrdfeeder-install.log" >&2
       exit 2
       ;;
-    --console-image|--console-listen|--interface|--latitude|--longitude|--ring)
+    --console-image|--console-listen|--interface|--latitude|--longitude|--ring|--gps-usb-id)
       [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || {
         echo "FATAL: $arg requires a value" >&2; exit 2;
       }
@@ -1406,6 +1408,11 @@ while [[ $# -gt 0 ]]; do
         --latitude) INSTALL_LATITUDE=$2 ;;
         --longitude) INSTALL_LONGITUDE=$2 ;;
         --ring) INSTALL_RING=$2 ;;
+        --gps-usb-id)
+          [[ $2 =~ ^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{4}$ ]] || {
+            echo 'FATAL: --gps-usb-id requires VID:PID (e.g. 10c4:ea60)' >&2; exit 2;
+          }
+          GPS_USB_ID_FLAG=${2,,} ;;
       esac
       shift
       ;;
@@ -2907,9 +2914,14 @@ gps_usb_preflight() {
         [[ $product != "$supported_product" ]] || supported=1
       done
     fi
-    if [[ $supported -eq 1 ]]; then
+    if [[ $id == "$gps_declared_usb_id" && $GPS_USB_ID_PRESENT -eq 1 ]]; then
+      ok "Operator-declared GPS USB ID $id (NMEA-confirmed); tty rule will map /dev/$GPS_SYMLINK"
+    elif [[ $supported -eq 1 ]]; then
       HAVE_UBLOX=1
       ok "Supported GPS USB ID $id detected; tty rule will map /dev/$GPS_SYMLINK"
+    elif [[ $id == 10c4:ea60 && $HAVE_UBLOX -eq 0 && -z $gps_declared_usb_id ]]; then
+      GPS_PROMPT_NEEDED=1
+      warn "Silicon Labs CP2102N bridge $id present — the Adafruit Ultimate GPS (#746) uses this bridge, but so do many other devices. Not mapping without opt-in."
     else
       warn "USB serial adapter $id present — not a supported GPS; no automatic /dev/$GPS_SYMLINK mapping. See docs/gps-runtime.md for the explicit opt-in boundary; this may be non-GPS hardware."
     fi
@@ -2933,7 +2945,162 @@ gps_usb_preflight() {
   for product in "${UBLOX_PRODUCTS[@]}"; do supported_ids+=" $UBLOX_VENDOR:$product"; done
   say "Supported automatic GPS IDs:$supported_ids; connect one GPS receiver."
   [[ $HAVE_UBLOX -eq 1 ]] || warn "No supported GPS detected; the service will wait. Check the candidate USB IDs above before assuming the receiver is absent."
+  if [[ $GPS_PROMPT_NEEDED -eq 1 && $GPS_USB_ID_PRESENT -eq 0 ]]; then
+    local answer=""
+    local terminal=${BRRDFEEDER_TTY_FD:-}
+    if [[ ! $terminal =~ ^[0-9]+$ ]] || ! [[ -t $terminal ]]; then
+      if ! { exec {terminal}<>/dev/tty; } 2>/dev/null; then
+        terminal=""
+      fi
+    fi
+    if [[ -n $terminal ]] && IFS= read -r -t 60 answer <&"$terminal"; then
+      case $answer in
+        y|Y|yes|YES)
+          gps_declared_usb_id=10c4:ea60
+          local candidate_tty; candidate_tty=$(gps_candidate_tty 10c4:ea60)
+          if [[ -n $candidate_tty ]]; then
+            say "GPS opt-in accepted: passive NMEA confirm on $candidate_tty (5 s, read-only)…"
+            if [[ $(gps_nmea_confirm "$candidate_tty") == ok ]]; then
+              GPS_USB_ID_PRESENT=1
+              ok "NMEA confirmed on $candidate_tty; udev rule will map /dev/$GPS_SYMLINK for 10c4:ea60"
+            else
+              warn "Opted in, no NMEA seen on $candidate_tty. NOT mapping; the service will run the degraded path. Check wiring/power; re-run to retry."
+            fi
+          fi
+          ;;
+        *) say "GPS opt-in declined; 10c4:ea60 stays unmapped. Re-run with --gps-usb-id 10c4:ea60 to opt in later." ;;
+      esac
+    else
+      say "No terminal for the GPS opt-in prompt; 10c4:ea60 stays unmapped (declined by default). Headless opt-in: --gps-usb-id 10c4:ea60"
+    fi
+  fi
 }
+gps_declared_id() {
+  # sensors.gps.usb_id from the live config, if any (idempotent re-runs).
+  python3 - "$CONFIG_PATH" <<'GPS_ID_EOF'
+import sys, yaml
+try:
+    cfg = yaml.safe_load(open(sys.argv[1]))
+    usb = cfg.get('sensors', {}).get('gps', {}).get('usb_id', '')
+    import re
+    if isinstance(usb, str) and re.fullmatch(r'[0-9a-fA-F]{4}:[0-9a-fA-F]{4}', usb):
+        print(usb.lower())
+except Exception:
+    pass
+GPS_ID_EOF
+}
+
+gps_nmea_confirm() {
+  # Passive NMEA confirm for an opted-in candidate device (follow-up ruling,
+  # 2026-10-08): ~5s read-only at 9600 baud; requires >=2 checksum-valid
+  # $GP/$GN sentences; NEVER writes to the port. Prints "ok" or "no-nmea".
+  local dev=$1
+  python3 - "$dev" <<'GPS_PROBE_EOF'
+import sys, os, termios, select, time
+dev = sys.argv[1]
+try:
+    fd = os.open(dev, os.O_RDONLY | os.O_NOCTTY | os.O_NONBLOCK)
+except OSError:
+    print('no-nmea'); raise SystemExit(0)
+try:
+    attrs = termios.tcgetattr(fd)
+    attrs[0] = attrs[1] = attrs[3] = 0  # no input/output/line processing
+    attrs[3] |= termios.CS8
+    attrs[4] = termios.B9600
+    attrs[5] = termios.B9600
+    attrs[6][termios.VMIN], attrs[6][termios.VTIME] = 0, 0
+    termios.tcsetattr(fd, termios.TCSANOW, attrs)
+except termios.error:
+    os.close(fd); print('no-nmea'); raise SystemExit(0)
+def valid(s):
+    if len(s) < 6 or not (s.startswith('$GP') or s.startswith('$GN')):
+        return False
+    if not s.endswith('*') and '*' not in s:
+        return False
+    body, _, ck = s.rpartition('*')
+    if len(ck) < 2:
+        return False
+    v = 0
+    for ch in body[1:]:
+        v ^= ord(ch)
+    return ('%02X' % v) == ck[:2].upper()
+buf, seen, deadline = '', 0, time.monotonic() + 5.0
+while time.monotonic() < deadline and seen < 2:
+    r, _, _ = select.select([fd], [], [], max(0.0, deadline - time.monotonic()))
+    if not r:
+        continue
+    try:
+        chunk = os.read(fd, 256)
+    except (OSError, BlockingIOError):
+        continue
+    if not chunk:
+        break
+    try:
+        text = chunk.decode('ascii', 'replace')
+    except Exception:
+        continue
+    for ch in text:
+        if ch == '$':
+            if valid(buf):
+                seen += 1
+            buf = '$'
+        elif buf:
+            buf += ch
+            if len(buf) > 128:
+                buf = ''
+if valid(buf):
+    seen += 1
+os.close(fd)
+print('ok' if seen >= 2 else 'no-nmea')
+GPS_PROBE_EOF
+}
+
+gps_candidate_tty() {
+  # First tty whose USB ancestry carries the declared VID:PID (sysfs only).
+  local want=$1 device parent vendor product
+  for device in /sys/class/tty/*/device; do
+    parent=$(readlink -f "$device" 2>/dev/null) || continue
+    while [[ $parent == /sys/devices/* ]]; do
+      if [[ -r "$parent/idVendor" && -r "$parent/idProduct" ]]; then
+        read -r vendor < "$parent/idVendor" || break
+        read -r product < "$parent/idProduct" || break
+        if [[ ${vendor,,}:${product,,} == "$want" ]]; then
+          basename "$(dirname "$(readlink -f "$device")")" | sed 's|^|/dev/|'
+          return 0
+        fi
+        break
+      fi
+      parent=${parent%/*}
+    done
+  done
+  return 0
+}
+
+gps_declared_usb_id=""
+GPS_USB_ID_FLAG=${GPS_USB_ID_FLAG-}
+if [[ -n $GPS_USB_ID_FLAG ]]; then
+  gps_declared_usb_id=$GPS_USB_ID_FLAG
+elif configured=$(gps_declared_id); then
+  gps_declared_usb_id=$configured   # idempotent re-run: honor without prompting
+fi
+GPS_USB_ID_PRESENT=0
+GPS_PROMPT_NEEDED=0
+if [[ -n $gps_declared_usb_id && $HAVE_UBLOX -eq 0 ]]; then
+  # A declared non-u-blox id is a deliberate claim: confirm NMEA before mapping.
+  candidate_tty=$(gps_candidate_tty "$gps_declared_usb_id")
+  if [[ -n $candidate_tty ]]; then
+    say "GPS opt-in: $gps_declared_usb_id on $candidate_tty — passive NMEA confirm (5 s, read-only)…"
+    probe=$(gps_nmea_confirm "$candidate_tty")
+    if [[ $probe == ok ]]; then
+      GPS_USB_ID_PRESENT=1
+      ok "NMEA confirmed on $candidate_tty; udev rule will map /dev/$GPS_SYMLINK for $gps_declared_usb_id"
+    else
+      warn "Opted in, no NMEA seen on $candidate_tty ($gps_declared_usb_id). NOT mapping; the service will run the degraded path (preserved position + GPS fault). Check wiring/power; re-run to retry."
+    fi
+  else
+    warn "Opted in GPS id $gps_declared_usb_id not currently attached; not mapping this run (config keeps the declaration; re-run after plugging it in)."
+  fi
+fi
 gps_usb_preflight
 # Passive USB inventory only; never send HCI commands while the engine may own it.
 HAVE_REALTEK=0
@@ -3233,6 +3400,25 @@ STATUS_PROVISIONER_EOF
   BRRDFEEDER_INSTALLER=1 "$STATUS_PROVISIONER"
   say "Setting up the local console automatically."
   # Preserve all user settings except this package-owned status destination.
+# --- persist a confirmed non-u-blox GPS declaration (idempotent) -------
+# sensors.gps.usb_id records the operator's NMEA-confirmed claim; the udev
+# render above reads it on re-runs (auto-update never touches this file).
+if [[ -n $gps_declared_usb_id && $GPS_USB_ID_PRESENT -eq 1 && $DRY_RUN -eq 0 ]]; then
+  run python3 - "$CONFIG_PATH" "$gps_declared_usb_id" <<'GPS_USBID_PY'
+import sys, re, yaml
+path, usb = sys.argv[1], sys.argv[2]
+cfg = yaml.safe_load(open(path)) or {}
+sensors = cfg.setdefault('sensors', {})
+gps = sensors.setdefault('gps', {})
+if gps.get('usb_id', '').lower() != usb:
+    gps['usb_id'] = usb
+    yaml.safe_dump(cfg, open(path, 'w'), sort_keys=False, default_flow_style=False)
+    print('sensors.gps.usb_id recorded: '+usb)
+else:
+    print('sensors.gps.usb_id already '+usb)
+GPS_USBID_PY
+fi
+
   run python3 - "$CONFIG_PATH" "$STATUS_DIR/status.json" <<'STATUS_CONFIG_PY'
 import os, pathlib, sys, tempfile, yaml
 path = pathlib.Path(sys.argv[1])
@@ -3329,6 +3515,23 @@ gate udev "Step 3 — udev rules"
 GPS_UDEV_RULES=$(for product in "${UBLOX_PRODUCTS[@]}"; do
   printf 'SUBSYSTEM=="tty", ATTRS{idVendor}=="%s", ATTRS{idProduct}=="%s", SYMLINK+="%s", GROUP="dialout", MODE="0660"\n' "$UBLOX_VENDOR" "$product" "$GPS_SYMLINK"
 done)
+# Operator-declared non-u-blox GPS (e.g. the Adafruit Ultimate GPS #746 via its
+# CP2102N bridge). Rendered ONLY when the declaration passed the passive NMEA
+# confirm this run — never for an unconfirmed or stale declaration.
+GPS_DECLARED_RULE=""
+if [[ -n $gps_declared_usb_id && $GPS_USB_ID_PRESENT -eq 1 ]]; then
+  GPS_DECLARED_RULE=$(printf 'SUBSYSTEM=="tty", ATTRS{idVendor}=="%s", ATTRS{idProduct}=="%s", SYMLINK+="%s", GROUP="dialout", MODE="0660", ENV{CYBRRD_GPS_DECLARED}=="1"' "${gps_declared_usb_id%:*}" "${gps_declared_usb_id#*:}" "$GPS_SYMLINK")
+  # Report — never delete or overwrite — a pre-existing third-party rule that
+  # already claims this VID:PID (follow-up ruling, 2026-10-08).
+  local_style=""
+  for rulefile in /etc/udev/rules.d/*.rules; do
+    [[ -r $rulefile ]] || continue
+    [[ $rulefile == "$UDEV_RULES_FILE" ]] && continue
+    if grep -qE "ATTRS\{idVendor\}==\"${gps_declared_usb_id%:*}\".*ATTRS\{idProduct\}==\"${gps_declared_usb_id#*:}\"" "$rulefile" 2>/dev/null; then
+      warn "Pre-existing udev rule $rulefile also matches GPS $gps_declared_usb_id. Left untouched (we never delete files we did not create); the operator may remove it to avoid duplicate /dev/$GPS_SYMLINK links. Known case: brrdg3s3's interim /etc/udev/rules.d/97-cybrrd-gps-local-adafruit.rules — remove by hand during the live test."
+    fi
+  done
+fi
 NEW_UDEV_CONTENT=$(cat <<EOF
 # /etc/udev/rules.d/99-cybrrd-brrdfeeder.rules
 #
@@ -3344,6 +3547,8 @@ NEW_UDEV_CONTENT=$(cat <<EOF
 
 # Supported u-blox USB family; one connected GPS, no wildcard clone probing.
 ${GPS_UDEV_RULES}
+# Operator-declared, NMEA-confirmed non-u-blox GPS (sensors.gps.usb_id).
+${GPS_DECLARED_RULE}
 
 # Nordic Semiconductor nRF52 Connectivity (BLE)
 SUBSYSTEM=="tty", ATTRS{idVendor}=="${NORDIC_VENDOR}", ATTRS{idProduct}=="${NORDIC_PRODUCT}", SYMLINK+="${BLE_SYMLINK}", GROUP="dialout", MODE="0660"

@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # ACCEPTANCE — Adafruit Ultimate GPS (#746) support (development seat, 2026-10-08)
 
 Packet: `PACKET-GPS-ADAFRUIT-ULTIMATE-746-2026-10-06.md (internal queue; path elided)` + ADDENDUM 1.

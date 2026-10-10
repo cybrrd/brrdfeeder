@@ -29,6 +29,10 @@ jobs:
           python-version: '3.13.5'
       - name: Provision pinned offline-test dependencies
         run: bash .github/scripts/setup-tests.sh
+      - name: Public helper documentation contracts
+        run: |
+          python3 Component/aviary/release-system/tests/test_docs.py
+          python3 Component/aviary/release-system/tests/mutate_docs.py
       - name: All offline contracts
         run: python3 Component/brrdfeeder/install/tests/run.py --group all --out "$RUNNER_TEMP/contracts"
         env:

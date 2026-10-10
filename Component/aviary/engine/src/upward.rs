@@ -27,7 +27,25 @@ const IDLE: Duration = Duration::from_millis(250);
 pub struct Config {
     /// Presence opts in; deployment still requires the release approver's reviewed grants/streams.
     pub spool_dir: PathBuf,
+    /// R1 Red boot-grace (seconds). WHAT: delay before a fresh session's distress
+    /// codes are EMITTED on the Red lane (observation and the Silver operational
+    /// lane are unchanged — unready is published throughout). WHY 300: GPS cold
+    /// start 30–120 s; clock trust needs the first fix plus consistent_fixes
+    /// (default 3) at 1 Hz; radio bring-up is seconds. A node that NEVER becomes
+    /// healthy still pages at ≤ grace + one 5 s tick — never-healthy detection is
+    /// delayed, never lost. WHEN-tune: 0 restores edge-triggered immediacy
+    /// (today's behaviour); raise for known-slow indoor sites. DEPENDS: should
+    /// stay ≥ sensors.gps.startup_grace_secs + 60 — raising the GPS grace past
+    /// 240 without raising this violates the floor (Red pages while the
+    /// operational gate still legitimately waits). Hard-clamped to 0..=3600.
+    #[serde(default = "default_red_boot_grace_s")]
+    pub red_boot_grace_s: u64,
 }
+
+fn default_red_boot_grace_s() -> u64 { 300 }
+
+/// R1: grace clamp shared by main.rs and the tests.
+pub fn clamped_grace_s(v: u64) -> u64 { v.min(3600) }
 
 impl Config {
     pub fn validate(&self, node: &str) -> Result<(), String> {
@@ -184,6 +202,14 @@ impl Status {
         let count = self.failures.fetch_add(1, Ordering::Relaxed) + 1;
         // Bounded by worker backoff, not by producer rate. No credentials/server errors.
         eprintln!("[upward] lane={} failure={} count={} retained={} engine_continues=true", lane.label(), fault, count, self.pending.load(Ordering::Relaxed));
+    }
+    /// Bookkeeping for one acknowledged delivery (a real PubAck). Extracted so
+    /// the fault-clear semantics are unit-testable: an ack must clear a fault
+    /// whose origin was the publish/transport path (`failed()`), not only the
+    /// disk-durability path.
+    fn delivered(&self, durable: bool) {
+        self.acknowledged.fetch_add(1, Ordering::Relaxed);
+        self.fault.store(if durable { 0 } else { 1 }, Ordering::Relaxed);
     }
 }
 
@@ -394,8 +420,7 @@ async fn worker(channel: Channel, root: PathBuf, node: String, connection: Conne
         } else { false };
         if delivered { // D40 mutation target: retirement requires a real PubAck.
             if let Ok(mut q) = channel.queue.lock() { q.retire(&record.message_id); channel.account(&q); }
-            channel.status.acknowledged.fetch_add(1, Ordering::Relaxed);
-            channel.status.fault.store(if durable { 0 } else { 1 }, Ordering::Relaxed);
+            channel.status.delivered(durable);
             eprintln!("[upward] lane={} acknowledged={} durable_staging={} duplicate_delivery_possible=true",
                       channel.lane.label(), record.message_id, durable);
             failures = 0;
@@ -478,7 +503,9 @@ fn launch(config: &Config, node: &str, nonce: String, connection: Connection) ->
 pub async fn monitor(mut handle: Handle, identity: crate::identity::RunningIdentity,
     radio: crate::heartbeat::RadioState, gps: Arc<arc_swap::ArcSwap<crate::sensor::SensorHealth>>,
     time: Arc<crate::clock_discipline::TimeTrust>, gps_required: bool,
+    red_boot_grace: Duration,
     cancel: tokio_util::sync::CancellationToken) {
+    let _ = red_boot_grace; // RED stub: gating lands with the implementation.
     let mut last_health = None;
     let mut last_report = Instant::now() - Duration::from_secs(30);
     let mut previous = Vec::new();

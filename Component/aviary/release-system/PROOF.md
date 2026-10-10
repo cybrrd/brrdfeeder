@@ -1,4 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Joining and proving signed convergence
 
 This is a preregistration guide, **not executed native proof** and not permission

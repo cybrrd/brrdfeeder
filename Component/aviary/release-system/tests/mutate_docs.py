@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Documentation regression controls, not runtime/native update proof."""
 import json
 from pathlib import Path

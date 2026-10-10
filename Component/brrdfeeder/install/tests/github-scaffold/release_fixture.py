@@ -31,6 +31,9 @@ if name=='skopeo' and args[0]=='inspect':
 if name=='syft': print(json.dumps({'bomFormat':'CycloneDX','specVersion':'1.6','version':1}))
 if name=='gh' and not os.environ.get('GH_TOKEN'): sys.exit('GH_TOKEN missing')
 if name=='gh' and os.environ.get('FIXTURE_EXISTING_RELEASE'): sys.exit('release already exists')
+if name=='cosign' and args[0]=='sign-blob':
+    if os.environ.get('FIXTURE_RECEIPT_SIGN_FAIL'): sys.exit('fixture signing refused')
+    Path(args[args.index('--bundle')+1]).write_text('{"fixture_only":true}')
 '''
 
 class ReleaseFixture:
@@ -64,6 +67,8 @@ printf engine-fixture > "$2/brrdfeeder-engine-$1.tar"
         self.env=dict(host_env,PATH=str(binary)+':'+os.environ['PATH'],TRACE=str(self.trace),
             GITHUB_REPOSITORY='cybrrd/brrdfeeder',GITHUB_REF='refs/tags/v1.2.3',GITHUB_REF_NAME='v1.2.3',
             GITHUB_EVENT_NAME='push',GITHUB_ACTOR='fixture',REGISTRY_TOKEN='not-a-secret',RELEASE_APPROVAL_CONFIGURED='true',
+            GITHUB_RUN_ID='12345',GITHUB_RUN_ATTEMPT='1',
+            GITHUB_WORKFLOW_REF='cybrrd/brrdfeeder/.github/workflows/release.yml@refs/tags/v1.2.3',
             GH_TOKEN='fixture-token',
             RUNNER_TEMP=str(self.work/'out'),GITHUB_STEP_SUMMARY=str(self.work/'summary'),GITHUB_OUTPUT=str(self.work/'outputs'),
             GIT_AUTHOR_NAME='Development Team',GIT_COMMITTER_NAME='Development Team',GIT_AUTHOR_EMAIL='operator@cybrrd.com',GIT_COMMITTER_EMAIL='operator@cybrrd.com',

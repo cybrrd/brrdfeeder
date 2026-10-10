@@ -16,8 +16,8 @@ GitHub release notes determine the delivered scope.
 - Pending [#40](https://github.com/cybrrd/brrdfeeder/pull/40): reconcile the public
   host-updater build, join, and proof documentation; add documentation regression
   checks while preserving the distinction between fixture and native proof.
-- Optional, only if Cy merges
-  [#42](https://github.com/cybrrd/brrdfeeder/pull/42) before the release tag:
+- Optional, only if [#42](https://github.com/cybrrd/brrdfeeder/pull/42) is merged
+  before the release tag with the release approver's authorization:
   Adafruit Ultimate GPS support through explicit USB-device opt-in and passive
   NMEA confirmation, plus default-off PMTK initialization. No claim of PPS
   enablement, hardware qualification, or a completed field measurement is made.

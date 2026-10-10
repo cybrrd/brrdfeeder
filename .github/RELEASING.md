@@ -76,6 +76,19 @@ source SHA, build sequence, image digests, per-image SBOMs, attestation URLs,
 checksums and the installer-pinned host helper/license. The release approver reviews and publishes
 that draft. CI never publishes the draft or signs S5 update manifests.
 
+The draft also carries `release-receipt.json` and
+`release-receipt.sigstore.json`. Cosign 2.6.5 signs the exact receipt bytes with
+GitHub OIDC and the new Sigstore bundle format, after both image/provenance
+steps. The receipt binds source/tag, workflow, event, run ID **and attempt**,
+both image tuples and SHA-256 of the ten release evidence/helper assets. The
+bundle and receipt themselves are included in SHA256SUMS (not recursively
+inside the receipt). The private publisher verifies the bundle against the
+exact tag workflow identity, GitHub issuer and source SHA, then independently
+checks GitHub run completion, published release, assets and image identities.
+No receipt or GitHub release grants permission to promote a ring: that needs a
+separate protected operator approval for the exact manifest. Public jobs hold
+neither S5 credentials nor its signing key and never contact S5.
+
 Every history-derived component build sequence remains `1000 + commit count`.
 Never lower the offset/floors, rewrite the public lineage or publish a build from
 the larger private history. The bootstrap host helper's separate fixed build 1
@@ -87,7 +100,9 @@ No registry operation occurs until both image archives pass validation. Publishi
 two images/signatures is not transactional: a later failure can leave the first
 image/signature present. Never treat that as an approved complete release. Inspect
 the run, exact digests and attestation records; do not change a tag to different
-bytes. Rerunning the gated job requires environment approval again. If a draft
+bytes. Rerun **all jobs**, not only failed jobs: inputs from a previous attempt
+are deliberately rejected even when the run ID is unchanged. Rerunning the
+gated job requires environment approval again. If a draft
 already exists, the script refuses rather than clobbering or publishing it.
 Registry credentials exist only under `$RUNNER_TEMP/registry-auth` during the
 publisher and are removed in the final `always()` cleanup step. The attestation

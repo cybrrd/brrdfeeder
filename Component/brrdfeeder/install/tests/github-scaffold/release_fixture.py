@@ -32,8 +32,8 @@ if name=='syft': print(json.dumps({'bomFormat':'CycloneDX','specVersion':'1.6','
 if name=='gh' and not os.environ.get('GH_TOKEN'): sys.exit('GH_TOKEN missing')
 if name=='gh' and os.environ.get('FIXTURE_EXISTING_RELEASE'): sys.exit('release already exists')
 if name=='cosign' and args[0]=='sign-blob':
-    if os.environ.get('FIXTURE_RECEIPT_SIGN_FAIL'): sys.exit('fixture signing refused')
     Path(args[args.index('--bundle')+1]).write_text('{"fixture_only":true}')
+    if os.environ.get('FIXTURE_RECEIPT_SIGN_FAIL'): sys.exit('fixture signing refused after partial bundle')
 '''
 
 class ReleaseFixture:
@@ -86,6 +86,8 @@ printf engine-fixture > "$2/brrdfeeder-engine-$1.tar"
         self.tmp.cleanup()
 
     def run(self,script,**env):
+        if 'GITHUB_REF' in env and 'GITHUB_WORKFLOW_REF' not in env:
+            env['GITHUB_WORKFLOW_REF']='cybrrd/brrdfeeder/.github/workflows/release.yml@'+env['GITHUB_REF']
         return subprocess.run(['python3' if script.endswith('.py') else 'bash','.github/scripts/'+script],
             cwd=self.work,env=dict(self.env,**env),text=True,capture_output=True,timeout=30)
 

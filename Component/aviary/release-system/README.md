@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
-# Signed releases and independent host convergence (D44 revival)
+# Signed releases and independent host convergence
 
 AGPL-3.0-or-later. Nodes autonomously PULL. Command and Blue no longer initiate
 software updates. Blue's crypto, pinned Ed25519 public key and applied-build
@@ -8,28 +8,37 @@ watermark remain; verify-blue is a diagnostic, not an update effector.
 
 ## Package publisher and hosting
 
-Build using this directory's digest-pinned Go 1.27.1 Containerfile.
-governance/reviews/d44-revival/build-host.sh reproduces the standalone ARM64
-host binary from two source paths with networking disabled. Ship its Go license.
-
-The release approver runs the publisher from an allowlisted host over HTTPS to S5; no private key
-is accepted by this command (placeholders are deliberately invalid):
+The standalone installer artifact is built by [build-host.sh](build-host.sh),
+which requires **Go 1.27.0**, disables module networking, builds Linux/ARM64
+twice from separate source paths and compares bytes against the committed
+installer helper pin. Its linker flag defines the helper build identity;
+do not substitute a version guessed from an image tag. Ship the Go license.
+The digest-pinned [Containerfile](Containerfile) is a separate build entry point;
+do not assume its output equals the installer-pinned helper without reproducing
+and comparing it. A failed pin comparison is a stop, not permission to rewrite
+installer/bootstrap pins outside the reviewed release workflow.
 
 ```sh
-./brrdfeeder-release publish --signer-url https://<S5-TLS-name>/sign/release \
-  --ring general --digest sha256:<engine-digest> \
-  --version <engine-40-hex-revision> --build-seq <engine-build> \
-  --console-digest sha256:<console-digest> \
-  --console-version <console-40-hex-revision> --console-build-seq <console-build> \
-  --sequence <ring-sequence> --rollout-pct 10 --salt stable-cohort \
-  --out release.json
+# From this directory, with the required compiler already available:
+./build-host.sh /path/to/new-artifact-directory
 ```
 
-Publish atomically at
+The helper's `publish` subcommand is a **low-level signer client**. It validates
+manifest inputs, calls an explicitly configured HTTPS S5 endpoint and checks
+the pinned signature and exact canonical echo. It is not a completed-release
+source verifier, protected promotion approval, durable sequence allocator or
+hosting deployer. Production publication needs those separate reviewed controls;
+do not use this subcommand to bypass them. No private signing key is accepted.
+Source availability is **not evidence that S5 is deployed**, its current CI
+signature policy works, or any feed has been published. Each needs separately
+authorized live verification. See the [release workflow](../../../.github/RELEASING.md).
+
+An approved hosting operator publishes verified metadata atomically at
 https://get.cybrrd.com/releases/v1/{dev,staging,general}/release.json.
-This uses the EXISTING world Caddy site, read-only /etc/world/get mount and
-repo-owned deployment runbook: no new service, domain or credential. The release approver publishes;
-this branch does not deploy. **Signature, not transport, is authority.** HTTPS
+Signing, serving, installation and ring promotion are distinct approvals.
+Retain immutable signed history and an independent per-ring publication ledger;
+never restore an older sequence as a website rollback. Verify anonymous served
+bytes and cache policy after publication. **Signature, not transport, is authority.** HTTPS
 distributes signed bytes; another static mirror cannot authorize a new release.
 Redirects, URL credentials and oversized documents are refused.
 
@@ -39,7 +48,7 @@ Release.canonical defines the signature array. Unknown/duplicate fields fail.
 Expiry defaults to 30 days; refresh signed metadata before expiry.
 
 Installer configuration supplies --ring (default general); the only vocabulary
-is fleet.yaml's dev/staging/general. Command's former ring names are retired.
+is dev/staging/general. Fleet inventory is not installed configuration or a trigger.
 The signed ring must match root-owned installed configuration. Only general has
 partial rollout: SHA256(JSON [node_id,salt]), first eight bytes big-endian modulo
 100, must be below rollout_pct. Keep salt fixed as percentage rises. Sequence
@@ -48,7 +57,8 @@ components retain their digest/build; a new salt/sequence cannot reset quarantin
 
 ## Poll, health and local recovery
 
-Package timer: boot at 2–7 minutes, then 15–20 minutes. A durable 15–20 minute
+Package timer: normally boot at 2–7 minutes, then 15–20 minutes after service
+completion (systemd scheduling can add delay). A durable 15–20 minute
 floor precedes EVERY HTTP attempt, including failures/restarts. A truck offline
 for a week fetches the latest release on return; no received Blue is needed.
 
@@ -107,6 +117,12 @@ is unhealthy. Console must return HTTP 200 and render fresh healthy engine
 status with the expected digest/revision. This proves process/sensor/console
 health, NOT downstream ingestion.
 
+The engine and console each have a health gate of up to 180 seconds. This is
+not a single 180-second end-to-end promise: image transfers happen first,
+individual external commands have a five-minute bound, and the package service
+has a 20-minute start timeout. Record the installed unit configuration and
+actual timing; do not diagnose an expected retry/poll floor as an absent update.
+
 Throughout the gate, both units' NRestarts AND both containers' RestartCount must
 stay unchanged. Invocation/container IDs detect reset/replacement. Planned starts
 reset the unit counter and must first be observed at zero. Any automatic restart
@@ -141,7 +157,7 @@ the engine/console transaction:
   --salt updater-two --out updater.unsigned.json
 ```
 
-Friday ruling: this command prepares UNSIGNED metadata only. Host-updater
+This command prepares UNSIGNED metadata only. Host-updater
 signing/publication is blocked pending a separately validated S5 endpoint; no
 caller loads the private key. The installed verifier/recovery remains tested.
 Distinct signed domain cybrrd.host-updater.v1, explicit updater_only=true,
@@ -160,22 +176,37 @@ recovery root requires a reviewed installer/reinstall.
 
 ## Installation, evidence and limits
 
-First move onto D44: local uninstall + one-liner with approved D44 engine/console
-images and independently pinned host artifact. No automatic migration. Installer
-requires canonical D17 status and D40 upward spool but does not provision server
-grants or streams. Those remain operator-gated.
+**Classify the installed baseline first.** A compatible installed helper in the
+current image namespaces can converge through its signed feed without reinstall.
+A legacy installation or a required newer helper may need a one-time approved
+join. Confirm actual helper SHA/build, image identities, ring, key, timers,
+floors, recovery launcher, status and server grants before deciding.
+
+Before an approved uninstall/reinstall, preserve nonsecret config and diagnostic
+receipts, coordinate old enrollment-credential revocation/re-enrollment and owner
+consent, and ensure exact approved bootstrap/installer/helper/images, upward
+grants, local rollback capacity and a support path are ready. Never erase floors,
+rewrite identities or reinstall to force a downgrade. The installer does not
+provision server grants/streams; an engine update cannot replace the host helper.
+Re-running the installer retains existing valid pins/helper, not an implicit
+upgrade. See [proof and joining prerequisites](PROOF.md).
 
 release_currency.json feeds Silver heartbeat: last valid check, sequence seen,
 running sequence, actual update outcome. Telemetry exclusion/30-day disenrollment
 are not implemented by this packet.
 
-Run go test -race ./..., go vet ./..., python3 launcher_test.py.
-governance/reviews/d44-revival/run-go-proofs.py retains positive and failing
-mutation receipts from isolated copies. SIGKILL tests kill real processes around
+Run `go test -race ./...`, `go vet ./...`, `python3 launcher_test.py` and
+`python3 tests/test_docs.py` from this directory.
+[tests/run-go-proofs.py](tests/run-go-proofs.py) and
+[tests/run-rework-proofs.py](tests/run-rework-proofs.py) retain positive and failing
+mutation receipts from isolated copies. Set `D44_EVIDENCE_DIR` to an isolated
+output directory; run only with the declared toolchain/test prerequisites.
+SIGKILL tests kill real processes around
 durable writes but simulate Podman/systemd/sensors: NOT physical power-cut or Pi
-proof. The revival report records the executed denominator and outstanding gates.
+proof. Report the exact source head, executed denominator and remaining native
+gates rather than treating these fixtures as field acceptance.
 
-## Trust boundaries and Friday rollout
+## Trust boundaries and rollout
 
 First install is TLS-anchored: bootstrap, installer pin and host-binary pin arrive
 over get.cybrrd.com. A compromised distributor could replace the entire chain.
@@ -184,9 +215,15 @@ first-install bootstrap. The host status clock-trust flag is also self-reported.
 Heartbeat seen/outcome/check_at are shape-validated updater reports; root can
 forge them. Running sequence is additionally bound to the engine's running digest.
 
-S5 `/sign/release` validates this exact schema/canonical bytes, source allowlist,
-optional bearer and cosign on both fixed-repository digest targets before signing.
-Key slot 0 is unchanged; its private key stays on S5. Publishing unsigned local
-builds is insufficient: the existing trusted-CI cosign gate must also pass.
-See governance/reviews/d44-rework/FRIDAY.md for isolated /dev install, N→N+1,
-same-digest ring promotion and the separately approved public switch.
+The intended S5 `/sign/release` deployment must validate this exact schema and
+canonical bytes, source authorization and both fixed-repository image signatures
+and identities before signing. Its seed stays on S5; slot 0 is unchanged. Prove
+current keyless CI signature/certificate compatibility before relying on a new
+deployment; an unsigned local build is insufficient. Protected source receipt,
+promotion approval, sequence ledger and independent output verification belong
+on the internal publisher, never on untrusted public PR jobs.
+
+An isolated dev proof precedes staging/general. Promote the same proved good
+digests without rebuilding, with a new ring-specific signature and sequence
+under separate approval. The public bootstrap switch is last, after proof and
+review; a GitHub tag or published release alone does not authorize it.

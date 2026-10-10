@@ -454,6 +454,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Arc::clone(&gps_handle_health),
                 Arc::clone(&time_trust),
                 cfg.sensors.gps.required,
+                std::time::Duration::from_secs(upward::clamped_grace_s(config.red_boot_grace_s)),
                 upward_cancel.clone(),
             ))),
             Err(reason) => {

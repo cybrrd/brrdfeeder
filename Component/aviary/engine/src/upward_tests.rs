@@ -365,9 +365,10 @@ async fn broker_both_denied_missing_stream_wrong_stream_and_broken_disk() {
     println!("D40 Red disk failure: live PubAck succeeds with explicit durability fault");
 }
 
-// ─── R1 Red boot-grace acceptance tests (design glm/R1-DESIGN.md; red on the
-// stub commit, green after the gating implementation). All use real time with
-// the monitor's 5 s tick; small grace values keep the suite bounded. ────────
+// ─── R1 Red boot-grace acceptance tests (design of record: R1-DESIGN.md in
+// the internal pareto workspace; red on the stub commit, green after the
+// gating implementation). All use real time with the monitor's 5 s tick;
+// small grace values keep the suite bounded. ─────────────────────────────
 
 mod r1 {
     use super::*;

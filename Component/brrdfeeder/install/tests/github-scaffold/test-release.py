@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 """Behavioral approval/artifact boundary checks with inert publication tools."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import subprocess
@@ -11,11 +12,58 @@ from unittest.mock import patch
 from release_fixture import ReleaseFixture
 
 class Release(unittest.TestCase):
+    def test_signed_receipt_binds_same_run_and_every_asset(self):
+        with ReleaseFixture() as f:
+            f.build_both()
+            self.assertEqual(f.run('publish-images.sh').returncode, 0)
+            p = f.run('draft-release.py')
+            self.assertEqual(p.returncode, 0, p.stderr)
+            out = f.work/'out/release-notes'
+            self.assertTrue((out/'release-receipt.json').is_file(), 'missing signed receipt')
+            receipt = json.loads((out/'release-receipt.json').read_text())
+            self.assertEqual(receipt['run_id'], 12345)
+            self.assertEqual(receipt['run_attempt'], 1)
+            self.assertEqual(receipt['revision'], f.env['GITHUB_SHA'])
+            self.assertEqual(receipt['repository'], 'cybrrd/brrdfeeder')
+            self.assertEqual(receipt['workflow_ref'], f.env['GITHUB_WORKFLOW_REF'])
+            self.assertEqual(set(receipt['images']), {'engine', 'console'})
+            self.assertEqual(len(receipt['assets']), 10)
+            for name, digest in receipt['assets'].items():
+                self.assertEqual(hashlib.sha256((out/name).read_bytes()).hexdigest(), digest)
+            calls = f.calls()
+            signing = next(i for i,(name,args) in enumerate(calls)
+                           if name == 'cosign' and args[0] == 'sign-blob')
+            draft = next(i for i,(name,args) in enumerate(calls) if name == 'gh')
+            self.assertLess(signing, draft)
+            self.assertIn('--new-bundle-format', calls[signing][1])
+            for name in ('release-receipt.json', 'release-receipt.sigstore.json'):
+                self.assertTrue(any(arg.endswith('/'+name) for arg in calls[draft][1]))
+
+    def test_receipt_sign_failure_never_creates_draft(self):
+        with ReleaseFixture() as f:
+            f.build_both()
+            self.assertEqual(f.run('publish-images.sh').returncode, 0)
+            p = f.run('draft-release.py', FIXTURE_RECEIPT_SIGN_FAIL='1')
+            self.assertNotEqual(p.returncode, 0, 'receipt signing failure ignored')
+            self.assertFalse(any(name == 'gh' for name,_ in f.calls()))
+
+    def test_receipt_rejects_wrong_run_attempt_workflow_and_event(self):
+        for env in ({'GITHUB_RUN_ID':'23456'}, {'GITHUB_RUN_ATTEMPT':'2'},
+                    {'GITHUB_WORKFLOW_REF':'fork/repo/.github/workflows/release.yml@refs/tags/v1.2.3'},
+                    {'GITHUB_EVENT_NAME':'pull_request'}):
+            with self.subTest(env=env), ReleaseFixture() as f:
+                f.build_both()
+                self.assertEqual(f.run('publish-images.sh').returncode, 0)
+                p = f.run('draft-release.py', **env)
+                self.assertNotEqual(p.returncode, 0, 'unbound run input accepted')
+                self.assertFalse(any(name == 'gh' for name,_ in f.calls()))
+
     def test_fixture_is_independent_of_host_ci_environment(self):
         explicit = {
             'GITHUB_ACTOR', 'GITHUB_EVENT_NAME', 'GITHUB_OUTPUT',
             'GITHUB_REF', 'GITHUB_REF_NAME', 'GITHUB_REPOSITORY',
             'GITHUB_SHA', 'GITHUB_STEP_SUMMARY', 'RUNNER_TEMP',
+            'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_WORKFLOW_REF',
         }
         for host_event in ('workflow_dispatch', 'push'):
             host = {

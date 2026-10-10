@@ -47,6 +47,20 @@ assets.append(str(out/'GO-LICENSE'))
 (out/'attestations.json').write_text(json.dumps(urls, indent=2)+'\n')
 (out/'digests.txt').write_text('\n'.join(r['image']+'@'+r['digest'] for r in records)+'\n')
 assets += [str(out/'attestations.json'), str(out/'digests.txt')]
+# This is release evidence, NOT an S5 ring manifest or promotion permission.
+# Verify same-run inputs above before obtaining any blob-signing identity.
+receipt = dict(ctx, schema='cybrrd.release-receipt.v1', repository='cybrrd/brrdfeeder',
+               images={r['component']: {'repository': r['image'], 'digest': r['digest'],
+                       'revision': r['revision'], 'build_seq': r['build_seq']} for r in records},
+               assets={Path(p).name: metadata.sha(Path(p)) for p in assets})
+receipt_path = out/'release-receipt.json'
+bundle_path = out/'release-receipt.sigstore.json'
+receipt_path.write_text(json.dumps(receipt, sort_keys=True, indent=2)+'\n')
+subprocess.run(['cosign', 'sign-blob', '--yes', '--new-bundle-format',
+                '--bundle', str(bundle_path), str(receipt_path)], check=True, timeout=180)
+metadata.regular(bundle_path)
+metadata.require(bundle_path.stat().st_size > 0, 'empty receipt verification bundle')
+assets += [str(receipt_path), str(bundle_path)]
 (out/'SHA256SUMS').write_text(''.join(metadata.sha(Path(p))+'  '+Path(p).name+'\n' for p in assets))
 assets.append(str(out/'SHA256SUMS'))
 (out/'notes.md').write_text('\n'.join(notes)+'\n')

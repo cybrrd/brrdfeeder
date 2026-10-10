@@ -40,6 +40,15 @@ def product_version(tag=None, manifest=ENGINE_MANIFEST):
 
 def context(dry_run=False):
     require(os.environ.get('GITHUB_REPOSITORY') == 'cybrrd/brrdfeeder', 'foreign repository')
+    event = os.environ.get('GITHUB_EVENT_NAME')
+    require(event in ('push', 'workflow_dispatch'), 'untrusted release event')
+    workflow = 'cybrrd/brrdfeeder/.github/workflows/release.yml@'+os.environ.get('GITHUB_REF', '')
+    require(os.environ.get('GITHUB_WORKFLOW_REF') == workflow, 'wrong release workflow')
+    run = {}
+    for field in ('run_id', 'run_attempt'):
+        value = os.environ.get('GITHUB_'+field.upper(), '')
+        require(re.fullmatch(r'[1-9][0-9]{0,18}', value), 'invalid '+field)
+        run[field] = int(value)
     if dry_run:
         require(os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch',
                 'dry run requires workflow_dispatch')
@@ -62,7 +71,7 @@ def context(dry_run=False):
     count = int(command('git', 'rev-list', '--count', 'HEAD'))
     require(count >= 1, 'empty release history')
     return {'tag': tag, 'product_version': version, 'revision': revision,
-            'build_seq': 1000+count}
+            'build_seq': 1000+count, 'workflow_ref': workflow, 'event': event, **run}
 
 def regular(path):
     require(not path.is_symlink() and path.is_file(), 'missing or symlink artifact: '+str(path))

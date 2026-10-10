@@ -45,6 +45,20 @@ cases=[
      behavior.Release,'test_missing_approval_acknowledgement_refuses_all_effectors'),
     ('non-draft-release','.github/scripts/draft-release.py',"'--draft', ",'',
      behavior.Release,'test_draft_has_changelog_sboms_digests_and_attestations_never_publish'),
+    ('receipt-sign-failure-ignored','.github/scripts/draft-release.py',
+     'str(receipt_path)], check=True, timeout=180)', 'str(receipt_path)], check=False, timeout=180)',
+     behavior.Release,'test_receipt_sign_failure_never_creates_draft'),
+    ('receipt-run-binding-bypass','.github/scripts/release-metadata.py',
+     'require(expected == actual,',
+     "require({k:v for k,v in expected.items() if k not in ('run_id','run_attempt')} == {k:v for k,v in actual.items() if k not in ('run_id','run_attempt')},",
+     behavior.Release,'test_receipt_rejects_wrong_run_attempt_workflow_and_event'),
+    ('receipt-helper-hash-poison','.github/scripts/draft-release.py',
+     "assets={Path(p).name: metadata.sha(Path(p)) for p in assets}",
+     "assets={Path(p).name: '0'*64 for p in assets}",
+     behavior.Release,'test_signed_receipt_binds_same_run_and_every_asset'),
+    ('receipt-old-bundle-format','.github/scripts/draft-release.py',
+     "'--new-bundle-format',", '',
+     behavior.Release,'test_signed_receipt_binds_same_run_and_every_asset'),
 ]
 results=[]
 for name,relative,old,new,test,method in cases:

@@ -124,8 +124,8 @@ fn bounds_shed_oldest_with_red_reserve_and_nonblocking_handoff() {
 fn payload_subject_and_retry_checks_fail_closed() {
     for node in ["", "other.node", ">", "*", "a b", "a\n"] { assert!(!token(node)); }
     assert!(!token(&"a".repeat(65)));
-    assert!(Config { spool_dir: "/tmp/private".into() }.validate("test-node").is_ok());
-    assert!(Config { spool_dir: "relative".into() }.validate("test-node").is_err());
+    assert!(Config { spool_dir: "/tmp/private".into(), red_boot_grace_s: 300 }.validate("test-node").is_ok());
+    assert!(Config { spool_dir: "relative".into(), red_boot_grace_s: 300 }.validate("test-node").is_err());
     assert_eq!(Lane::Operational.subject("test-node"), "cybrrd.silver.node.operational.test-node");
     assert_eq!(Lane::Red.subject("test-node"), "cybrrd.red.algedonic.test-node");
     assert_ne!(Lane::Operational.stream(), Lane::Red.stream());
@@ -228,7 +228,7 @@ async fn streams(js: &jetstream::Context) {
     }
 }
 fn handle(root: &Path, broker: &Broker, nonce: &str) -> Handle {
-    launch(&Config { spool_dir: root.into() }, "test-node", nonce.into(), Connection {
+    launch(&Config { spool_dir: root.into(), red_boot_grace_s: 0 }, "test-node", nonce.into(), Connection {
         urls: vec![format!("127.0.0.1:{}",broker.port)], credentials: String::new(),
         test_user: Some(("test-node".into(), broker.password.clone())) })
 }
@@ -258,7 +258,8 @@ async fn broker_permission_offline_restart_and_independent_red() {
     let cancel = tokio_util::sync::CancellationToken::new();
     let monitoring = tokio::spawn(monitor(engine, identity.clone(), radio,
         Arc::new(arc_swap::ArcSwap::from_pointee(gps)),
-        Arc::new(crate::clock_discipline::TimeTrust::new()), false, cancel.clone()));
+        Arc::new(crate::clock_discipline::TimeTrust::new()), false,
+        Duration::ZERO, cancel.clone()));
     let progress = Arc::new(AtomicU64::new(0));
     let progress_copy = progress.clone();
     let capture = tokio::spawn(async move { loop { progress_copy.fetch_add(1, Ordering::Relaxed); sleep(Duration::from_millis(10)).await; } });
@@ -362,4 +363,257 @@ async fn broker_both_denied_missing_stream_wrong_stream_and_broken_disk() {
     engine.shutdown().await;
     println!("D40 failure matrix: both denied retain; missing/wrong stream refuse; routine disk broken retains while Red delivers; disk repair recovers");
     println!("D40 Red disk failure: live PubAck succeeds with explicit durability fault");
+}
+
+// ─── R1 Red boot-grace acceptance tests (design of record: R1-DESIGN.md in
+// the internal pareto workspace; red on the stub commit, green after the
+// gating implementation). All use real time with the monitor's 5 s tick;
+// small grace values keep the suite bounded. ─────────────────────────────
+
+mod r1 {
+    use super::*;
+    use std::sync::atomic::Ordering;
+
+    const TICK: Duration = Duration::from_secs(5);
+
+    struct Rig {
+        handle: Handle,
+        radio: crate::heartbeat::RadioState,
+        gps: Arc<arc_swap::ArcSwap<crate::sensor::SensorHealth>>,
+        time: Arc<crate::clock_discipline::TimeTrust>,
+        cancel: tokio_util::sync::CancellationToken,
+    }
+    impl Rig {
+        fn new(grace: Duration) -> Self {
+            let handle = Handle { node: "r1-node".into(), nonce: "r1-grace-test".into(),
+                sequence: AtomicU64::new(0), operational: Channel::new(Lane::Operational),
+                red: Channel::new(Lane::Red), stop: Arc::new(AtomicBool::new(false)), tasks: Vec::new() };
+            let rig = Rig { handle, radio: crate::heartbeat::RadioState::new(),
+                gps: Arc::new(arc_swap::ArcSwap::from_pointee(
+                    crate::sensor::SensorHealth::initializing("TEST-ONLY"))),
+                time: Arc::new(crate::clock_discipline::TimeTrust::new()),
+                cancel: tokio_util::sync::CancellationToken::new() };
+            Rig::spawn_monitor(&rig, grace); // the real production monitor, 5 s tick
+            rig
+        }
+        /// Spawn the real monitor against this rig's shared channels.
+        /// `drop_handle` is returned so the original Handle outlives the task.
+        fn spawn_monitor(rig: &Rig, grace: Duration) -> tokio::task::JoinHandle<()> {
+            let monitor_handle = clone_handle(&rig.handle);
+            let radio = rig.radio.clone();
+            let gps = Arc::clone(&rig.gps);
+            let time = Arc::clone(&rig.time);
+            let cancel = rig.cancel.clone();
+            tokio::spawn(monitor(monitor_handle, crate::identity::RunningIdentity::upward_test_fixture(),
+                radio, gps, time, true, grace, cancel))
+        }
+        fn set_faults(&self, radio_up: bool, gps_healthy: bool, clock_trusted: bool) {
+            self.radio.set(if radio_up { crate::heartbeat::RadioStatus::Up } else { crate::heartbeat::RadioStatus::Error });
+            let mut gps = crate::sensor::SensorHealth::initializing("TEST-ONLY");
+            gps.state = if gps_healthy { crate::sensor::SensorState::Healthy } else { crate::sensor::SensorState::Failed };
+            self.gps.store(Arc::new(gps));
+            // TimeTrust::mark_trusted is private; drive it through the public
+            // discipline path when trusted, or leave untrusted (default).
+            if clock_trusted {
+                // Feed GPS fixes at (near-)real UTC so the skew check passes and
+                // the default 3 consistent fixes agree (advance ≈ elapsed, ≤1000 ms
+                // apart per the consensus window).
+                let base = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64;
+                for i in 0..6 {
+                    if self.time.is_trusted() { break; }
+                    std::thread::sleep(std::time::Duration::from_millis(6));
+                    crate::clock_discipline::discipline_from_gps(base + (i as i64) * 6, &self.time,
+                        &crate::node_config::ClockYaml::default());
+                }
+            }
+        }
+        fn red_codes(&self) -> Vec<Distress> {
+            self.handle.red.queue.lock().unwrap().records.iter()
+                .map(|r| match &r.message { Message::Algedonic { code, .. } => *code, _ => unreachable!() })
+                .collect()
+        }
+        fn red_count(&self, code: Distress) -> usize {
+            self.red_codes().iter().filter(|c| **c == code).count()
+        }
+    }
+    // Channel is not Clone; tests live inside the `upward` module tree so its
+    // private fields are visible. Share the SAME Arcs so queue inspection sees
+    // exactly what the spawned monitor enqueues.
+    fn unsafe_clone_channel(c: &Channel) -> Channel {
+        Channel { lane: c.lane, queue: Arc::clone(&c.queue), status: Arc::clone(&c.status) }
+    }
+    fn clone_handle(h: &Handle) -> Handle {
+        Handle { node: h.node.clone(), nonce: String::new(), sequence: AtomicU64::new(0),
+            operational: unsafe_clone_channel(&h.operational), red: unsafe_clone_channel(&h.red),
+            stop: Arc::new(AtomicBool::new(false)), tasks: Vec::new() }
+    }
+
+    async fn settle(ticks: u32) { sleep(TICK * ticks + Duration::from_millis(300)).await; }
+
+    /// (a) Boot burst suppressed: faults at t≈0, healthy well before the grace
+    /// deadline → ZERO Red records (observation only; the operational lane
+    /// still published the unready state). RED on the stub: fires 3 codes.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn r1_a_boot_burst_suppressed_by_grace() {
+        let rig = Rig::new(Duration::from_secs(18));
+        rig.set_faults(false, false, false); // boot-unready
+        sleep(Duration::from_secs(2)).await;  // conditions clear at ~t=2
+        rig.set_faults(true, true, true);
+        settle(4).await; // well past the 18 s deadline, healthy throughout
+        let codes = rig.red_codes();
+        assert!(codes.is_empty(), "(a) boot burst must be suppressed when conditions clear before the deadline; got {:?}", codes);
+        rig.cancel.cancel();
+    }
+
+    /// (a-side) Silver keeps publishing the unready state during grace.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn r1_a_silver_publishes_unready_during_grace() {
+        let rig = Rig::new(Duration::from_secs(18));
+        rig.set_faults(false, false, false);
+        settle(2).await; // ~10 s: inside grace, unready
+        let ops = rig.handle.operational.queue.lock().unwrap().records.clone();
+        assert!(ops.iter().any(|r| match &r.message {
+            Message::Operational { health, .. } => !health.healthy, _ => false }),
+            "(a-side) the operational lane must publish healthy:false during grace");
+        let codes = rig.red_codes();
+        assert!(codes.is_empty(), "(a-side) grace still holds at ~10 s of an 18 s grace; got {:?}", codes);
+        rig.cancel.cancel();
+    }
+
+    /// (b) Never-healthy pages by the deadline: faults persist → exactly one
+    /// alarm per still-true code, none before the deadline, all by
+    /// deadline + one tick. RED on the stub: fires at the FIRST tick.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn r1_b_never_healthy_pages_by_deadline() {
+        let grace = Duration::from_secs(12);
+        let rig = Rig::new(grace);
+        rig.set_faults(false, false, false);
+        sleep(Duration::from_secs(7)).await; // past one tick, before deadline
+        let early = rig.red_codes();
+        assert!(early.is_empty(), "(b) no Red may be emitted before the grace deadline; got {:?}", early);
+        settle(3).await; // ~22 s: past deadline + tick
+        for code in [Distress::RadioUnavailable, Distress::RequiredGpsUnavailable, Distress::ClockUntrusted] {
+            assert_eq!(rig.red_count(code), 1, "(b) exactly one {} at expiry", format!("{code:?}"));
+        }
+        rig.cancel.cancel();
+    }
+
+    /// (c) Mid-session loss pages immediately (guard): healthy at boot, grace
+    /// long expired, fault appears late → alarmed within one tick, grace
+    /// must NOT delay post-boot faults.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn r1_c_mid_session_loss_pages_immediately() {
+        let rig = Rig::new(Duration::from_secs(1));
+        rig.set_faults(true, true, true);
+        settle(4).await; // ~20 s: grace long expired, still healthy
+        assert!(rig.red_codes().is_empty(), "(c) healthy node emits no Red");
+        let t0 = Instant::now();
+        rig.set_faults(false, true, true); // radio drops at ~t=20
+        wait_for(|| rig.red_count(Distress::RadioUnavailable) == 1, 12).await;
+        let dt = t0.elapsed();
+        assert!(dt <= Duration::from_secs(11), "(c) mid-session loss must page within ~tick+margin, took {:?}", dt);
+        rig.cancel.cancel();
+    }
+
+    /// (d) Per-instance edge semantics, part 1: fault true at boot and still
+    /// true at expiry → EXACTLY one alarm (not one at boot and again at
+    /// expiry). RED on the stub: fires early (count is still 1, but the
+    /// next part pins the timing) — combined with part 2 below.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn r1_d_persisting_boot_fault_fires_once_at_expiry() {
+        let rig = Rig::new(Duration::from_secs(12));
+        rig.set_faults(false, false, false);
+        sleep(Duration::from_secs(7)).await;
+        assert!(rig.red_codes().is_empty(), "(d) nothing before the deadline");
+        settle(3).await;
+        for code in [Distress::RadioUnavailable, Distress::RequiredGpsUnavailable, Distress::ClockUntrusted] {
+            assert_eq!(rig.red_count(code), 1, "(d) exactly one {} — no double edge", format!("{code:?}"));
+        }
+        // still faulted much later: no further edges
+        settle(3).await;
+        for code in [Distress::RadioUnavailable, Distress::RequiredGpsUnavailable, Distress::ClockUntrusted] {
+            assert_eq!(rig.red_count(code), 1, "(d) still exactly one {} later", format!("{code:?}"));
+        }
+        rig.cancel.cancel();
+    }
+
+    /// (d) part 2: clear-and-return AFTER expiry re-alarms (existing edge
+    /// semantics preserved post-grace).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn r1_d_clear_and_return_after_expiry_realarms() {
+        let rig = Rig::new(Duration::from_secs(6));
+        rig.set_faults(true, true, true);
+        settle(2).await; // grace over, healthy
+        assert!(rig.red_codes().is_empty());
+        rig.radio.set(crate::heartbeat::RadioStatus::Error); // loss
+        wait_for(|| rig.red_count(Distress::RadioUnavailable) == 1, 12).await;
+        rig.radio.set(crate::heartbeat::RadioStatus::Up);    // recover
+        settle(2).await;
+        rig.radio.set(crate::heartbeat::RadioStatus::Error); // return
+        wait_for(|| rig.red_count(Distress::RadioUnavailable) == 2, 12).await;
+        rig.cancel.cancel();
+    }
+
+    /// (e2) Mid-grace onset: fault starts INSIDE the grace window (t≈7 of 12)
+    /// and persists → exactly one alarm at expiry.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn r1_e2_mid_grace_onset_pages_once_at_expiry() {
+        let rig = Rig::new(Duration::from_secs(14));
+        rig.set_faults(true, true, true); // healthy boot
+        sleep(Duration::from_secs(7)).await;
+        rig.radio.set(crate::heartbeat::RadioStatus::Error); // onset mid-grace
+        sleep(Duration::from_secs(3)).await; // still inside grace
+        assert!(rig.red_codes().is_empty(), "(e2) onset inside grace must not page early");
+        settle(4).await; // past expiry + tick
+        assert_eq!(rig.red_count(Distress::RadioUnavailable), 1, "(e2) exactly one alarm at expiry");
+        rig.cancel.cancel();
+    }
+
+    /// (e3) Partial clear: two of three boot codes clear before expiry → only
+    /// the persisting one alarms; the cleared ones NEVER alarm.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn r1_e3_partial_clear_only_persisting_alarms() {
+        let rig = Rig::new(Duration::from_secs(14));
+        rig.set_faults(false, false, false); // radio+gps+clock faulted
+        sleep(Duration::from_secs(3)).await;
+        // radio recovers, clock+gps stay faulted (gps failed keeps clock untrusted):
+        rig.radio.set(crate::heartbeat::RadioStatus::Up);
+        sleep(Duration::from_secs(3)).await; // still inside grace
+        assert!(rig.red_codes().is_empty(), "(e3) grace holds");
+        settle(4).await; // past expiry
+        assert_eq!(rig.red_count(Distress::RadioUnavailable), 0, "(e3) cleared code must never alarm");
+        assert_eq!(rig.red_count(Distress::RequiredGpsUnavailable), 1, "(e3) persisting gps alarms once");
+        assert_eq!(rig.red_count(Distress::ClockUntrusted), 1, "(e3) persisting clock alarms once");
+        rig.cancel.cancel();
+    }
+
+    /// (e) Publish-path fault clear-on-ack (SHOULD-2): a fault set by the
+    /// publish/transport path (`failed()`) must clear on an acknowledged
+    /// delivery — including when the delivery is NOT disk-durable. RED on
+    /// the stub: `delivered(false)` leaves fault=1 (today's store).
+    #[test]
+    fn r1_e_publish_fault_clears_on_ack_without_durability() {
+        let status = Status::default();
+        status.failed(Lane::Red, 2); // publish-path fault (worker transport branch)
+        assert_ne!(status.fault.load(Ordering::Relaxed), 0, "publish fault set");
+        status.delivered(false); // ack received, NO durable staging (store absent)
+        assert_eq!(status.fault.load(Ordering::Relaxed), 0,
+            "(e) an acknowledged delivery must clear a publish-path fault even without durability");
+        // clear-then-return: a later failure re-arms (odf is edge-triggered upstream)
+        status.failed(Lane::Red, 3);
+        assert_ne!(status.fault.load(Ordering::Relaxed), 0, "re-arm after clear");
+    }
+
+    /// (f) Config knob: default 300 when absent, explicit parse, clamp helper.
+    #[test]
+    fn r1_f_config_knob_default_parse_clamp() {
+        let absent: Config = serde_yaml::from_str("spool_dir: /tmp/x").unwrap();
+        assert_eq!(absent.red_boot_grace_s, 300, "(f) default grace is 300 s");
+        let explicit: Config = serde_yaml::from_str("spool_dir: /tmp/x\nred_boot_grace_s: 0").unwrap();
+        assert_eq!(explicit.red_boot_grace_s, 0, "(f) 0 = today's edge-triggered behaviour");
+        assert_eq!(clamped_grace_s(0), 0);
+        assert_eq!(clamped_grace_s(300), 300);
+        assert_eq!(clamped_grace_s(7200), 3600, "(f) hard clamp to 3600");
+    }
 }

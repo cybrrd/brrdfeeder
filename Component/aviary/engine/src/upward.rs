@@ -27,7 +27,25 @@ const IDLE: Duration = Duration::from_millis(250);
 pub struct Config {
     /// Presence opts in; deployment still requires the release approver's reviewed grants/streams.
     pub spool_dir: PathBuf,
+    /// R1 Red boot-grace (seconds). WHAT: delay before a fresh session's distress
+    /// codes are EMITTED on the Red lane (observation and the Silver operational
+    /// lane are unchanged — unready is published throughout). WHY 300: GPS cold
+    /// start 30–120 s; clock trust needs the first fix plus consistent_fixes
+    /// (default 3) at 1 Hz; radio bring-up is seconds. A node that NEVER becomes
+    /// healthy still pages at ≤ grace + one 5 s tick — never-healthy detection is
+    /// delayed, never lost. WHEN-tune: 0 restores edge-triggered immediacy
+    /// (today's behaviour); raise for known-slow indoor sites. DEPENDS: should
+    /// stay ≥ sensors.gps.startup_grace_secs + 60 — raising the GPS grace past
+    /// 240 without raising this violates the floor (Red pages while the
+    /// operational gate still legitimately waits). Hard-clamped to 0..=3600.
+    #[serde(default = "default_red_boot_grace_s")]
+    pub red_boot_grace_s: u64,
 }
+
+fn default_red_boot_grace_s() -> u64 { 300 }
+
+/// R1: grace clamp shared by main.rs and the tests.
+pub fn clamped_grace_s(v: u64) -> u64 { v.min(3600) }
 
 impl Config {
     pub fn validate(&self, node: &str) -> Result<(), String> {
@@ -184,6 +202,19 @@ impl Status {
         let count = self.failures.fetch_add(1, Ordering::Relaxed) + 1;
         // Bounded by worker backoff, not by producer rate. No credentials/server errors.
         eprintln!("[upward] lane={} failure={} count={} retained={} engine_continues=true", lane.label(), fault, count, self.pending.load(Ordering::Relaxed));
+    }
+    /// Bookkeeping for one acknowledged delivery (a real PubAck). Extracted so
+    /// the fault-clear semantics are unit-testable: an ack must clear a fault
+    /// whose origin was the publish/transport path (`failed()`), not only the
+    /// disk-durability path.
+    fn delivered(&self, durable: bool) {
+        self.acknowledged.fetch_add(1, Ordering::Relaxed);
+        // R1/SHOULD-2: an acknowledged delivery clears a fault of EITHER
+        // origin (publish/transport or disk) - one transient broker failure
+        // must not keep routine_failed() latched for the session's remainder.
+        // odf remains edge-triggered upstream: a later failure re-arms it.
+        let _ = durable; // retained for the caller's log line
+        self.fault.store(0, Ordering::Relaxed);
     }
 }
 
@@ -394,8 +425,7 @@ async fn worker(channel: Channel, root: PathBuf, node: String, connection: Conne
         } else { false };
         if delivered { // D40 mutation target: retirement requires a real PubAck.
             if let Ok(mut q) = channel.queue.lock() { q.retire(&record.message_id); channel.account(&q); }
-            channel.status.acknowledged.fetch_add(1, Ordering::Relaxed);
-            channel.status.fault.store(if durable { 0 } else { 1 }, Ordering::Relaxed);
+            channel.status.delivered(durable);
             eprintln!("[upward] lane={} acknowledged={} durable_staging={} duplicate_delivery_possible=true",
                       channel.lane.label(), record.message_id, durable);
             failures = 0;
@@ -475,14 +505,28 @@ fn launch(config: &Config, node: &str, nonce: String, connection: Connection) ->
 
 /// Independent of the old heartbeat queue. One report every 30s and at health
 /// transitions; alarm once per fault episode, retrying handoff refusal next tick.
+///
+/// R1 boot-grace: distress codes observed during `red_boot_grace` after monitor
+/// start are NOT emitted; only codes still true at the deadline alarm (once,
+/// at the first tick past it). Initial unready sensors are a DEFERRED episode,
+/// not an immediate one - the operational lane and the legacy heartbeat
+/// publish the unready state throughout. A never-healthy node pages at
+/// <= grace + one tick. Grace 0 restores immediate emission.
 pub async fn monitor(mut handle: Handle, identity: crate::identity::RunningIdentity,
     radio: crate::heartbeat::RadioState, gps: Arc<arc_swap::ArcSwap<crate::sensor::SensorHealth>>,
     time: Arc<crate::clock_discipline::TimeTrust>, gps_required: bool,
+    red_boot_grace: Duration,
     cancel: tokio_util::sync::CancellationToken) {
     let mut last_health = None;
     let mut last_report = Instant::now() - Duration::from_secs(30);
     let mut previous = Vec::new();
     let mut last_update = None;
+    // R1 boot-grace: hold Red EMISSION (never observation - the operational
+    // lane publishes the unready state throughout) until the deadline. The
+    // misbuild guard (SHOULD-1): during grace, still-true faults are NOT
+    // recorded in `previous`; the edge survives to fire at expiry. Recording
+    // them early would consume the edge and mask a never-healthy node forever.
+    let boot_deadline = Instant::now() + red_boot_grace;
     loop {
         let node = handle.node.clone();
         let update = tokio::task::spawn_blocking(move || UpdateOutcome::read(
@@ -502,6 +546,16 @@ pub async fn monitor(mut handle: Handle, identity: crate::identity::RunningIdent
         if gps_required && !health.gps_healthy { faults.push(Distress::RequiredGpsUnavailable); }
         if gps_required && !health.clock_trusted { faults.push(Distress::ClockUntrusted); }
         if handle.routine_failed() { faults.push(Distress::OperationalDeliveryFailed); }
+        if Instant::now() < boot_deadline {
+            // In grace: suppress emission AND preserve the edge (SHOULD-1) -
+            // `previous` is neither advanced nor pruned here, so a fault that
+            // is still true after the deadline fires exactly once, at expiry.
+            // Any fault arising in this window is suppressed blanket (the
+            // accepted trade, bounded by the expiry page); post-deadline the
+            // loop below is byte-for-byte today's edge semantics.
+            tokio::select! { _ = cancel.cancelled() => { handle.shutdown().await; return; }, _ = sleep(Duration::from_secs(5)) => {} }
+            continue;
+        }
         previous.retain(|code| faults.contains(code));
         for code in faults {
             if !previous.contains(&code) && handle.alarm(code, health.clock_trusted) { previous.push(code); }

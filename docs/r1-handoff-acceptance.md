@@ -42,5 +42,5 @@ acceptance requirement over the mistaken unconditional-clear test.
    Require exact-head PR CI green before handoff completion.
 7. Supply operator configuration documentation (default 300, zero immediate,
    clamp 3600, blanket Red-only suppression, GPS grace floor +60 seconds).
-   No production/node contact; development identity for new commits; Kimi
-   verifies, release approver merges/deploys separately.
+   No production/node contact; development identity for new commits; independent
+   reviewer verifies, release approver merges/deploys separately.

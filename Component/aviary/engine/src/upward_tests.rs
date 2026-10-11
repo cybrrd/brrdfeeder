@@ -372,7 +372,6 @@ async fn broker_both_denied_missing_stream_wrong_stream_and_broken_disk() {
 
 mod r1 {
     use super::*;
-    use std::sync::atomic::Ordering;
 
     const TICK: Duration = Duration::from_secs(5);
 
@@ -588,21 +587,32 @@ mod r1 {
         rig.cancel.cancel();
     }
 
-    /// (e) Publish-path fault clear-on-ack (SHOULD-2): a fault set by the
-    /// publish/transport path (`failed()`) must clear on an acknowledged
-    /// delivery — including when the delivery is NOT disk-durable. RED on
-    /// the stub: `delivered(false)` leaves fault=1 (today's store).
+    /// (e) PubAck clears transport failure, not an unresolved disk failure.
+    /// Main already preserves this distinction; the unconditional R1 clear
+    /// incorrectly made Red's live escape path certify local durability.
     #[test]
-    fn r1_e_publish_fault_clears_on_ack_without_durability() {
-        let status = Status::default();
-        status.failed(Lane::Red, 2); // publish-path fault (worker transport branch)
-        assert_ne!(status.fault.load(Ordering::Relaxed), 0, "publish fault set");
-        status.delivered(false); // ack received, NO durable staging (store absent)
-        assert_eq!(status.fault.load(Ordering::Relaxed), 0,
-            "(e) an acknowledged delivery must clear a publish-path fault even without durability");
-        // clear-then-return: a later failure re-arms (odf is edge-triggered upstream)
-        status.failed(Lane::Red, 3);
-        assert_ne!(status.fault.load(Ordering::Relaxed), 0, "re-arm after clear");
+    fn r1_e_puback_clears_transport_but_preserves_disk_fault() {
+        for lane in [Lane::Operational, Lane::Red] {
+            for fault in [1, 2, 3] { // disk, connect, publish
+                let status = Status::default();
+                status.failed(lane, fault);
+                assert_eq!(status.snapshot().fault, fault);
+                status.delivered(false);
+                assert_eq!(status.snapshot().fault, 1,
+                    "PubAck without durable staging must retain a disk fault");
+                status.delivered(false);
+                assert_eq!(status.snapshot().fault, 1, "repeated live delivery does not repair disk");
+                status.delivered(true);
+                assert_eq!(status.snapshot().fault, 0, "durable delivery clears the fault");
+                assert_eq!(status.snapshot().acknowledged, 3);
+                status.failed(lane, 3);
+                assert_eq!(status.snapshot().fault, 3, "later failure re-arms");
+                status.delivered(true);
+                assert_eq!(status.snapshot().fault, 0, "transport failure must not latch");
+                assert_eq!(status.snapshot().acknowledged, 4);
+                assert_eq!(status.snapshot().failures, 2, "history is not erased");
+            }
+        }
     }
 
     /// (f) Config knob: default 300 when absent, explicit parse, clamp helper.

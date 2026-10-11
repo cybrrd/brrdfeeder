@@ -204,17 +204,14 @@ impl Status {
         eprintln!("[upward] lane={} failure={} count={} retained={} engine_continues=true", lane.label(), fault, count, self.pending.load(Ordering::Relaxed));
     }
     /// Bookkeeping for one acknowledged delivery (a real PubAck). Extracted so
-    /// the fault-clear semantics are unit-testable: an ack must clear a fault
-    /// whose origin was the publish/transport path (`failed()`), not only the
-    /// disk-durability path.
+    /// the fault-clear semantics are unit-testable: transport recovery must
+    /// not conceal a remaining disk-durability fault on Red's live escape path.
     fn delivered(&self, durable: bool) {
         self.acknowledged.fetch_add(1, Ordering::Relaxed);
-        // R1/SHOULD-2: an acknowledged delivery clears a fault of EITHER
-        // origin (publish/transport or disk) - one transient broker failure
-        // must not keep routine_failed() latched for the session's remainder.
-        // odf remains edge-triggered upstream: a later failure re-arms it.
-        let _ = durable; // retained for the caller's log line
-        self.fault.store(0, Ordering::Relaxed);
+        // PubAck confirms remote delivery, not local storage repair. A durable
+        // success clears transport/disk faults; non-durable Red delivery keeps
+        // fault=1 even if the immediately preceding failure was transport.
+        self.fault.store(if durable { 0 } else { 1 }, Ordering::Relaxed);
     }
 }
 

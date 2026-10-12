@@ -727,6 +727,14 @@ pub async fn owner_recover(configured: &str, node: &str, hostname: &str) -> Resu
         superseded_key: old.sub.clone(),
         jwt,
     };
+    // OWNER_CLOCK_HOST_GATE: this separate helper process cannot read the live
+    // capture process's TimeTrust. `true` relies on the supported root host
+    // dispatcher's successful NTPSynchronized=yes check, NOT device approval.
+    // Deploy that reviewed host-command update before enabling owner recovery;
+    // direct renew-owner invocation is not a supported recovery interface.
+    // If recovery moves into the capture process, pass its actual TimeTrust
+    // here. Never construct a fresh TimeTrust and mark it trusted just for this.
+    // See the fail-closed/removed-clock-guard host contract tests and README.
     validate_response(&response, &key, &old, &renewal.trust, node, now(), true)?;
     if c.sub == old.sub {
         return Err("replacement_key_required".into());

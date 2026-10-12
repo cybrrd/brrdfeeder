@@ -15,7 +15,7 @@ if [[ ${1:-} == renew ]]; then
   set +x
   set -euo pipefail
   [[ $EUID -eq 0 && $# -eq 1 ]] || { echo 'Usage: sudo brrdfeeder renew' >&2; exit 1; }
-  [[ $(timedatectl show -p NTPSynchronized --value) == yes ]] || { echo 'Clock is not synchronized; restore time service before renewal.' >&2; exit 1; }
+  RENEW_CLOCK_SYNC=$(timedatectl show -p NTPSynchronized --value) && [[ $RENEW_CLOCK_SYNC == yes ]] || { echo 'Clock is not synchronized; restore time service before renewal.' >&2; exit 1; }
   podman exec -i brrdfeeder-engine /usr/local/libexec/brrdfeeder-policy renew-owner "$(hostname)" || exit $?
   podman kill --signal USR1 brrdfeeder-engine >/dev/null || { echo 'Credentials installed; reconnect signal failed. Contact the operator.' >&2; exit 1; }
   echo 'Replacement installed; engine reconnect requested. Check brrdfeeder status for broker confirmation.'

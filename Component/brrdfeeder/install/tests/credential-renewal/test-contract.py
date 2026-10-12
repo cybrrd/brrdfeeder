@@ -14,7 +14,7 @@ ROOT=INSTALL.parents[3]
 TEXT=INSTALL.read_text()
 BLOCK=TEXT[TEXT.index('if [[ ${1:-} == renew ]]'):TEXT.index('case "${1:-}" in')]
 
-def dispatch(uid=0,sync='yes',exchange=0,signal=0,block=BLOCK):
+def dispatch(uid=0,sync='yes',clock_exit=0,exchange=0,signal=0,block=BLOCK):
  with tempfile.TemporaryDirectory(prefix='owner-renew-test-') as td:
   p=Path(td);calls=p/'calls'
   # Bash EUID is readonly; substitute only the source of the test UID.
@@ -22,11 +22,11 @@ def dispatch(uid=0,sync='yes',exchange=0,signal=0,block=BLOCK):
   (p/'command.sh').write_text(script)
   for name,body in {
    'hostname':'echo lab\n',
-   'timedatectl':'echo "$FIXTURE_SYNC"\n',
+   'timedatectl':'echo "$FIXTURE_SYNC"; exit "$FIXTURE_CLOCK_EXIT"\n',
    'podman':'''python3 -c 'import json,os,sys; f=open(os.environ["FIXTURE_CALLS"],"a");f.write(json.dumps(sys.argv[1:])+"\\n");f.close();sys.exit(int(os.environ["FIXTURE_EXCHANGE"] if sys.argv[1]=="exec" else os.environ["FIXTURE_SIGNAL"]))' "$@"\n''',
   }.items():
    q=p/name;q.write_text('#!/usr/bin/env bash\n'+body);q.chmod(0o755)
-  env=dict(os.environ,PATH=str(p)+':'+os.environ['PATH'],FIXTURE_UID=str(uid),FIXTURE_SYNC=sync,FIXTURE_EXCHANGE=str(exchange),FIXTURE_SIGNAL=str(signal),FIXTURE_CALLS=str(calls))
+  env=dict(os.environ,PATH=str(p)+':'+os.environ['PATH'],FIXTURE_UID=str(uid),FIXTURE_SYNC=sync,FIXTURE_CLOCK_EXIT=str(clock_exit),FIXTURE_EXCHANGE=str(exchange),FIXTURE_SIGNAL=str(signal),FIXTURE_CALLS=str(calls))
   r=subprocess.run(['bash',str(p/'command.sh'),'renew'],env=env,capture_output=True,text=True)
   return r,[json.loads(x) for x in calls.read_text().splitlines()] if calls.exists() else []
 
@@ -34,6 +34,26 @@ class Renewal(unittest.TestCase):
  def test_root_and_clock_before_authority(self):
   for options in [dict(uid=1000),dict(sync='no')]:
    result,calls=dispatch(**options);self.assertNotEqual(result.returncode,0);self.assertEqual(calls,[])
+ def test_owner_clock_unknown_or_error_fails_closed(self):
+  for options in [dict(sync=''),dict(sync='unknown'),dict(sync='yes',clock_exit=1),dict(sync='',clock_exit=127)]:
+   with self.subTest(options=options):
+    result,calls=dispatch(**options)
+    self.assertNotEqual(result.returncode,0);self.assertEqual(calls,[])
+    self.assertIn('Clock is not synchronized',result.stderr)
+ def test_owner_clock_guard_mutation_is_detected(self):
+  guard='RENEW_CLOCK_SYNC=$(timedatectl show -p NTPSynchronized --value) && [[ $RENEW_CLOCK_SYNC == yes ]]'
+  self.assertIn(guard,BLOCK)
+  mutated=BLOCK.replace(guard,'true')
+  result,calls=dispatch(sync='no',block=mutated)
+  # The unchanged fail-closed assertion MUST fail with the guard removed.
+  with self.assertRaises(AssertionError):self.assertEqual(calls,[])
+  self.assertEqual(result.returncode,0)
+ def test_owner_helper_clock_contract_is_explicit(self):
+  engine=(ROOT/'Component/aviary/engine/src/credential_renewal.rs').read_text()
+  doc=(ROOT/'docs/node-renewal/README.md').read_text()
+  self.assertIn('OWNER_CLOCK_HOST_GATE',engine)
+  self.assertIn('not a supported standalone recovery interface',doc)
+  self.assertIn('host-command update',doc)
  def test_image_device_flow_then_explicit_signal(self):
   result,calls=dispatch();self.assertEqual(result.returncode,0,result.stderr)
   self.assertEqual(calls,[['exec','-i','brrdfeeder-engine','/usr/local/libexec/brrdfeeder-policy','renew-owner','lab'],['kill','--signal','USR1','brrdfeeder-engine']])

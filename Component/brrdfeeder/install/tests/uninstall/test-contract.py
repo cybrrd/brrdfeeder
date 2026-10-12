@@ -93,6 +93,12 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
         # Explicit GPS/P0 exceptions; enrollment internals, image pins/pulls,
         # account creation, host config, updater and other confinement stay equal.
         def normalize(text):
+            # Credential-renewal has independent behavioral/permission contracts.
+            # Remove only its newly registered state/mount scope from this old
+            # uninstall freeze; retain every other installer ordering assertion.
+            text=re.sub(r'# --- dedicated credential state \(renewal v1\) ---\n.*?# --- end dedicated credential state ---\n\n','',text,flags=re.S)
+            text=text.replace('Volume=${STATE_DIR}/credentials:/var/lib/brrdfeeder/credentials:rw\n','')
+            text=text.replace('credentials_path: "/var/lib/brrdfeeder/credentials/brrdfeeder.creds"','credentials_path: "/etc/brrdfeeder/secrets/brrdfeeder.creds"')
             # Public-directory traversal is independently exercised under
             # uutils parent semantics in directory-modes/test-contract.py.
             text=text.replace('public_directories /usr/local /usr/local/libexec',

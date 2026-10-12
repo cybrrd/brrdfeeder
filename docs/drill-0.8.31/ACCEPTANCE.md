@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Auto-update drill candidate acceptance — registered before implementation
 
 Scope: two review-only candidate PRs. Bad `v0.8.31-drill.1` is a deliberate,

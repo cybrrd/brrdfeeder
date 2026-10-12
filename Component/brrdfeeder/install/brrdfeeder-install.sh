@@ -10,6 +10,17 @@ fi
 
 # BRRDfeeder local product command — self-contained recovery, no download.
 # Normalize before the logging supervisor so modes and headers remain accurate.
+# Recovery executes in the authenticated image. No credentials in argv/logs.
+if [[ ${1:-} == renew ]]; then
+  set +x
+  set -euo pipefail
+  [[ $EUID -eq 0 && $# -eq 1 ]] || { echo 'Usage: sudo brrdfeeder renew' >&2; exit 1; }
+  RENEW_CLOCK_SYNC=$(timedatectl show -p NTPSynchronized --value) && [[ $RENEW_CLOCK_SYNC == yes ]] || { echo 'Clock is not synchronized; restore time service before renewal.' >&2; exit 1; }
+  podman exec -i brrdfeeder-engine /usr/local/libexec/brrdfeeder-policy renew-owner "$(hostname)" || exit $?
+  podman kill --signal USR1 brrdfeeder-engine >/dev/null || { echo 'Credentials installed; reconnect signal failed. Contact the operator.' >&2; exit 1; }
+  echo 'Replacement installed; engine reconnect requested. Check brrdfeeder status for broker confirmation.'
+  exit 0
+fi
 case "${1:-}" in
   uninstall) shift; set -- --uninstall "$@" ;;
   status) shift; set -- --status "$@" ;;
@@ -18,7 +29,7 @@ esac
 if [[ ${0##*/} == brrdfeeder && $# -eq 0 ]]; then set -- --status; fi
 if [[ ${1:-} == --help || ${1:-} == -h ]]; then
   printf '%s\n' \
-    'Usage: brrdfeeder [status|uninstall|support-bundle] [options]' \
+    'Usage: brrdfeeder [status|renew|uninstall|support-bundle] [options]' \
     'Installer: brrdfeeder-install.sh [--image DIGEST --console-image DIGEST --console-listen IP:PORT --interface IFACE]' \
     '                           [--gps-usb-id VID:PID]   Explicit non-u-blox GPS opt-in (headless)' \
     '  --verify / --status       Check installed state' \
@@ -2659,7 +2670,7 @@ capture:
 backhaul:
   broker_urls:
     - "tls://ingest.cybrrd.com:4222"
-  credentials_path: "/etc/brrdfeeder/secrets/brrdfeeder.creds"
+  credentials_path: "/var/lib/brrdfeeder/credentials/brrdfeeder.creds"
   target_subject: "cybrrd.telemetry.frame.rid"
 
 tuning:
@@ -4611,6 +4622,15 @@ GPS_RUNTIME_TIMER_EOF
 fi
 # GPS_RUNTIME_INSTALL_END
 
+# --- dedicated credential state (renewal v1) ---
+[[ ! -L "$STATE_DIR/credentials" && ! -L "$STATE_DIR/credentials/brrdfeeder.creds" ]] || fatal "Refusing symlink credential state; operator repair required."
+run install -d -m 0700 -o "$TARGET_UID" -g "$TARGET_GID" "$STATE_DIR/credentials"
+# Preserve rotated active credentials on installer reruns.
+if [[ ! -e "$STATE_DIR/credentials/brrdfeeder.creds" ]]; then
+  run install -m 0600 -o "$TARGET_UID" -g "$TARGET_GID" "$CREDS_PATH" "$STATE_DIR/credentials/brrdfeeder.creds"
+fi
+# --- end dedicated credential state ---
+
 QUADLET_DIR="$(dirname "$QUADLET_FILE")"
 public_directories /etc/containers "$QUADLET_DIR"
 
@@ -4674,6 +4694,7 @@ Volume=${SECRETS_DIR}:/etc/brrdfeeder/secrets:ro
 # the pending_update.json hand-off the host-updater consumes). Survives
 # container restarts; no :Z (Debian-family, see header note).
 Volume=${STATE_DIR}:/var/lib/brrdfeeder
+Volume=${STATE_DIR}/credentials:/var/lib/brrdfeeder/credentials:rw
 Volume=${STATUS_DIR}:${STATUS_DIR}:rw
 
 # Ephemeral PCAP capture surface (tmpfs in RAM, 50MB cap).

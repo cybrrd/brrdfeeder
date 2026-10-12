@@ -108,6 +108,7 @@ pub enum Distress {
     UpdateQuarantined,
     UpdateRolledBack,
     UpdateRollbackFailed,
+    CredentialRenewalRequired,
 }
 
 /// Durable host-effector outcome; no keys or credentials cross this handoff.
@@ -149,6 +150,7 @@ impl UpdateOutcome {
 enum Message {
     #[serde(rename = "cybrrd.node.operational.v1")]
     Operational { image_digest: Option<String>, engine_version: Option<String>, build_seq: Option<u64>, health: Health,
+        #[serde(default, skip_serializing_if = "Option::is_none")] credential_renewal: Option<crate::credential_renewal::Report>,
         #[serde(default, skip_serializing_if = "Option::is_none")] update: Option<UpdateOutcome> },
     #[serde(rename = "cybrrd.red.algedonic.v1")]
     Algedonic { code: Distress, operational: Diagnostics,
@@ -345,6 +347,7 @@ async fn publish(js: &jetstream::Context, lane: Lane, record: &Record) -> Result
 }
 
 async fn worker(channel: Channel, root: PathBuf, node: String, connection: Connection, stop: Arc<AtomicBool>) {
+    let mut rotation=crate::credential_renewal::upward_rotation();
     let mut store: Option<Store> = None;
     let mut saved_generation: Option<u64> = None;
     let mut js = None;
@@ -354,6 +357,9 @@ async fn worker(channel: Channel, root: PathBuf, node: String, connection: Conne
     let mut disk_failures = 0;
     let mut last_drops = (0, 0, 0);
     while !stop.load(Ordering::Relaxed) {
+        if rotation.has_changed().unwrap_or(false) {
+            rotation.borrow_and_update(); js=None; failures=0; next_attempt=Instant::now();
+        }
         let stats = channel.status.snapshot();
         let drops = (stats.shed_oldest, stats.rejected_handoff, stats.rejected_payload);
         if drops != last_drops {
@@ -465,7 +471,7 @@ impl Handle {
             && (!health.gps_required || (health.gps_healthy && health.clock_trusted));
         let trusted = health.clock_trusted;
         self.operational.enqueue(self.record(Message::Operational { image_digest: identity.image_digest.clone(),
-            engine_version: identity.engine_version.clone(), build_seq: identity.build_seq, health, update }, trusted))
+            engine_version: identity.engine_version.clone(), build_seq: identity.build_seq, health, update, credential_renewal: Some(crate::credential_renewal::snapshot()) }, trusted))
     }
     pub fn alarm(&self, code: Distress, clock_trusted: bool) -> bool {
         self.red.enqueue(self.record(Message::Algedonic { code, operational: self.operational.status.snapshot(), update: None }, clock_trusted))
@@ -538,6 +544,7 @@ pub async fn monitor(mut handle: Handle, identity: crate::identity::RunningIdent
             if update.as_ref().is_none_or(|outcome| handle.update_alarm(outcome, health.clock_trusted)) { last_update = update; }
         }
         let mut faults = Vec::new();
+        if crate::credential_renewal::alert() {faults.push(Distress::CredentialRenewalRequired);}
         if !health.identity_verified { faults.push(Distress::RunningIdentityUnverified); }
         if !health.radio_up { faults.push(Distress::RadioUnavailable); }
         if gps_required && !health.gps_healthy { faults.push(Distress::RequiredGpsUnavailable); }

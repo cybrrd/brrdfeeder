@@ -29,6 +29,7 @@ AddCapability=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_TIME
 Volume=/etc/brrdfeeder/config.yaml:/etc/brrdfeeder/config.yaml:ro,Z
 Volume=/etc/brrdfeeder/secrets:/etc/brrdfeeder/secrets:ro,Z
 Volume=/var/lib/brrdfeeder:/var/lib/brrdfeeder:rw,Z
+Volume=/var/lib/brrdfeeder/credentials:/var/lib/brrdfeeder/credentials:rw,Z
 AddDevice=/run/brrdfeeder-gps/device:/dev/cybrrd_gps:rw
 Environment=BRRDFEEDER_GPS_TRANSPORT=/dev/cybrrd_gps
 # Remove this mapping if rfkill support is not provisioned. It does not enable

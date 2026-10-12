@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Healthy v0.8.31 drill candidate
 
 Independent from the deliberately unhealthy branch: no failure implementation

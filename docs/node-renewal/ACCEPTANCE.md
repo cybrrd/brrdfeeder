@@ -1,6 +1,8 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Credential self-renewal implementation acceptance — registered before code
 
-Authority: packet 2026-10-12; design #148 b3bbdf66 §9 and Cy's D-M/D-ALERT/D-ERR/D-GATE decisions. PRs only. No deployment, merge, tag, release, production/NATS/flock/Zitadel contact. Synthetic keys only. FULL-resolver migration, nine-key operations and n8n workflow are explicitly separate packets; provide interfaces/docs, not execution.
+Authority: packet 2026-10-12; design #148 b3bbdf66 §9 and approved D-M/D-ALERT/D-ERR/D-GATE decisions. PRs only. No deployment, merge, tag, release, production/NATS/flock/Zitadel contact. Synthetic keys only. FULL-resolver migration, nine-key operations and n8n workflow are explicitly separate packets; provide interfaces/docs, not execution.
 
 | Control / decision | Required executable proof |
 | --- | --- |

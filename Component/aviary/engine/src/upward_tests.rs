@@ -91,7 +91,7 @@ fn record(id: usize, lane: Lane) -> Record {
     Record { message_id: format!("TEST-ONLY:{id}"), node_id: "test-node".into(), observed_unix_ms: 1,
         clock_trusted: false, test_only: true, message: match lane {
             Lane::Operational => Message::Operational { image_digest: Some(format!("sha256:{}", "a".repeat(64))),
-                engine_version: Some("b".repeat(40)), build_seq: Some(42), health: Health::observe(true, true, false, false, false), update: None },
+                engine_version: Some("b".repeat(40)), build_seq: Some(42), health: Health::observe(true, true, false, false, false), update: None, credential_renewal: None },
             Lane::Red => Message::Algedonic { code: Distress::OperationalDeliveryFailed, operational: Diagnostics::default(), update: None },
         } }
 }

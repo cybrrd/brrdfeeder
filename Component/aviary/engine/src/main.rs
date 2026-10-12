@@ -12,6 +12,7 @@ mod capabilities;
 mod capture;
 mod clock_discipline; // #183 — GPS clock discipline (no-RTC time correctness)
 mod dedup;
+mod credential_renewal;
 mod forensic;
 mod heartbeat;
 mod hunter;
@@ -74,6 +75,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // parse + Ed25519-verify the draft against the compile-pinned key, exit 0
     // if valid. The host updater refuses to pull/restart on a non-zero exit.
     let argv: Vec<String> = std::env::args().collect();
+    if argv.get(1).map(String::as_str) == Some("renew-owner") {
+        let cfg = EngineConfig::load_with_fallback("/etc/brrdfeeder/config.yaml", "/etc/brrdfeeder/config.yaml")?;
+        let hostname = argv.get(2).ok_or("renew-owner requires the installed hostname")?;
+        credential_renewal::owner_recover(&cfg.backhaul.credentials_path, &cfg.node.id, hostname).await?;
+        return Ok(());
+    }
     if argv.get(1).map(String::as_str) == Some("verify-blue") {
         std::process::exit(blue_policy::verify_blue_file(
             argv.get(2).map(String::as_str),
@@ -171,7 +178,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dedup_window_ms = cfg.tuning.edge_processing.deduplication_window_ms;
     let heartbeat_interval = cfg.tuning.heartbeat.interval_secs;
     let broker_urls = cfg.backhaul.broker_urls.clone();
-    let credentials_path = cfg.backhaul.credentials_path.clone();
+    if let Err(reason)=credential_renewal::prepare(&cfg.backhaul.credentials_path,&node.id) {
+        credential_renewal::unavailable();eprintln!("[renewal] unavailable: {reason}");
+    }
+    let credentials_path = credential_renewal::active_path(&cfg.backhaul.credentials_path);
 
     let counters = DropCounters::new();
     let radio = RadioState::new();
@@ -202,6 +212,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         counters.clone(),
         Some(control),
     );
+    credential_renewal::listen_for_owner_rotation(nats.clone(),cfg.backhaul.credentials_path.clone(),node.id.clone())?;
 
     // Wave 7.1 Inc 8 — shared capture-liveness state. main.rs resolves
     // the initial ifindex once; from here on the capture loop and the
@@ -398,6 +409,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // cold-booted feeder stamps frames with a stale clock that the Bohr Spool
     // drops as a causality violation.
     let time_trust = Arc::new(clock_discipline::TimeTrust::new());
+    credential_renewal::start(cfg.backhaul.credentials_path.clone(),node.id.clone(),Arc::clone(&time_trust),nats.clone());
 
     // Latest-fix shared state + GPS keeper. Spawned BEFORE the startup gate so
     // fixes — and the clock discipline they carry — flow during the grace

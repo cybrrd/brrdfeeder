@@ -2,6 +2,19 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
+## 0.8.32 — Unreleased credential-renewal candidate
+
+- Automatic engine-side HTTPS credential renewal with local replacement keys,
+  independent JWT verification, private atomic credential rotation and explicit
+  supervisor reconnect preserving the queue.
+- Owner recovery through `sudo brrdfeeder renew`, without uninstalling or changing
+  node identity; dedicated writable credential directory and read-only trust.
+- Silver renewal status and Red expiry/recovery signals. Companion flock routes,
+  identity-pinned owner recovery and short-TTL canary support must precede rollout.
+- Based after healthy drill #46; no deliberate failure code. Native canary,
+  broker confirmation, OTA/ownership validation and measured rollout remain gates.
+  Nothing is tagged, published or deployed by this change.
+
 ## 0.8.31 — Unreleased drill candidate
 
 - Prepare the healthy follow-up to the separately reviewed, deliberately

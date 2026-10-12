@@ -51,6 +51,17 @@ tuning:
   heartbeat:
     interval_secs: 5
 
+# Optional upward reporting; enable only with reviewed stream/subject grants.
+# upward:
+#   spool_dir: /var/lib/brrdfeeder/upward
+#   WHAT: seconds before initial distress emission; default 300, clamp 0..3600.
+#   WHY: let boot transients settle; persistent faults emit by grace + 5 s tick.
+#   WHEN-to-tune: 0 restores immediate emission; raise for slow-start sites.
+#   DEPENDS: keep >= sensors.gps.startup_grace_secs + 60 (defaults 120+60).
+#   Raising GPS grace past 240 also requires raising this grace. Silver and
+#   legacy heartbeat still report unready state; only monitor Red is deferred.
+#   red_boot_grace_s: 300
+
 sensors:
   rid_ble:
     enabled: false

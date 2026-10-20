@@ -7,11 +7,16 @@ bash .github/scripts/setup-actionlint.sh
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   podman=4.9.3+ds1-1ubuntu0.2 uidmap=1:4.13+dfsg1-4ubuntu3.2 build-essential=12.10ubuntu1 \
-  pkg-config=1:8.1-2build1 clang=1:18.0-59~exp2 libclang-dev=1:18.0-59~exp2 \
+  pkg-config clang=1:18.0-59~exp2 libclang-dev=1:18.0-59~exp2 \
   libpcap0.8-dev=1.10.4-4.1ubuntu3.1 udev=255.4-1ubuntu8.18 libudev1=255.4-1ubuntu8.18
 # udev and libudev1 are pinned as a pair: udev depends on libudev1 (= exact same
 # upstream version), so a floating libudev1 turns every udev security update into a
 # dependency conflict here. Bump both pins together.
+# pkg-config is deliberately NOT version-pinned: on the current runner index it is
+# a virtual package provided by pkgconf (which carries an epoch, 1:8.1-2build1),
+# and apt rejects ANY version pin on a virtual package ("Version ... was not
+# found"). Older mirror snapshots still expose a real pkg-config 1.8.1-2build1.
+# Unpinned it resolves to the only available version in either state.
 python3 -m pip install pip==25.2 PyYAML==6.0.2 reuse==6.2.0
 case "$(uname -m)" in
   aarch64) rust_arch=aarch64-unknown-linux-gnu; rust_sha=e3853c5a252fca15252d07cb23a1bdd9377a8c6f3efa01531109281ae47f841c ;;

@@ -9,7 +9,7 @@ watermark remain; verify-blue is a diagnostic, not an update effector.
 ## Package publisher and hosting
 
 The standalone installer artifact is built by [build-host.sh](build-host.sh),
-which requires **Go 1.27.0**, disables module networking, builds Linux/ARM64
+which requires **Go 1.27.3**, disables module networking, builds Linux/ARM64
 twice from separate source paths and compares bytes against the committed
 installer helper pin. Its linker flag defines the helper build identity;
 do not substitute a version guessed from an image tag. Ship the Go license.

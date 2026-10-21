@@ -15,6 +15,11 @@ FROM scratch
 ARG GIT_SHA=unknown
 ARG SOURCE_REVISION="${GIT_SHA}"
 ARG BUILD_SEQ=0
+# Drill release identity (see main.go): build.sh sets this to 1 only when
+# the engine product version is exactly 0.8.31-drill.1. Empty in every
+# other build; fixture containers never carry it.
+ARG BRRDHOUSE_DRILL_UNHEALTHY=
+ENV BRRDHOUSE_DRILL_UNHEALTHY=${BRRDHOUSE_DRILL_UNHEALTHY}
 LABEL org.opencontainers.image.revision="${SOURCE_REVISION}" \
       com.macawi.brrdhouse.build_seq="${BUILD_SEQ}"
 LABEL org.opencontainers.image.title="BRRDhouse" \

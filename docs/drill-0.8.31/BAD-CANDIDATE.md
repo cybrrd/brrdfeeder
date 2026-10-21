@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Deliberately unhealthy v0.8.31-drill.1 — do not merge
 
 This branch is exclusively a review/tag candidate for a separately authorized
@@ -6,9 +8,13 @@ as a GitHub prerelease, never as latest. The healthy candidate is a separate PR.
 
 The actual console process returns HTTP 503 for `/status`, after the existing
 host/method/origin checks. `/` remains usable and the server stays running.
-There is no flag to accidentally enable the failure in another build: only this
-branch's main enables it. Engine version and workspace lock truthfully identify
-`0.8.31-drill.1`; no false OCI identity or signature bypass is used.
+There is no flag to accidentally enable the failure in another build: the
+handler exists only in this branch's main, and it activates only through the
+release-injected `BRRDHOUSE_DRILL_UNHEALTHY=1` ENV that build.sh sets solely
+when the engine product version is exactly `0.8.31-drill.1`. Source, fixture
+and every other build stay healthy. Engine version and workspace lock
+truthfully identify `0.8.31-drill.1`; no false OCI identity or signature
+bypass is used.
 
 The unchanged host updater requires HTTP 200, a fresh healthy rendered engine,
 and matching digest/revision (`release-system/package.go:93–120`). Repeated 503

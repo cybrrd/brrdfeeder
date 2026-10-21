@@ -29,6 +29,12 @@ func TestDrillConsoleProcess(t *testing.T) {
 	listener.Close()
 	cmd := exec.Command(binary, "-listen", addr, "-allowed-hosts", addr, "-status-file", u.cfg.StatusFile)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	// Proving the unhealthy release behavior requires the release-injected
+	// ENV (see main.go / build.sh); proving healthy requires its absence —
+	// exactly like fixture and release builds respectively.
+	if !want {
+		cmd.Env = append(os.Environ(), "BRRDHOUSE_DRILL_UNHEALTHY=1")
+	}
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}

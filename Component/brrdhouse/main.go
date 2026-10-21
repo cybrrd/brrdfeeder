@@ -27,7 +27,10 @@ var assets embed.FS
 var templates = template.Must(template.New("").Funcs(template.FuncMap{"deref": func(v *bool) bool { return v != nil && *v }}).ParseFS(assets, "web/*.html"))
 
 type console struct {
-	// Deliberately unhealthy prerelease; enabled only by this drill's main.
+	// Deliberately unhealthy prerelease; enabled only by this drill's
+	// release build identity (BRRDHOUSE_DRILL_UNHEALTHY=1 is injected
+	// exclusively by build.sh when the engine product version is exactly
+	// 0.8.31-drill.1). Source builds without the ENV stay healthy.
 	drillHealthFailure bool
 	path               string
 	hosts              map[string]bool
@@ -217,7 +220,10 @@ func main() {
 		log.Fatal(err)
 	}
 	c.gps = policy
-	c.drillHealthFailure = true
+	// Release-identity gate: only the 0.8.31-drill.1 release image sets
+	// this ENV (build.sh -> Containerfile). Test fixtures and every other
+	// build leave the console healthy.
+	c.drillHealthFailure = os.Getenv("BRRDHOUSE_DRILL_UNHEALTHY") == "1"
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	srv := &http.Server{Addr: *listen, Handler: c, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192, BaseContext: func(net.Listener) context.Context { return ctx }}

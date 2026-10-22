@@ -8,6 +8,7 @@ The retained binary's local checksum is a corruption guard; its authority is
 the prior pinned install/signed update. Root is the trusted state owner.
 """
 import fcntl
+import base64
 import hashlib
 import json
 import os
@@ -80,7 +81,7 @@ def recover(binary, private, receipt, owner=0, read=trusted):
     previous = Path(str(binary) + ".previous")
     journal = None
     try:
-        journal = json.loads(read(tx, owner, 4096))
+        journal = json.loads(read(tx, owner, 512 * 1024))
     except FileNotFoundError:
         pass
     # Never invoke an unconfirmed candidate after a kill/reboot. A completed
@@ -99,8 +100,25 @@ def recover(binary, private, receipt, owner=0, read=trusted):
         raise RuntimeError("retained updater checksum mismatch; refuse recovery")
     if not starts(previous):
         raise RuntimeError("retained updater cannot start; package pins left untouched")
+    # Explicit installer upgrades journal the original independent host floor.
+    # Decode/validate before replacing anything. Older signed-host journals
+    # have no such field and retain their existing recovery behavior.
+    floor = None
+    if journal is not None and journal.get("local_upgrade"):
+        floor = base64.b64decode(journal["previous_host_state"], validate=True)
+        if floor:
+            json.loads(floor)
+        if hashlib.sha256(floor).hexdigest() != journal["previous_host_state_sha256"]:
+            raise RuntimeError("retained host floor checksum mismatch")
     atomic(binary, old, 0o755)
     atomic(receipt, (digest + "  " + str(binary) + "\n").encode(), 0o600)
+    if floor is not None:
+        state = private / "host-state.json"
+        if floor:
+            atomic(state, floor, 0o600)
+        elif state.exists():
+            state.unlink()
+            sync_dir(private)
     if journal is not None:
         tx.unlink()
         sync_dir(private)

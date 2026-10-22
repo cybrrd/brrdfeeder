@@ -5,7 +5,7 @@ FROM docker.io/library/golang:1.27.3@sha256:957861185dbf29d93668ace41e011d091c6e
 WORKDIR /release
 COPY . .
 ARG TARGETARCH=arm64
-ARG BUILD_SEQ=2
+ARG BUILD_SEQ=3
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH GOTOOLCHAIN=local GOPROXY=off \
     go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid= -X main.updaterBuild=$BUILD_SEQ" -o /brrdfeeder-release .
 FROM scratch

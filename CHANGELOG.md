@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
-## 0.8.32 — Unreleased credential-renewal candidate
+## 0.9.0 — Unreleased credential-renewal candidate
 
 - Automatic engine-side HTTPS credential renewal with local replacement keys,
   independent JWT verification, private atomic credential rotation and explicit

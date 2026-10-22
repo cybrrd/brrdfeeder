@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 [package]
 name = "engine"
-version = "0.8.32"
+version = "0.9.0"
 edition = "2021"
 license.workspace = true
 rust-version.workspace = true

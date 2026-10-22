@@ -49,6 +49,7 @@ BASELINES = [
     'installer-vcgencmd/test-safety.py',
     'installer-vcgencmd/test-contract.py',
     'd44-rework/test-friday.py',
+    'd44-rework/test-helper-upgrade.py',
     'self-update-2026-09-29/test-integration.py',
 ]
 MUTATIONS = [

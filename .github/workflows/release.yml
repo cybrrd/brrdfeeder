@@ -39,7 +39,7 @@ jobs:
         run: bash .github/scripts/release-image.sh
         env:
           COMPONENT: ${{ matrix.component }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.component }}-release
           path: ${{ runner.temp }}/release/
@@ -59,7 +59,7 @@ jobs:
         with: {go-version: '1.27.0', cache: false}
       - name: Reproduce installer-pinned host updater (no signing)
         run: bash Component/aviary/release-system/build-host.sh "$RUNNER_TEMP/host-updater"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: host-updater
           path: ${{ runner.temp }}/host-updater/
@@ -79,12 +79,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {fetch-depth: 0, persist-credentials: false, ref: '${{ github.sha }}'}
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: '*-release'
           merge-multiple: true
           path: ${{ runner.temp }}/release
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: host-updater
           path: ${{ runner.temp }}/host-updater
@@ -124,7 +124,7 @@ jobs:
           ENGINE_ATTESTATION_URL: ${{ steps.engine-provenance.outputs.attestation-url }}
           CONSOLE_ATTESTATION_URL: ${{ steps.console-provenance.outputs.attestation-url }}
       - name: Retain approved release receipts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: approved-release-receipts
           path: ${{ runner.temp }}/release-notes/

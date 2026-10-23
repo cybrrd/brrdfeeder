@@ -32,7 +32,7 @@ podman pull docker.io/library/golang@sha256:966278043a40889499db9b0cd196fc789c37
 sh build.sh arm64
 ```
 
-The pinned Go 1.27.1 amd64 builder cross-compiles a static ARM64 binary. Podman
+The pinned Go 1.27.3 amd64 builder cross-compiles a static ARM64 binary. Podman
 5.4.2 `--timestamp 0`, no build cache, disabled build networking, fixed compiler,
 trimmed paths, no binary VCS metadata/build ID and an explicit revision label make
 the OCI manifest reproducible for identical input files. Runtime is scratch,

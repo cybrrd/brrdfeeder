@@ -2,4 +2,4 @@
 // SPDX-FileCopyrightText: 2026 Macawi LLC
 module github.com/cybrrd/brrdfeeder/Component/aviary/release-system
 
-go 1.27.0
+go 1.27.3

@@ -285,6 +285,7 @@ class KitRerun(JournaldFixture):
         # Main-installer cases may have left rootful Quadlets. This fixture
         # deliberately exercises the legacy kit, independent of test order.
         subprocess.run(['rm','-rf','/etc/containers/systemd'],check=True)
+        Path('/etc/udev/rules.d').mkdir(parents=True,exist_ok=True)
         subprocess.run(['userdel','--force','operator'],capture_output=True)
         subprocess.run(['useradd','-m','operator'],check=True)
         subprocess.run(['usermod','-a','-G','dialout','operator'],check=True)

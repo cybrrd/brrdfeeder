@@ -28,6 +28,12 @@ mutants=[
  ('boot-quarantine',release,'package.go','tx.Phase = "recovery_wait"','u.state.Quarantined[target] = true; tx.Phase = "recovery_wait"','TestBootReadinessNeverQuarantinesGoodPair'),
  ('boot-readiness',release,'package.go','return u.recoverWithReadiness(true)','return u.recoverWithReadiness(false)','TestBootReadinessNeverQuarantinesGoodPair'),
  ('signer-echo',release,'publisher.go','if !bytes.Equal(signed.canonical(), m.canonical()) {','if false {','TestRemotePublisherRefusesUnsafeReplies'),
+ ('helper-missing-bootstrap',release,'local_upgrade.go','bootstrap, e := p.read(p.bootstrap, p.owner, 0027, 32768)','bootstrap, e := p.read(p.active, p.service, 0077, 32768)','TestLocalUpgradeRefusals/missing_bootstrap'),
+ ('helper-missing-node',release,'local_upgrade.go','if !tokenRE.MatchString(node) {','if false {','TestLocalUpgradeRefusals/missing_node'),
+ ('helper-receipt',release,'local_upgrade.go','if string(s.receipt) != contentHash(s.old)+"  "+p.binary+"\\n" {','if false {','TestLocalUpgradeRefusals/corrupt_receipt'),
+ ('helper-downgrade',release,'local_upgrade.go','if s.build > 3 {','if false {','TestLocalUpgradeRefusals/downgrade'),
+ ('helper-equal-build',release,'local_upgrade.go','if s.build == 3 && contentHash(s.old) != hash {','if false {','TestLocalUpgradeRefusals/equal_build_different_hash'),
+ ('helper-architecture',release,'local_upgrade.go','binary.LittleEndian.Uint16(candidate[18:20]) != machine','false && binary.LittleEndian.Uint16(candidate[18:20]) != machine','TestLocalUpgradeRefusals/wrong_arch'),
 ]
 receipts=[]
 for name,path,file,before,after,test in mutants:
@@ -35,6 +41,8 @@ for name,path,file,before,after,test in mutants:
   work=Path(tmp)/'source';shutil.copytree(path,work)
   p=work/file;s=p.read_text();assert before in s,(name,before);p.write_text(s.replace(before,after))
   run('mutation-'+name,work,['go','test','-count=1','-v','-run','^'+test+'$'],1)
+  if name.startswith('helper-'):
+   assert 'REFUSAL MUTATED INSTALLED STATE' in (out/('mutation-'+name+'.log')).read_text(),name
   receipts.append(dict(control=name,test=test,assertion_failure=True))
 for name,path in [('release-restored',release)]:run(name,path,['go','test','-race','-count=1','-v','./...'])
 (out/'mutations.json').write_text(json.dumps(receipts,indent=2)+'\n')

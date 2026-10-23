@@ -38,6 +38,9 @@ func cli(args []string) error {
 	if args[0] == "publish" {
 		return publish(args[1:])
 	}
+	if args[0] == "upgrade-local-helper" {
+		return localHelperCLI(args[1:])
+	}
 	if args[0] == "publish-updater" {
 		return publishHost(args[1:])
 	}

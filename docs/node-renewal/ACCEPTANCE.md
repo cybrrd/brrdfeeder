@@ -22,7 +22,7 @@ Authority: packet 2026-10-12; design #148 b3bbdf66 §9 and approved D-M/D-ALERT/
 | D-ALERT interface | Narrow authenticated read-only active-latest roster; expiry/owner-action state, freshness stamp; corrupt/unavailable source errors, deregistered suppressed; no mint authority; no email/workflow implementation |
 | D-GATE canary | Operator-only audited short-TTL issuance restricted to named canary; unavailable to ordinary enroll; isolated grace/refusal harness; documented later native canary→staging→general gates |
 | Expired/offline recovery | Renewal transport independent of NATS; expired-within-grace succeeds, beyond-grace/revoked needs owner; OTA HTTPS path unchanged |
-| Delivery/version | Public branch descends from healthy #46, never bad #45 failure; version0.8.32 separate commit; assert history-derived build > both drill candidates; merger sequencing documented |
+| Delivery/version | Public branch descends from healthy #46, never bad #45 failure; version 0.9.0 separate change; assert history-derived build > both drill candidates; merger sequencing documented |
 | Out-of-scope §9 controls | FULL resolver push/failure/retry/migration/rollback, nine-key broker reconciliation, n8n dedupe/stale-source routing and native staged coverage remain NOT_RUN in explicitly separate packets; contract interfaces and runbook gates retained |
 
 Register this file in both PRs before implementation. Record red→green and guard-mutation evidence; reject claims that synthetic tests establish native canary coverage or real credential renewal.

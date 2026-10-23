@@ -14,6 +14,7 @@ Foreign files must never be removed; markerless legacy files must be refused.
 """
 import os
 import hashlib
+import importlib.util
 from pathlib import Path
 import subprocess
 import tempfile
@@ -26,6 +27,8 @@ OUT=Path(os.environ.get('NAMING_EVIDENCE','/tmp/naming-evidence')); OUT.mkdir(pa
 INSTALL=ROOT/'Component/brrdfeeder/install'
 UNINSTALL=INSTALL/'uninstall.sh'
 INSTALLER=INSTALL/'brrdfeeder-install.sh'
+_spec=importlib.util.spec_from_file_location('bluetooth_fixture', Path(__file__).with_name('bluetooth-fixture.py'))
+bluetooth_fixture=importlib.util.module_from_spec(_spec); _spec.loader.exec_module(bluetooth_fixture)
 KITDIR=ROOT/'Component/aviary/deploy/bootstrap'
 JDIR=Path('/etc/systemd/journald.conf.d')
 LEGACY=JDIR/'99-brrdfeeder-open.conf'
@@ -162,6 +165,7 @@ PIN='ghcr.io/cybrrd/brrdfeeder@sha256:'+'a'*64
 
 class InstallerRerun(JournaldFixture):
     """Full installer, apply mode, with the d42 stub recipe."""
+    bluetooth_case='no-adapter'
     def setUp(self):
         super().setUp()
         subprocess.run(['userdel','--force','brrdhouse'],capture_output=True)
@@ -193,6 +197,7 @@ name=Path(sys.argv[0]).name; args=sys.argv[1:]
 if name=='curl' and any(a.startswith('http://127.0.0.1:8080') for a in args): sys.exit(0)
 if name in ['curl','jq','apt-get']: sys.exit(99)
 if name=='podman':
+    if args[:2]==['container','exists']: sys.exit(1)
     if args[:2]==['image','exists']: sys.exit(0)
     if args[:1]==['pull']: sys.exit(0)
     if args[:2]==['image','inspect']:
@@ -212,6 +217,7 @@ sys.exit(0)
             '#!/bin/sh\nif [ "$1" = show ]; then exec python3 /repo/Component/brrdfeeder/install/tests/brrdfeeder-naming/naming-readiness.py; fi\n'))
         systemctl.chmod(0o755)
         self.env=dict(os.environ,PATH=str(self.bin)+':'+os.environ['PATH'],SUDO_USER='root')
+        self.bluetooth=bluetooth_fixture.setup(self.bin, case=self.bluetooth_case)
     def seed_installed_node(self):
         """Config with ephemeral storage class + inert creds: an already-enrolled
         legacy node being re-run by the operator."""
@@ -273,8 +279,12 @@ sys.exit(0)
 
 class KitRerun(JournaldFixture):
     """Aviary bootstrap-kit installer, apply mode (D12-style PATH stubs)."""
+    bluetooth_case='no-adapter'
     def setUp(self):
         super().setUp()
+        # Main-installer cases may have left rootful Quadlets. This fixture
+        # deliberately exercises the legacy kit, independent of test order.
+        subprocess.run(['rm','-rf','/etc/containers/systemd'],check=True)
         subprocess.run(['userdel','--force','operator'],capture_output=True)
         subprocess.run(['useradd','-m','operator'],check=True)
         subprocess.run(['usermod','-a','-G','dialout','operator'],check=True)
@@ -288,6 +298,7 @@ class KitRerun(JournaldFixture):
         for command in ['systemctl','udevadm','ip','mount','loginctl','sudo']:
             path=Path(self.tmp,command); path.write_text(SYSTEMCTL_STUB if command=='systemctl' else '#!/bin/sh\nexit 0\n'); path.chmod(0o755)
         self.env=dict(os.environ,PATH=self.tmp+':'+os.environ['PATH'],BRRDFEEDER_LEGACY_USER='operator')
+        self.bluetooth=bluetooth_fixture.setup(Path(self.tmp), Path(self.kit), self.bluetooth_case)
     def kit_run(self):
         return run(['bash',str(Path(self.kit,'brrdfeeder-install.sh'))],env=self.env)
     def test_kit_rerun_migrates_legacy_dropin(self):
@@ -324,6 +335,57 @@ class KitRerun(JournaldFixture):
         self.assertNotEqual(result.returncode,0,'kit touched a foreign legacy-name file')
         self.assertIn('unrecognised legacy journald drop-in',result.stdout+result.stderr)
         self.assertEqual(LEGACY.read_text(),FOREIGN_CONTENT)
+
+class BluetoothBoundaries(unittest.TestCase):
+    """Real installer paths; synthetic adapter/service/rfkill boundaries."""
+    def installer(self, case):
+        fixture=InstallerRerun('test_rerun_keeps_current_new_dropin')
+        fixture.bluetooth_case=case
+        fixture.setUp(); self.addCleanup(fixture.tearDown)
+        fixture.seed_installed_node()
+        before=Path('/etc/brrdfeeder/config.yaml').read_bytes()
+        result=fixture.rerun(); fixture.record('bluetooth-'+case+'.log', result)
+        return fixture, result, before
+    def test_no_adapter(self):
+        fixture,result,before=self.installer('no-adapter')
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertIn('no supported RID.BLE adapter found',result.stdout+result.stderr)
+        self.assertEqual((fixture.bluetooth/'calls').read_text(),'')
+        self.assertFalse(Path('/etc/brrdfeeder/.bluetooth-prior.json').exists())
+    def test_supported_active(self):
+        fixture,result,before=self.installer('supported-active')
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        calls=(fixture.bluetooth/'calls').read_text()
+        self.assertIn('systemctl stop bluetooth.service',calls)
+        self.assertIn('systemctl mask bluetooth.service',calls)
+        self.assertIn('controller DOWN hci7 (synthetic)',calls)
+        self.assertIn('0bda:876e',Path('/etc/brrdfeeder/config.yaml').read_text())
+    def test_transitional_service(self):
+        fixture,result,before=self.installer('transitional')
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('unrecognised/transitional Bluetooth service state',result.stdout+result.stderr)
+        self.assertNotIn('systemctl stop',(fixture.bluetooth/'calls').read_text())
+        self.assertNotIn('controller DOWN',(fixture.bluetooth/'calls').read_text())
+        self.assertFalse(Path('/etc/brrdfeeder/.bluetooth-prior.json').exists())
+    def kit(self, case):
+        fixture=KitRerun('test_kit_new_only')
+        fixture.bluetooth_case=case
+        fixture.setUp(); self.addCleanup(fixture.tearDown)
+        result=fixture.kit_run(); fixture.record('bluetooth-'+case+'.log', result)
+        return fixture,result
+    def test_rfkill_missing(self):
+        fixture,result=self.kit('rfkill-missing')
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('REJECT rfkill command missing',result.stdout+result.stderr)
+        self.assertEqual((fixture.bluetooth/'calls').read_text(),'')
+        self.assertEqual((fixture.bluetooth/'rfkill/rfkill7/soft').read_text(),'1\n')
+        self.assertEqual((fixture.bluetooth/'saved/fixture:bluetooth').read_text(),'1\n')
+    def test_rfkill_soft_blocked(self):
+        fixture,result=self.kit('soft-blocked')
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertEqual((fixture.bluetooth/'calls').read_text(),'rfkill unblock bluetooth\n')
+        self.assertEqual((fixture.bluetooth/'rfkill/rfkill7/soft').read_text(),'0\n')
+        self.assertEqual((fixture.bluetooth/'saved/fixture:bluetooth').read_text(),'0\n')
 
 if __name__=='__main__':
     unittest.main(verbosity=2)

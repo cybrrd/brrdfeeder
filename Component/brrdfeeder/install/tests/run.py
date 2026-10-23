@@ -46,6 +46,7 @@ BASELINES = [
     'oneliner-A/test-contract.py',
     'simple-uninstall/test-contract.py',
     'simple-uninstall/test-behavior.py',
+    'uninstall-state/test-contract.py',
     'installer-vcgencmd/test-safety.py',
     'installer-vcgencmd/test-contract.py',
     'd44-rework/test-friday.py',
@@ -58,6 +59,7 @@ MUTATIONS = [
     'github-scaffold/test-mutations.py',
     'source-date/test-mutations.py',
     'simple-uninstall/test-mutations.py',
+    'uninstall-state/test-mutations.py',
     'pi-native-p0/test-mutations.py',
     'ble-rfkill/run-proof.py',
 ]
@@ -115,6 +117,7 @@ groups = GROUPS if args.group == 'all' else (args.group,)
 for group in groups:
     if group == 'installer':
         run('single-lockfile', [sys.executable, HERE/'public-ci/check-single-lockfile.py'], timeout=30)
+        run('uninstall-writer-paths', [sys.executable, HERE/'uninstall-state/check-writers.py'], timeout=30)
         run('reuse-lint',[sys.executable,HERE/'ownership/check-reuse.py'],timeout=240)
         run('actionlint', ['actionlint', '-shellcheck=', '-pyflakes=', *sorted((ROOT/'.github/workflows').glob('*.yml'))])
         for path in sorted((ROOT/'.github/scripts').glob('*.sh')):
@@ -154,6 +157,8 @@ for group in groups:
         base = ['podman','run','--rm','--pull=never','--network=none','-v',str(ROOT)+':/repo:ro',
                 '-e','PYTHONDONTWRITEBYTECODE=1']
         run('uninstall-wtmpdb',base+[image,'python3','/repo/Component/brrdfeeder/install/tests/uninstall-wtmpdb/test-history.py'])
+        run('uninstall-state',base+['-e','BRRD_UNINSTALL_STATE_CONTAINER=1',image,
+            'python3','/repo/Component/brrdfeeder/install/tests/uninstall-state/test-container.py'])
         run('installer-ux-sudoers',base+['-e','BRRD_INSTALLER_UX_CONTAINER=1',image,
             'python3','/repo/Component/brrdfeeder/install/tests/installer-ux/test-sudoers.py'])
         run('installer-ux-full',base+['-e','BRRD_INSTALLER_UX_CONTAINER=1',image,

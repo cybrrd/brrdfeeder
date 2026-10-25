@@ -2,6 +2,15 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
+## 0.8.31 — Unreleased drill candidate
+
+- Prepare the healthy follow-up to the separately reviewed, deliberately
+  unhealthy `0.8.31-drill.1` prerelease. The healthy console returns its normal
+  status response and an `X-BRRDhouse-Release: 0.8.31` header; it contains no
+  deliberate failure code. Native rollback and convergence are not yet proved.
+- Includes the already merged [#44](https://github.com/cybrrd/brrdfeeder/pull/44)
+  Red boot-grace change. No credential renewer is included.
+
 ## 0.8.30 — Unreleased
 
 Release preparation only. The changes below are merged into the release

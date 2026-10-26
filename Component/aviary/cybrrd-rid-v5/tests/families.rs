@@ -352,6 +352,23 @@ fn all_prefixes_count_size_and_raw_interface() {
     assert_eq!(out.raw_capture.bytes, b);
     assert_eq!(out.disposition, "quarantine");
     assert!(out.observation.is_null());
+    // Repeated overlapping spans cannot amplify a small capture into an
+    // unbounded decoded allocation. The exact capture and span declarations
+    // are retained in quarantine, rather than deduplicated or partly dropped.
+    let mut r = input();
+    r.units.push(r.units[0].clone());
+    let exact = serde_json::to_value(&r).unwrap();
+    let limit = r.bytes.len();
+    let out = capture::decode_with_limits(
+        r,
+        capture::Limits {
+            capture_bytes: limit,
+            units: 256,
+        },
+    );
+    assert_eq!(out.disposition, "quarantine");
+    assert!(out.observation.is_null());
+    assert_eq!(serde_json::to_value(out.raw_capture).unwrap(), exact);
 }
 
 #[test]

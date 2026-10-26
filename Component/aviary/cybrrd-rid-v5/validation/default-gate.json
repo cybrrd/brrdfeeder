@@ -14,7 +14,7 @@
         "--check"
       ],
       "exit_code": 0,
-      "elapsed_seconds": 0.126,
+      "elapsed_seconds": 0.112,
       "log": "default-0.log",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
@@ -34,9 +34,9 @@
         "warnings"
       ],
       "exit_code": 0,
-      "elapsed_seconds": 0.162,
+      "elapsed_seconds": 0.644,
       "log": "default-1.log",
-      "sha256": "a5f4c585ee974ca44916ac30a98bbc189e067a7e0a6bc6d2e8d6bc525be724af"
+      "sha256": "f410b2715f19afb31512e7488ff343bde6f65f85ec65bf255d0a439e7dcf9123"
     },
     {
       "command": [
@@ -52,9 +52,9 @@
         "--nocapture"
       ],
       "exit_code": 0,
-      "elapsed_seconds": 33.303,
+      "elapsed_seconds": 33.53,
       "log": "default-2.log",
-      "sha256": "690c4cb51e6795772046500e74a4697cac4106f18675cbe98b25bc2d76d0c047"
+      "sha256": "6a04781dd2aa7a060c894154e820af58762f29fba3dcda7bf3beab581b007e4e"
     },
     {
       "command": [
@@ -69,9 +69,9 @@
         "cybrrd-rid-v5"
       ],
       "exit_code": 0,
-      "elapsed_seconds": 0.093,
+      "elapsed_seconds": 7.311,
       "log": "default-3.log",
-      "sha256": "92434e198f27984c035c376ec77a7cf9e6ebdde782f8ccb1336ae3329b66ddb7"
+      "sha256": "547364b7a339e982327cccd8c13ea18dc0249cf724c40bc5d8e58c70884e69d3"
     },
     {
       "command": [
@@ -80,10 +80,10 @@
         "--binary",
         "$REPO/Component/aviary/target/release/v5-test-ingress",
         "--receipt",
-        "$EVIDENCE/review-default/independent-contract.json"
+        "$EVIDENCE/final-bounds-default/independent-contract.json"
       ],
       "exit_code": 0,
-      "elapsed_seconds": 5.188,
+      "elapsed_seconds": 6.007,
       "log": "default-4.log",
       "sha256": "ef12e0b9ff29076196901920b3b57eeccdb9243bd22c3d42d0a60efb4d929e54"
     }

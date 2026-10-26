@@ -84,7 +84,14 @@ pub fn decode_with_limits(record: CaptureRecord, limits: Limits) -> DecodeResult
     let mut issue = |code: &str, path: &str, detail: &str| {
         diagnostics.push(json!({"code":code,"path":path,"detail":detail}))
     };
-    if record.bytes.len() > limits.capture_bytes || record.units.len() > limits.units {
+    let unit_bytes = record
+        .units
+        .iter()
+        .try_fold(0_usize, |total, span| total.checked_add(span.length));
+    if record.bytes.len() > limits.capture_bytes
+        || record.units.len() > limits.units
+        || unit_bytes.is_none_or(|total| total > limits.capture_bytes)
+    {
         issue(
             "parser_budget_exceeded",
             "",

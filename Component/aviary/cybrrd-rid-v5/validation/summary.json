@@ -4,7 +4,7 @@
   "design_merge": "27b45e0c5aa691bb2ba3e1d32cc1f19dffdc91c9",
   "default_rust_tests_passed": 18,
   "dedicated_tests_ignored_by_default": 3,
-  "default_gate_elapsed_seconds": 38.872,
+  "default_gate_elapsed_seconds": 47.604,
   "families": {
     "messages_and_multiplicity": 788,
     "no_position": 5,
@@ -52,5 +52,11 @@
     "Timestamp u32 sweep checks numeric primitives; message offset/endianness uses deterministic bindings",
     "Reserved 24-bit sweep checks byte codec; full-message bindings use deterministic subset",
     "Repository workflow unchanged; new offline gates have explicit reproduction commands"
-  ]
+  ],
+  "additional_parser_budget_regressions": 1,
+  "test_environment": {
+    "rust": "1.88.0",
+    "python": "3.14.2",
+    "jsonschema": "4.26.0"
+  }
 }

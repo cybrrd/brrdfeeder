@@ -5,18 +5,18 @@
   "other_semantic_cases": 66904,
   "timestamp_shards": 16,
   "timestamp_binary_sha256": "1bbb862dcf8db43617ce16e7ee5de219279564bfa79a0be72e178b015acb8af7",
-  "source_manifest_sha256": "49e5db45d3d32ff679204fac23c84829962c675b159c853a68080f2baeeda031",
-  "elapsed_seconds": 22.417,
+  "source_manifest_sha256": "568602af1a3c33ee135d8bc310da30694147b6e2f8025d144269b80b709cbcef",
+  "elapsed_seconds": 35.191,
   "domains": [
     {
       "cases": 460112,
-      "elapsed_ms": 1456,
+      "elapsed_ms": 1478,
       "gate": "numeric_non_u32",
       "status": "passed"
     },
     {
       "cases": 33554986,
-      "elapsed_ms": 2853,
+      "elapsed_ms": 2457,
       "gate": "reserved_patterns",
       "status": "passed"
     },

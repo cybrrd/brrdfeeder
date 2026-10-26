@@ -38,6 +38,7 @@ fn armor(jwt: &str, key: &KeyPair) -> String {
     format!("-----BEGIN NATS USER JWT-----\n{jwt}\n------END NATS USER JWT------\n\n-----BEGIN USER NKEY SEED-----\n{}\n------END USER NKEY SEED------\n",key.seed().unwrap())
 }
 struct Fixture {
+    utc: i64,
     _root: Scratch,
     renewal: Renewal,
     signer: KeyPair,
@@ -48,13 +49,15 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        // One clock value binds fixture construction, validation and commit.
+        let utc = now();
         let root = Scratch::new();
         let signer = KeyPair::new_account();
         let account = KeyPair::new_account();
         let old_key = KeyPair::new_user();
         let new = KeyPair::new_user();
-        let mut old_value = claims(&old_key, &signer, &account, now() - 89 * DAY);
-        old_value["exp"] = json!(now() + DAY);
+        let mut old_value = claims(&old_key, &signer, &account, utc - 89 * DAY);
+        old_value["exp"] = json!(utc + DAY);
         let raw = armor(&token(&signer, &old_value), &old_key);
         let old = credentials(&raw, None, "lab-001").unwrap().1;
         let renewal = Renewal {
@@ -66,8 +69,9 @@ impl Fixture {
             },
         };
         atomic_write(&renewal.path, raw.as_bytes()).unwrap();
-        let value = claims(&new, &signer, &account, now());
+        let value = claims(&new, &signer, &account, utc);
         Self {
+            utc,
             _root: root,
             renewal,
             signer,
@@ -88,7 +92,7 @@ impl Fixture {
     }
     fn commit(&self, res: &Response, trusted: bool) -> Result<i64> {
         self.renewal
-            .commit_response(res, &self.new, &self.old, &self.raw, now(), trusted)
+            .commit_response(res, &self.new, &self.old, &self.raw, self.utc, trusted)
     }
 }
 
@@ -106,6 +110,37 @@ fn verified_atomic_swap_and_permissions() {
         fs::read_to_string(f._root.0.join("previous.creds")).unwrap(),
         f.raw
     );
+}
+
+#[test]
+fn iat_skew_boundary_uses_one_clock_for_validation_and_commit() {
+    for (skew, accepted) in [(301, false), (300, true), (-301, false), (-300, true)] {
+        let f = Fixture::new();
+        let mut value = f.value.clone();
+        value["iat"] = json!(f.utc + skew);
+        // Keep the lifetime valid so only the exact clock-skew boundary decides.
+        value["exp"] = json!(f.utc + skew + 90 * DAY);
+        let res = f.response(&value);
+        let validation = validate_response(
+            &res, &f.new, &f.old, &f.renewal.trust, "lab-001", f.utc, true,
+        );
+        let commit = f.commit(&res, true);
+        if accepted {
+            assert!(validation.is_ok(), "skew {skew}: validation rejected boundary");
+            assert_eq!(commit.unwrap(), res.expires_at);
+            let (_, installed) = credentials(
+                &read_private(&f.renewal.path).unwrap(), Some(&f.renewal.trust), "lab-001",
+            ).unwrap();
+            assert_eq!(installed.sub, f.new.public_key());
+            assert_eq!(fs::read_to_string(f._root.0.join("previous.creds")).unwrap(), f.raw);
+        } else {
+            assert_eq!(validation.err().as_deref(), Some("response_time_invalid"));
+            // The commit interface deliberately maps validation errors.
+            assert_eq!(commit.unwrap_err(), "verification_failed");
+            assert_eq!(fs::read_to_string(&f.renewal.path).unwrap(), f.raw);
+            assert!(!f._root.0.join("previous.creds").exists());
+        }
+    }
 }
 
 // This synthetic wire peer only implements the NATS handshake/PUB/PING pieces
@@ -240,18 +275,18 @@ async fn rejected_jwts_leave_file_and_live_connection_unchanged() {
             "subject" => v["sub"] = json!(KeyPair::new_user().public_key()),
             "issuer" => v["iss"] = json!(rogue.public_key()),
             "account" => v["nats"]["issuer_account"] = json!(rogue.public_key()),
-            "expired" => v["exp"] = json!(now() - 1),
+            "expired" => v["exp"] = json!(f.utc - 1),
             "missing_expiry" => {
                 v.as_object_mut().unwrap().remove("exp");
             }
             "nonadvancing" => {
-                f.old.exp = now() + 89 * DAY;
-                v["exp"] = json!(now() + 60 * DAY);
+                f.old.exp = f.utc + 89 * DAY;
+                v["exp"] = json!(f.utc + 60 * DAY);
             }
-            "lifetime" => v["exp"] = json!(now() + 91 * DAY),
-            "stale_iat" => v["iat"] = json!(now() - 301),
-            "future_iat" => v["iat"] = json!(now() + 301),
-            "nbf" => v["nbf"] = json!(now() + 300),
+            "lifetime" => v["exp"] = json!(f.utc + 91 * DAY),
+            "stale_iat" => v["iat"] = json!(f.utc - 301),
+            "future_iat" => v["iat"] = json!(f.utc + 301),
+            "nbf" => v["nbf"] = json!(f.utc + 300),
             "wrong_name" => v["name"] = json!("other-001"),
             _ => {}
         }
@@ -285,7 +320,7 @@ async fn rejected_jwts_leave_file_and_live_connection_unchanged() {
                 &f.old,
                 &f.renewal.trust,
                 "lab-001",
-                now(),
+                f.utc,
                 mode != "clock"
             )
             .is_err(),

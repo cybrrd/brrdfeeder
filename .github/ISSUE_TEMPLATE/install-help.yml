@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+name: Install help
+description: Get help installing or upgrading BRRDfeeder during the beta.
+body:
+- type: markdown
+  attributes:
+    value: Use this form for ordinary beta install help and bugs. For vulnerabilities, follow
+      [SECURITY.md](https://github.com/cybrrd/brrdfeeder/blob/main/SECURITY.md) privately. For
+      private help, email admin@cybrrd.com. Never post credentials, private keys, exact locations
+      or unredacted logs. Nothing uploads automatically.
+- type: input
+  id: board
+  attributes:
+    label: Board
+    description: Exact board model (for example Raspberry Pi 5).
+  validations:
+    required: true
+- type: input
+  id: os
+  attributes:
+    label: Operating system
+    description: OS name, version, 32/64-bit and kernel if known.
+  validations:
+    required: true
+- type: input
+  id: release
+  attributes:
+    label: Release / build
+    description: BRRDfeeder release, build or commit; say unknown if installation did not reach
+      this step.
+  validations:
+    required: true
+- type: textarea
+  id: adapters
+  attributes:
+    label: Adapters
+    description: Wi-Fi, Bluetooth and GPS model / USB IDs. Do not include serial numbers or exact
+      locations.
+  validations:
+    required: true
+- type: textarea
+  id: support
+  attributes:
+    label: Redacted support bundle / run ID
+    description: 'Include the installer run ID if available. Generate a bundle with: curl -fsSL
+      https://get.cybrrd.com | bash -s -- support-bundle. Review the redacted bundle before attaching
+      it. Do not upload credentials, private keys, exact locations or unredacted logs. Nothing
+      uploads automatically; use admin@cybrrd.com if you need private help.'
+  validations:
+    required: false
+- type: textarea
+  id: problem
+  attributes:
+    label: Where did setup stop?
+    description: Describe the command you ran, what you expected, and the redacted error. Do not
+      paste tokens or credentials.
+  validations:
+    required: true

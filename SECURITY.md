@@ -2,8 +2,8 @@
 
 Report suspected vulnerabilities privately using GitHub's
 [Report a vulnerability](https://github.com/cybrrd/brrdfeeder/security/advisories/new)
-form. Do not disclose them in pull requests. Public Issues and Discussions are
-disabled; they are not a reporting channel.
+form. Do not disclose them in public Issues, Discussions or pull requests.
+Public Issues are for ordinary install help and bug reports, not vulnerabilities.
 
 Scope includes the BRRDfeeder engine, BRRDhouse console, installer, updater and
 release workflows in this repository. We prioritize the latest published

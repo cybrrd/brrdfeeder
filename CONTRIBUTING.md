@@ -1,6 +1,6 @@
 # Contributions
 
-Outside contributions are **not accepted** at this time. We are building the
+Outside code contributions are **not accepted** at this time. We are building the
 processes needed to review them safely. Unsolicited pull requests will be closed
 without review; please do not send patches or implementation proposals.
 
@@ -28,9 +28,15 @@ You represent that You are legally entitled to grant the above licenses. You rep
 5. Disclaimer.
 You are not expected to provide support for Your Contributions, except to the extent You desire to provide support. You may provide contributions on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied, including, without limitation, any warranties or conditions of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
 
-Public Issues and Discussions are disabled. There is no public non-security
-bug-report or feature-request channel at present. Maintainers coordinate
-privately. Security vulnerabilities should be reported through
+During the beta, [GitHub Issues](https://github.com/cybrrd/brrdfeeder/issues)
+are open for install help and bug reports. Use the **Install help** or
+**Bug report** form and include your board, OS, release/build, adapters and,
+if available, a redacted support bundle and installer run ID. Review the bundle
+before sharing it; nothing uploads automatically. Never post credentials,
+private keys or exact locations. For private help, email **admin@cybrrd.com**.
+This support channel does not open code contributions or implementation proposals.
+
+Report security vulnerabilities through
 [private vulnerability reporting](https://github.com/cybrrd/brrdfeeder/security/advisories/new),
-as described in [SECURITY.md](SECURITY.md); please do not use that channel for
-ordinary bug reports or support requests.
+as described in [SECURITY.md](SECURITY.md). Do not post vulnerabilities in public
+Issues, or use the security channel for ordinary bugs or install help.

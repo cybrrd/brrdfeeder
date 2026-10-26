@@ -56,8 +56,9 @@ receiver telemetry, real release CI and keyless signing are separate gates.
    paste broke attempt 1 of the 0.8.31 session (2026-10-25); one line is a
    release-safety requirement, not a style preference.
 7. Land PRs by squash-merge, one at a time, in reviewed order — no merge
-   commits; history stays linear (Cy's landing-method ruling, 2026-10-26,
-   which also matches the repository's enforced linear history). Compute
+   commits; history stays linear (maintainer landing-method ruling,
+   2026-10-26, which also matches the repository's enforced linear history).
+   Compute
    `1000 + git rev-list --count <commit>` on full history AFTER each squash
    lands (a squash-merge adds exactly one commit) and compare to the actual
    bad receipt's independent engine and console builds; require good strictly
@@ -69,7 +70,8 @@ receiver telemetry, real release CI and keyless signing are separate gates.
    linear-history bypass; floors and outcome passed (good 1045 > bad 1039).
    The text above records the ruling that the operation actually established.
    Every signing session ends with the mandatory USB close (step 8a).
-8a. End of every signing session (mandatory, Cy 2026-10-25): unmount the USB
+8a. End of every signing session (mandatory, maintainer decision
+   2026-10-25): unmount the USB
    signing medium (`umount`) and close its LUKS container
    (`cryptsetup close <name>`), then verify both (mount point absent, no open
    crypt device). The 2026-10-25 session initially shipped without this step

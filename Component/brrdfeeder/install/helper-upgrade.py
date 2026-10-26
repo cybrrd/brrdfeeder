@@ -11,9 +11,25 @@ import os
 from pathlib import Path
 import platform
 import re
+import stat
 import subprocess
 import sys
 import tempfile
+
+
+class ExecutionPrerequisiteError(RuntimeError):
+    pass
+
+
+def staging_parent():
+    # /run may be mounted noexec. Use the installed executable's filesystem,
+    # checking every parent before creating a private temporary directory.
+    parent = Path('/usr/local/libexec')
+    for path in (parent, *parent.parents):
+        info = path.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise ExecutionPrerequisiteError('Unsafe helper staging directory; root-owned executable directory required.')
+    return parent
 
 
 def main(args):
@@ -28,7 +44,7 @@ def main(args):
         raise RuntimeError("verified installer helper pin unavailable")
     expected = pins[0]
     # Root-private staging, not an operator-writable executable pathname.
-    with tempfile.TemporaryDirectory(prefix='brrdfeeder-helper-', dir='/run') as stage:
+    with tempfile.TemporaryDirectory(prefix='.brrdfeeder-helper-', dir=staging_parent()) as stage:
         candidate = Path(stage) / 'brrdfeeder-release'
         if len(args) == 4:
             with open(args[3], 'rb') as source:
@@ -47,12 +63,18 @@ def main(args):
         if len(raw) < 20 or raw[:6] != b'\x7fELF\x02\x01' or raw[18:20] != b'\xb7\x00':
             raise RuntimeError("wrong helper architecture; refusing execution")
         candidate.chmod(0o700)
-        subprocess.run([str(candidate), 'upgrade-local-helper', '--sha256', expected], check=True)
+        try:
+            subprocess.run([str(candidate), 'upgrade-local-helper', '--sha256', expected], check=True)
+        except PermissionError:
+            raise ExecutionPrerequisiteError('Cannot execute the staged helper; check executable-filesystem mount options and access policy.') from None
 
 
 if __name__ == '__main__':
     try:
         main(sys.argv[1:])
+    except ExecutionPrerequisiteError as error:
+        print(str(error) + ' No enrollment attempted.', file=sys.stderr)
+        sys.exit(1)
     except (OSError, RuntimeError, subprocess.SubprocessError):
         # Never echo credentials, caller-controlled filenames or config errors.
         print('Helper upgrade refused or failed; existing identity was not changed. No enrollment attempted.', file=sys.stderr)

@@ -6,6 +6,8 @@ import hashlib
 import importlib.util
 from pathlib import Path
 import tempfile
+import stat
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -13,6 +15,7 @@ INSTALL = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('upgrade', INSTALL/'helper-upgrade.py')
 upgrade = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(upgrade)
+STAGING_PARENT = upgrade.staging_parent
 
 
 class HelperDispatch(unittest.TestCase):
@@ -28,10 +31,12 @@ class HelperDispatch(unittest.TestCase):
         self.download = self.raw
         original_temp = tempfile.TemporaryDirectory
         def staging(**kwargs):
+            self.assertEqual(kwargs['dir'], Path('/usr/local/libexec'))
             return original_temp(prefix=kwargs['prefix'], dir=self.root)
         self.stack = []
         for mock in (patch.object(upgrade.os, 'geteuid', return_value=0),
                      patch.object(upgrade.platform, 'machine', return_value='aarch64'),
+                     patch.object(upgrade, 'staging_parent', return_value=Path('/usr/local/libexec')),
                      patch.object(upgrade.tempfile, 'TemporaryDirectory', side_effect=staging),
                      patch.object(upgrade.subprocess, 'run', side_effect=self.run_command)):
             mock.start()
@@ -82,6 +87,29 @@ class HelperDispatch(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'usage'):
             upgrade.main([str(self.installer), '--upgrade-helper', '--image', 'anything'])
         self.assertEqual(self.calls, [])
+
+    def test_execution_denied_has_actionable_safe_error(self):
+        with patch.object(upgrade.subprocess, 'run', side_effect=PermissionError('private filename')):
+            local = self.root/'local'
+            local.write_bytes(self.raw)
+            with self.assertRaisesRegex(upgrade.ExecutionPrerequisiteError, 'mount options') as error:
+                upgrade.main([str(self.installer), '--upgrade-helper', '--helper-file', str(local)])
+            self.assertNotIn('private filename', str(error.exception))
+
+    def test_staging_checks_every_parent_and_refuses_unsafe_metadata(self):
+        safe = SimpleNamespace(st_mode=stat.S_IFDIR | 0o755, st_uid=0)
+        with patch.object(Path, 'lstat', return_value=safe) as checked:
+            self.assertEqual(STAGING_PARENT(), Path('/usr/local/libexec'))
+            self.assertEqual(checked.call_count, 4)
+        for bad in (SimpleNamespace(st_mode=stat.S_IFLNK | 0o777, st_uid=0),
+                    SimpleNamespace(st_mode=stat.S_IFDIR | 0o775, st_uid=0),
+                    SimpleNamespace(st_mode=stat.S_IFDIR | 0o755, st_uid=1000)):
+            for index in range(4):
+                values = [safe] * 4
+                values[index] = bad
+                with patch.object(Path, 'lstat', side_effect=values):
+                    with self.assertRaises(upgrade.ExecutionPrerequisiteError):
+                        STAGING_PARENT()
 
     def test_embedded_source_and_early_dispatch(self):
         text = (INSTALL/'brrdfeeder-install.sh').read_text()

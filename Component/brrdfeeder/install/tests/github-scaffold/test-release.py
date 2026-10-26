@@ -109,6 +109,9 @@ class Release(unittest.TestCase):
             ('v0.8.20', '0.2.0', False),
             ('v0.8.21', '0.8.20', False),
             ('v0.8.20', '0.8.20', True),
+            ('v0.9.0', '0.9.0', True),
+            ('v0.8.31', '0.9.0', False),
+            ('v0.9.0', '0.8.31', False),
         ]
         for tag, engine_version, accepted in cases:
             with self.subTest(tag=tag, engine_version=engine_version), ReleaseFixture() as f:

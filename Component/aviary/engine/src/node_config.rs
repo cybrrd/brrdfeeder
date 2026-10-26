@@ -184,6 +184,8 @@ pub struct HunterYaml {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BackhaulYaml {
+    #[serde(default)]
+    pub outage_spool: crate::outage_spool::Config,
     /// Legacy override is ignored; the engine derives its subject.
     pub target_subject: Option<String>,
     pub broker_urls: Vec<String>,

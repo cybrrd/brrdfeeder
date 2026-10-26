@@ -339,6 +339,8 @@ def destinations(extracted):
             for name in ('operational','red'):
                 if '=> "'+name+'"' in joined:
                     output.update(s/'upward'/(name+'.'+suffix) for suffix in ('json','lock','tmp'))
+        if source.endswith(('/outage_spool.rs','/telemetry_loss.rs')):
+            output.update(s/'outage'/name for name in ('lock','cursor.json','cursor.json.tmp','gaps.slots','00000000000000000001.seg'))
         if source.endswith('/blue_policy.rs') and '".{fname}.tmp"' in joined:
             output.add(s/'.policy_state.json.tmp')
         if source.endswith('/gps-seed.py') and "prefix='.' + path.name + '-'" in joined:

@@ -45,7 +45,7 @@ class Contract(unittest.TestCase):
         self.assertGreater(files,30); self.assertGreater(expressions,100); self.assertGreater(paths,50)
         projected={str(p) for p in scan.destinations(scan.census(ROOT))}
         # A census refresh alone cannot silently drop the dynamic projections.
-        expected=['/var/lib/brrdfeeder/release_attempt.json','/var/lib/brrdfeeder-updater/attempt.json',
+        expected=['/var/lib/brrdfeeder/outage/00000000000000000001.seg','/var/lib/brrdfeeder/outage/gaps.slots','/var/lib/brrdfeeder/release_attempt.json','/var/lib/brrdfeeder-updater/attempt.json',
                   '/var/lib/brrdfeeder/credentials/brrdfeeder.creds','/var/lib/brrdfeeder/credentials/previous.creds',
                   '/var/lib/brrdfeeder/credentials/.renew.lock','/var/lib/brrdfeeder/capture/capture-15.pcap',
                   '/var/lib/brrdfeeder/status.json','/var/lib/brrdfeeder/status.json.tmp.101.0',

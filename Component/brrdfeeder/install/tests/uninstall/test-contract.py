@@ -113,12 +113,14 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
             # 0.8.29 memory scope: exact helper/unit embedding, generated cgroup
             # confinement and bounded restart behavior are independently tested
             # by deploy/memory/test_memory.py and its negative controls.
-            a = text.index('# Host memory observations are separate')
+            # B06 boot repair is covered byte-for-byte and behaviorally by
+            # deploy/memory/test_controller.py; retain the surrounding freeze.
+            a = text.index('# B06: enable the Pi controller')
             b = text.index('gate quadlets ', a)
             text = text[:a] + text[b:]
             for line in ('Wants=brrdfeeder-memory.service brrdfeeder-memory.timer',
-                         'After=brrdfeeder-memory.service', 'StartLimitIntervalSec=300',
-                         'StartLimitBurst=3', 'PodmanArgs=--cgroups=split',
+                         'After=brrdfeeder-memory.service', 'StartLimitIntervalSec=0',
+                         'PodmanArgs=--cgroups=split',
                          'Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro',
                          'MemoryAccounting=yes', 'MemoryMax=256M', 'MemorySwapMax=0',
                          'OOMPolicy=kill', 'ExecStopPost=/usr/local/libexec/brrdfeeder-host-memory stop'):

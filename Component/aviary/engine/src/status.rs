@@ -1271,6 +1271,7 @@ mod tests {
     ) {
         let (tx, rx) = tokio::sync::mpsc::channel(4);
         let fleet = crate::heartbeat::FleetProprioception {
+            loss: None,
             identity: crate::identity::RunningIdentity::unverified(),
             silver: Some(crate::silver::Context {
                 configured_position: crate::silver::ConfiguredPosition {

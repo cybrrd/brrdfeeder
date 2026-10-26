@@ -256,6 +256,7 @@ mod tests {
         known.log_startup(&mut info, &mut warning).unwrap();
         assert!(warning.is_empty());
         let fleet = crate::heartbeat::FleetProprioception {
+            loss: None,
             identity: known,
             silver: Some(crate::silver::Context {
                 configured_position: crate::silver::ConfiguredPosition {

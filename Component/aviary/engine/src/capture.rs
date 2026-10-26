@@ -614,14 +614,17 @@ impl PostParse {
 
         // Non-blocking send: backhaul saturation must not stall radio capture.
         match self.context.tx.try_send(payload) {
-            Ok(()) => {}
-            Err(TrySendError::Full(_)) => {
+            Ok(()) => {self.context.counters.resumed(crate::telemetry_loss::Boundary::CaptureBackhaul);}
+            Err(TrySendError::Full(frame)) => {
+                self.context.counters.record_loss(crate::telemetry_loss::Boundary::CaptureBackhaul, frame.timestamp_utc);
                 self.context
                     .counters
                     .buffer_full
                     .fetch_add(1, Ordering::Relaxed);
             }
-            Err(TrySendError::Closed(_)) => {
+            Err(TrySendError::Closed(frame)) => {
+                self.context.counters.buffer_full.fetch_add(1,Ordering::Relaxed);
+                self.context.counters.record_loss(crate::telemetry_loss::Boundary::CaptureBackhaul,frame.timestamp_utc);
                 eprintln!("[-] Backhaul channel closed; halting capture.");
                 return false;
             }
@@ -786,10 +789,20 @@ mod tests {
             data.drone_id = "THIRD".into();
             assert!(pipe.forward(data.clone())); // store tap survives full backhaul
             assert_eq!(counters.buffer_full.load(Ordering::Relaxed), 1);
+            let gaps = counters.loss.lock().unwrap().gaps();
+            assert_eq!(gaps.len(), 1);
+            assert_eq!(gaps[0].boundary, crate::telemetry_loss::Boundary::CaptureBackhaul);
+            assert_eq!(gaps[0].count, 1);
+            assert!(gaps[0].first_capture_ms > 0);
+            assert_eq!(gaps[0].first_capture_ms, gaps[0].last_capture_ms);
             assert_eq!(store.len(), 3);
             drop(rx);
             data.drone_id = "FOURTH".into();
             assert!(!pipe.forward(data));
+            assert_eq!(counters.buffer_full.load(Ordering::Relaxed), 2);
+            let gaps = counters.loss.lock().unwrap().gaps();
+            assert_eq!(gaps[0].count, 2, "closed capture handoff lost its count");
+            assert!(gaps[0].last_capture_ms >= gaps[0].first_capture_ms);
         }
     }
 

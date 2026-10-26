@@ -373,6 +373,7 @@ mod tests {
         health.state = SensorState::Healthy;
         let health = Arc::new(ArcSwap::from_pointee(health));
         let fleet = FleetProprioception {
+            loss: None,
             identity: crate::identity::RunningIdentity::unverified(),
             channel: "stable".into(),
             time_trust: trust,

@@ -120,6 +120,14 @@ def validate(path, uid, gid):
             require(child.name in ('brrdfeeder.creds', 'previous.creds', '.renew.lock')
                     or renewal_temporary(child.name), 'unknown renewal artifact', child)
             owned_file(child, uid, gid, (0o600,))
+    elif path == STATE / 'outage':
+        owned_directory(path, uid, gid, (0o700,))
+        for child in path.iterdir():
+            segment = re.fullmatch(r'[0-9]{20}\.seg', child.name)
+            require(child.name in ('lock', 'cursor.json', 'cursor.json.tmp', 'gaps.slots')
+                    or segment is not None and int(child.name[:20]) <= 0xffffffffffffffff,
+                    'unknown outage spool artifact', child)
+            owned_file(child, uid, gid, (0o600,))
     elif path == STATE / 'capture':
         require(configured('capture'), 'capture savefile is not configured here', path)
         # create_dir_all inherits the normal service umask; sensor files remain

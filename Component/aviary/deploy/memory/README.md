@@ -22,8 +22,10 @@ of delegation must not prevent its startup.
 
 An OOM kill cannot gracefully drain the killed process. “Clean restart” here
 means systemd kills the group, runs the receipt/Quadlet cleanup hooks, then starts
-a new invocation after five seconds. Three starts in 300 seconds hit the start
-limit and leave the engine failed instead of looping indefinitely. Journald
+a new invocation after five seconds. `StartLimitIntervalSec=0` keeps recovery
+attempts enabled beyond three failures. The engine retains `Restart=always`.
+The updater also disables the start limiter; its existing `Type=oneshot` is
+started by the release workflow and cannot use `Restart=always`. Journald
 records the OOM result and restart decision. The host helper logs an explicit
 event and atomically fsyncs the count in root-owned
 `/var/lib/brrdfeeder-memory/events.json`, once per invocation. Ordinary exits,
@@ -49,13 +51,31 @@ MemoryMax=384M
 Reload systemd and restart the engine only during an approved maintenance
 window. Inspect the generated service, effective `MemoryMax`, cgroup containment,
 and journal after changing it. Do not remove the limit to conceal a leak. After
-diagnosing repeated OOMs, `systemctl reset-failed brrdfeeder-engine.service` and
-an explicit start release the start-limit latch. A custom drop-in remains
+diagnosing repeated OOMs, repair the cause while retaining the cap; the standard
+unit continues retrying. A custom drop-in remains
 operator-owned; remove/reconcile it before the conservative uninstaller, which
 refuses unexpected overrides. No new installer/bootstrap/product version is
-introduced by this PR, and no bootstrap installer hash is regenerated here.
-The 0.8.29 integration must regenerate its pins only after the held 0.8.28
-installer has shipped and the stack has been integrated.
+introduced by these memory settings. Bootstrap hashes must match the assembled
+installer after integration.
+
+On Raspberry Pi installs, the installer removes only `memory` from
+`cgroup_disable=` in `/boot/firmware/cmdline.txt`. It preserves unrelated tokens,
+backs up the original bytes to `cmdline.txt.brrdfeeder-memory.bak`, and reports
+that a reboot is required. It never reboots automatically. Repeat installation
+is idempotent. After an approved reboot, run:
+
+```sh
+sudo /usr/local/libexec/brrdfeeder-memory-controller check
+```
+
+This requires `memory` in the running root `cgroup.controllers` and verifies the
+actual engine service `memory.max` equals 268435456. A deliberately overridden
+cap must be verified separately; this default-cap check will refuse to certify it.
+To reverse the boot edit, use the helper's `restore` command, then reboot when
+approved. Restore refuses unrelated changes made after repair. The backup and
+boot-directory lock survive uninstall; uninstall does not silently disable the
+host memory controller. Preserve the helper or use the repository copy if a
+restore is needed after uninstall.
 
 ## Additive heartbeat contract
 
@@ -103,13 +123,22 @@ go -C Component/brrdhouse test -race ./...
 cargo test --manifest-path Component/aviary/engine/Cargo.toml --locked
 ```
 
-The opt-in `local_fault_proof.py --out <evidence-directory> --image <cached-python-image>`
+The current restart-policy proof is
+`python3 Component/aviary/deploy/memory/local_resilience_proof.py <evidence-directory>`.
+It uses local transient user units, verifies `systemctl show` and kernel cgroup
+limits, requires a fifth engine start after four failures, and checks repeated
+updater failures remain `exit-code` rather than start-limit refusal. It does not
+allocate to OOM or contact nodes.
+
+The historical opt-in `local_fault_proof.py --out <evidence-directory> --image <cached-python-image>`
 creates only a uniquely named transient **user** service/container, verifies
 the kernel ancestor's 256 MiB limit before allocating, uses no network/pull,
 records one OOM receipt, and requires one restart followed by a 60-second
 32-MiB fixture soak. It retains its journal and exact properties. It is not
 proof of rootful Pi radio capture or normal native engine memory usage.
-With `--repeat-oom`, it instead requires three OOM receipts followed by an
+That historical fixture deliberately retains the old 300-second/3-start policy;
+it is not evidence of the current restart policy. With `--repeat-oom`, it requires
+three OOM receipts followed by an
 inactive/failed service, a start-limit refusal in the journal, and no restart
 across two further restart intervals. systemd may retain `Result=oom-kill`
 rather than replace it with `start-limit-hit`.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
-"""Two ignored engine tests, local loopback broker only, cached image/no build."""
+"""Ignored engine tests, local loopback broker only, cached image/no build."""
 import os
 from pathlib import Path
 import subprocess
@@ -23,5 +23,11 @@ with tempfile.TemporaryDirectory(prefix='self-update-broker-') as tmp:
     # their Scratch directories. Both broker configs bind ONLY 127.0.0.1.
     result=subprocess.run(['cargo','test','--offline','--locked','-p','engine','upward::tests::broker_',
                            '--','--ignored','--nocapture','--test-threads=1'],
+                          cwd=ROOT/'Component/aviary',env=dict(os.environ,D40_NATS_SERVER=str(binary)),timeout=180)
+    if result.returncode:
+        raise SystemExit(result.returncode)
+    result=subprocess.run(['cargo','test','--offline','--locked','-p','engine',
+                           'nats_publisher::tests::broker_real_stream_info_confirms_ordered_batch',
+                           '--','--exact','--ignored','--nocapture'],
                           cwd=ROOT/'Component/aviary',env=dict(os.environ,D40_NATS_SERVER=str(binary)),timeout=180)
     raise SystemExit(result.returncode)

@@ -30,7 +30,7 @@ class Layouts(Fixture):
                 self.refused('unrecognised')
 
     def test_unknown_secret_and_capture_children(self):
-        for tree in (S/'credentials',S/'capture'):
+        for tree in (S/'credentials',S/'capture',S/'outage'):
             with self.subTest(tree=str(tree)):
                 self.seed(optional=True); file(tree/'operator-keeps-this',0o600,UID,GID)
                 self.refused('unknown')
@@ -42,7 +42,7 @@ class Layouts(Fixture):
 
 class Safety(Fixture):
     def test_every_new_file_rejects_symlink_and_second_link(self):
-        paths=[S/'release_attempt.json',P/'attempt.json',S/'status.json',S/'status.json.tmp.101.0',
+        paths=[S/'outage/00000000000000000001.seg',S/'outage/gaps.slots',S/'outage/lock',S/'outage/cursor.json',S/'outage/cursor.json.tmp',S/'release_attempt.json',P/'attempt.json',S/'status.json',S/'status.json.tmp.101.0',
                S/'credentials/brrdfeeder.creds',S/'credentials/previous.creds',S/'credentials'/RENEW,
                S/'credentials/.renew.lock',S/'capture/capture-00.pcap',
                P/'.host-recover-abcd_123',E/'.host-recover-abcd_123',E/'.config.yaml-abcd_123',E/'.update-0']

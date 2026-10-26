@@ -18,6 +18,8 @@ mod heartbeat;
 mod hunter;
 mod identity;
 mod memory;
+mod outage_spool;
+mod telemetry_loss;
 mod nats_publisher; // #178 — single multiplexed, supervised NATS connection
 mod nl80211;
 mod node_config;
@@ -194,8 +196,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // rode a bare client that could silently wedge while telemetry pumped fine.
     // Now every publisher routes through this one supervised connection and
     // inherits flush-confirm delivery + wedge-detect + in-place reconnect +
-    // edge-buffer. Each task holds a cheap clone of the handle; publish() is a
-    // non-blocking enqueue so producers never block on the network.
+    // disk spool. Each handle awaits durable disk custody; network waits never
+    // stop the dedicated writer. Capture retains its bounded nonblocking handoff.
     // #185 Phase 3 Drop 1c — the E-CNP-001 verification membrane rides the same
     // supervised connection: a durable JetStream consumer on this node's control
     // subject that VERIFIES (does not yet execute) any signed Blue policy.
@@ -211,7 +213,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         credentials_path.clone(),
         counters.clone(),
         Some(control),
-    );
+        &cfg.backhaul.outage_spool,
+    )?;
     credential_renewal::listen_for_owner_rotation(nats.clone(),cfg.backhaul.credentials_path.clone(),node.id.clone())?;
 
     // Wave 7.1 Inc 8 — shared capture-liveness state. main.rs resolves
@@ -240,15 +243,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let liveness = watchdog::CaptureLiveness::new(initial_ifindex);
 
     // Audit emitter: 1 Hz drain of drop counters → audit subject. Publishes via
-    // the shared multiplexed supervisor (#178); publish() is a non-blocking
-    // enqueue, so the closure hands off and returns an immediately-ready future.
+    // the shared multiplexed supervisor (#178); retain each audit window until
+    // the disk writer confirms durable acceptance.
     let audit_counters = counters.clone();
     let audit_node_id = node.id.clone();
     let audit_nats = nats.clone();
     tokio::spawn(async move {
         let publisher = move |subject: String, bytes: Vec<u8>| {
-            audit_nats.publish(subject, bytes);
-            async {}
+            let nats=audit_nats.clone();
+            async move { nats.publish_retained(subject, bytes).await }
         };
         audit::run_audit_emitter(audit_counters, audit_node_id, publisher).await;
     });
@@ -301,8 +304,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sa_nats = nats.clone();
     tokio::spawn(async move {
         let publisher = move |subject: String, bytes: Vec<u8>| {
-            sa_nats.publish(subject, bytes);
-            async {}
+            let nats=sa_nats.clone();
+            async move { let _=nats.publish(subject, bytes).await; }
         };
         audit::run_substrate_audit_emitter(substrate_audit_rx, publisher).await;
     });
@@ -458,6 +461,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &node.id,
             broker_urls.clone(),
             credentials_path.clone(),
+            counters.clone(),
         ) {
             Ok(handle) => Some(tokio::spawn(upward::monitor(
                 handle,
@@ -481,6 +485,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     // D26: no stale environment fallback; Silver names the refusal each heartbeat.
     let hb_fleet = heartbeat::FleetProprioception {
+        loss: Some(counters.clone()),
         identity: running_identity,
         silver: Some(cfg.silver_context()),
         channel: cfg
@@ -509,8 +514,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // connection — the whole point of the multiplex. No bare client that can
         // silently wedge while telemetry pumps fine.
         let publisher = move |subject: String, bytes: Vec<u8>| {
-            hb_nats.publish(subject, bytes);
-            async {}
+            let nats=hb_nats.clone();
+            async move { let _=nats.publish(subject, bytes).await; }
         };
         heartbeat::run_heartbeat_emitter(
             hb_node_id,
@@ -612,9 +617,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let store = tick_publisher::ObservationStore::new();
         // #178: the tick publisher now rides the SHARED supervised connection
         // rather than a dedicated client. The Green Protocol beacon path inherits
-        // wedge-detect + reconnect for free; tick best-effort semantics are
-        // preserved (handle.publish is a non-blocking enqueue, a momentarily-full
-        // handoff drops to the next tick's fresh state).
+        // wedge detection, reconnect, and durable disk custody. The bounded
+        // producer handoff waits for capacity; refused disk appends are counted.
         let tp_node_id: String = node.id.clone();
         let tp_static_loc = node.location.clone();
         let tp_store = Arc::clone(&store);

@@ -6,8 +6,7 @@ After=network-online.target
 Wants=network-online.target
 Wants=brrdfeeder-memory.service brrdfeeder-memory.timer
 After=brrdfeeder-memory.service
-StartLimitIntervalSec=300
-StartLimitBurst=3
+StartLimitIntervalSec=0
 # The BRRDfeeder installer owns this system timer. Wants is non-fatal on persistent
 # tiers but ensures a provisioned black box starts with the engine.
 After=brrdfeeder-blackbox.timer

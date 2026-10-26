@@ -132,6 +132,9 @@ if name != 'find' or '-delete' in sys.argv:
         for name in ('status.json','startup.json','status.json.tmp.101.0','.startup.json-abcd_123'):
             file(T/name,0o644,UID,GID)
         if version=='0.9.0':
+            directory(S/'outage',0o700,UID,GID)
+            for name in ('lock','cursor.json','cursor.json.tmp','gaps.slots','00000000000000000001.seg'):
+                file(S/'outage'/name,0o600,UID,GID,'synthetic spool evidence\n')
             directory(S/'credentials',0o700,UID,GID)
             for name in ('brrdfeeder.creds','previous.creds','.renew.lock',RENEW):
                 file(S/'credentials'/name,0o600,UID,GID,'synthetic private artifact\n')

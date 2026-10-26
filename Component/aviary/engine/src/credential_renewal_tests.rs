@@ -173,6 +173,7 @@ impl Peer {
                     let mut rd = BufReader::new(rd);
                     wr.write_all(format!("INFO {{\"server_id\":\"TEST-ONLY\",\"server_name\":\"TEST-ONLY\",\"version\":\"2.11.17\",\"proto\":1,\"host\":\"127.0.0.1\",\"port\":{port},\"auth_required\":true,\"nonce\":\"fixture\",\"max_payload\":1048576}}\r\n").as_bytes()).await.unwrap();
                     let mut subject = String::new();
+                    let mut subscriptions=Vec::<(String,String)>::new();
                     loop {
                         let mut line = String::new();
                         if rd.read_line(&mut line).await.unwrap_or(0) == 0 {
@@ -194,6 +195,12 @@ impl Peer {
                             if wr.write_all(b"PONG\r\n").await.is_err() {
                                 break;
                             }
+                        } else if line.starts_with("SUB ") {
+                            let fields:Vec<_>=line.split_whitespace().collect();
+                            subscriptions.push((fields[1].into(),fields.last().unwrap().to_string()));
+                        } else if line.starts_with("UNSUB ") {
+                            let fields:Vec<_>=line.split_whitespace().collect();
+                            subscriptions.retain(|(_,sid)|sid!=fields[1]);
                         } else if line.starts_with("PUB ") {
                             let len = line
                                 .split_whitespace()
@@ -204,7 +211,14 @@ impl Peer {
                             let mut raw = vec![0; len + 2];
                             rd.read_exact(&mut raw).await.unwrap();
                             raw.truncate(len);
-                            s.lock().unwrap().push((subject.clone(), raw));
+                            if line.starts_with("PUB $JS.API.STREAM.INFO.") {
+                                let fields:Vec<_>=line.split_whitespace().collect();let reply=fields[2];
+                                let (_,sid)=subscriptions.iter().find(|(pattern,_)|reply.starts_with(pattern.trim_end_matches(['>','*']))).unwrap();
+                                let config=async_nats::jetstream::stream::Config{name:"CYBRRD_CONTROL".into(),..Default::default()};
+                                let body=serde_json::to_vec(&json!({"config":config,"created":"2026-01-01T00:00:00Z","state":{"messages":0,"bytes":0,"first_seq":0,"first_ts":"2026-01-01T00:00:00Z","last_seq":0,"last_ts":"2026-01-01T00:00:00Z","consumer_count":0}})).unwrap();
+                                let mut response=format!("MSG {reply} {sid} {}\r\n",body.len()).into_bytes();response.extend_from_slice(&body);response.extend_from_slice(b"\r\n");
+                                if wr.write_all(&response).await.is_err(){break;}
+                            } else {s.lock().unwrap().push((subject.clone(), raw));}
                         }
                     }
                 });
@@ -239,7 +253,8 @@ async fn rejected_jwts_leave_file_and_live_connection_unchanged() {
         f.renewal.path().into(),
         crate::audit::DropCounters::new(),
         None,
-    );
+        &crate::outage_spool::Config {directory:f._root.0.join("outage"), ..Default::default()},
+    ).unwrap();
     until(|| {
         peer.connections.load(Ordering::SeqCst) == 1
             && handle.status.connection_state() == "connected"
@@ -336,7 +351,7 @@ async fn rejected_jwts_leave_file_and_live_connection_unchanged() {
             "active changed: {mode}"
         );
         assert!(!f._root.0.join("previous.creds").exists());
-        handle.publish("test.frames".into(), mode.as_bytes().to_vec());
+        assert!(handle.publish("test.frames".into(), mode.as_bytes().to_vec()).await);
         let count = peer.seen.lock().unwrap().len();
         until(|| peer.seen.lock().unwrap().len() > count).await;
         assert_eq!(
@@ -354,7 +369,7 @@ async fn rejected_jwts_leave_file_and_live_connection_unchanged() {
     f.old.exp = original_exp;
     f.commit(&f.response(&f.value), true).unwrap();
     assert!(handle.rotate_credentials().await);
-    handle.publish("test.frames".into(), b"rotated".to_vec());
+    assert!(handle.publish("test.frames".into(), b"rotated".to_vec()).await);
     until(|| {
         peer.seen
             .lock()
@@ -377,9 +392,10 @@ async fn rotation_rereads_file_and_retains_offline_queue_in_order() {
         f.renewal.path(),
         crate::audit::DropCounters::new(),
         None,
-    );
+        &crate::outage_spool::Config {directory:f._root.0.join("outage"), ..Default::default()},
+    ).unwrap();
     for i in 0..9 {
-        handle.publish("test.frames".into(), vec![i]);
+        assert!(handle.publish("test.frames".into(), vec![i]).await);
     }
     tokio::time::sleep(Duration::from_millis(50)).await;
     assert_eq!(peer.connections.load(Ordering::SeqCst), 0);

@@ -130,6 +130,7 @@ for group in groups:
         run('bt-dongle-gate',['bash',ROOT/'Component/aviary/tools/test-bt-dongle-gate.sh'])
         run('quadlet-cidfile',[sys.executable,ROOT/'Component/aviary/tools/check-quadlet-cidfile.py'])
         run('memory-host-contracts',[sys.executable,ROOT/'Component/aviary/deploy/memory/test_memory.py'])
+        run('memory-controller-contracts',[sys.executable,ROOT/'Component/aviary/deploy/memory/test_controller.py'])
         run('verbose',[sys.executable,HERE/'oneliner-verbose/proof.py','working',out/'verbose'])
         for path in sorted((ROOT/'Component').rglob('*.sh')):
             if (path.is_relative_to(ROOT/'Component/aviary') or path.is_relative_to(ROOT/'Component/brrdfeeder') or path.is_relative_to(ROOT/'Component/brrdhouse')) and not any(part in path.parts for part in ('target','.git')):

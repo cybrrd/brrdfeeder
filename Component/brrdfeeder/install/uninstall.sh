@@ -412,6 +412,14 @@ def validate(path, uid, gid):
             require(child.name in ('brrdfeeder.creds', 'previous.creds', '.renew.lock')
                     or renewal_temporary(child.name), 'unknown renewal artifact', child)
             owned_file(child, uid, gid, (0o600,))
+    elif path == STATE / 'outage':
+        owned_directory(path, uid, gid, (0o700,))
+        for child in path.iterdir():
+            segment = re.fullmatch(r'[0-9]{20}\.seg', child.name)
+            require(child.name in ('lock', 'cursor.json', 'cursor.json.tmp', 'gaps.slots')
+                    or segment is not None and int(child.name[:20]) <= 0xffffffffffffffff,
+                    'unknown outage spool artifact', child)
+            owned_file(child, uid, gid, (0o600,))
     elif path == STATE / 'capture':
         require(configured('capture'), 'capture savefile is not configured here', path)
         # create_dir_all inherits the normal service umask; sensor files remain
@@ -540,6 +548,7 @@ fi
 
 files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
   /usr/local/libexec/brrdfeeder-host-memory
+  /usr/local/libexec/brrdfeeder-memory-controller
   /etc/systemd/system/brrdfeeder-memory.service /etc/systemd/system/brrdfeeder-memory.timer
   /etc/brrdfeeder/updater.json /etc/brrdfeeder/.updater-helper.sha256
   /usr/local/libexec/brrdfeeder-release
@@ -596,6 +605,7 @@ if [[ -f /usr/local/libexec/brrdfeeder-release.previous ]]; then
 fi
 for pair in \
   '/usr/local/libexec/brrdfeeder-host-memory|Read-only host observations; only stop mode writes a durable OOM receipt.' \
+  '/usr/local/libexec/brrdfeeder-memory-controller|Pi memory-controller repair and read-only enforcement check.' \
   '/etc/systemd/system/brrdfeeder-memory.service|BRRDfeeder read-only host memory observations' \
   '/etc/systemd/system/brrdfeeder-memory.timer|BRRDfeeder periodic host memory observations' \
   '/etc/containers/systemd/brrdfeeder-engine.container|Installed by brrdfeeder-install.sh.' \
@@ -673,7 +683,7 @@ done
 for entry in /var/lib/brrdfeeder/*; do
   case ${entry##*/} in policy_state.json|pending_update.json|pending_update.failed|update_outcome.json|update_transaction.json|release_currency.json|*.tmp|.update-*|.pending-*) ;;
     release_attempt.json|status.json|status.json.tmp.*) safe_added_state "$entry"; continue;;
-    credentials|capture) safe_tree "$entry"; safe_added_state "$entry"; continue;;
+    credentials|capture|outage) safe_tree "$entry"; safe_added_state "$entry"; continue;;
     upward) safe_tree "$entry"; continue;;
     .config|.local|.cache) service_home_residue "$entry"; continue;;
     *) refuse_entry "$entry" 'unrecognised engine state';; esac

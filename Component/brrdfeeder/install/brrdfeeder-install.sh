@@ -1969,6 +1969,14 @@ def validate(path, uid, gid):
             require(child.name in ('brrdfeeder.creds', 'previous.creds', '.renew.lock')
                     or renewal_temporary(child.name), 'unknown renewal artifact', child)
             owned_file(child, uid, gid, (0o600,))
+    elif path == STATE / 'outage':
+        owned_directory(path, uid, gid, (0o700,))
+        for child in path.iterdir():
+            segment = re.fullmatch(r'[0-9]{20}\.seg', child.name)
+            require(child.name in ('lock', 'cursor.json', 'cursor.json.tmp', 'gaps.slots')
+                    or segment is not None and int(child.name[:20]) <= 0xffffffffffffffff,
+                    'unknown outage spool artifact', child)
+            owned_file(child, uid, gid, (0o600,))
     elif path == STATE / 'capture':
         require(configured('capture'), 'capture savefile is not configured here', path)
         # create_dir_all inherits the normal service umask; sensor files remain
@@ -2097,6 +2105,7 @@ fi
 
 files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
   /usr/local/libexec/brrdfeeder-host-memory
+  /usr/local/libexec/brrdfeeder-memory-controller
   /etc/systemd/system/brrdfeeder-memory.service /etc/systemd/system/brrdfeeder-memory.timer
   /etc/brrdfeeder/updater.json /etc/brrdfeeder/.updater-helper.sha256
   /usr/local/libexec/brrdfeeder-release
@@ -2153,6 +2162,7 @@ if [[ -f /usr/local/libexec/brrdfeeder-release.previous ]]; then
 fi
 for pair in \
   '/usr/local/libexec/brrdfeeder-host-memory|Read-only host observations; only stop mode writes a durable OOM receipt.' \
+  '/usr/local/libexec/brrdfeeder-memory-controller|Pi memory-controller repair and read-only enforcement check.' \
   '/etc/systemd/system/brrdfeeder-memory.service|BRRDfeeder read-only host memory observations' \
   '/etc/systemd/system/brrdfeeder-memory.timer|BRRDfeeder periodic host memory observations' \
   '/etc/containers/systemd/brrdfeeder-engine.container|Installed by brrdfeeder-install.sh.' \
@@ -2230,7 +2240,7 @@ done
 for entry in /var/lib/brrdfeeder/*; do
   case ${entry##*/} in policy_state.json|pending_update.json|pending_update.failed|update_outcome.json|update_transaction.json|release_currency.json|*.tmp|.update-*|.pending-*) ;;
     release_attempt.json|status.json|status.json.tmp.*) safe_added_state "$entry"; continue;;
-    credentials|capture) safe_tree "$entry"; safe_added_state "$entry"; continue;;
+    credentials|capture|outage) safe_tree "$entry"; safe_added_state "$entry"; continue;;
     upward) safe_tree "$entry"; continue;;
     .config|.local|.cache) service_home_residue "$entry"; continue;;
     *) refuse_entry "$entry" 'unrecognised engine state';; esac
@@ -3996,6 +4006,152 @@ IDENTITY_SH_EOF
   run chown root:root "$IDENTITY_INSTALL"
 fi
 
+# B06: enable the Pi controller at the next operator-approved reboot. This
+# does not reboot the host and never claims that editing cmdline enforces a cap.
+if [[ $DRY_RUN -eq 1 ]]; then
+  say '[dry-run] would install memory-controller check and repair Pi boot cmdline with a backup; reboot may be required'
+else
+  atomic_install 0755 root root /usr/local/libexec/brrdfeeder-memory-controller <<'MEMORY_CONTROLLER_EOF'
+#!/usr/bin/python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+"""Pi memory-controller repair and read-only enforcement check. Never reboots."""
+import fcntl
+import os
+from pathlib import Path
+import stat
+import sys
+import tempfile
+
+CAP = 256 * 1024 * 1024
+
+
+def read(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 16384:
+            raise ValueError('expected a bounded regular file: ' + str(path))
+        value = stream.read(16385)
+        if len(value) > 16384:
+            raise ValueError('oversized file: ' + str(path))
+        return value
+
+
+def enabled_cmdline(raw):
+    # Preserve all unrelated tokens. The boot command line must remain one line.
+    text = raw.decode('ascii')
+    if '\n' in text.rstrip('\n') or '\r' in text:
+        raise ValueError('cmdline must contain one line')
+    tokens = text.split()
+    updated = []
+    for token in tokens:
+        if token.startswith('cgroup_disable='):
+            controllers = token.split('=', 1)[1].split(',')
+            if 'memory' in controllers:
+                controllers = [item for item in controllers if item != 'memory']
+                if controllers:
+                    updated.append('cgroup_disable=' + ','.join(controllers))
+                continue
+        updated.append(token)
+    return (' '.join(updated) + '\n').encode('ascii') if updated != tokens else raw
+
+
+def replace(path, raw):
+    # Caller holds the boot-directory lock; atomic replace + directory fsync.
+    fd, name = tempfile.mkstemp(prefix='.brrdfeeder-memory-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            os.fchmod(stream.fileno(), stat.S_IMODE(path.stat(follow_symlinks=False).st_mode))
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(name, path)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def edit(root, restore=False):
+    cmdline = root / 'boot/firmware/cmdline.txt'
+    backup = cmdline.with_name('cmdline.txt.brrdfeeder-memory.bak')
+    if not restore:
+        try:
+            model = read(root / 'sys/firmware/devicetree/base/model')
+        except FileNotFoundError:
+            return 'not a Raspberry Pi; boot command line unchanged'
+        if not model.startswith(b'Raspberry Pi'):
+            return 'not a Raspberry Pi; boot command line unchanged'
+    lock_fd = os.open(cmdline.parent / '.brrdfeeder-memory.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(lock_fd, 'rb') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        original = read(cmdline)
+        if restore:
+            saved = read(backup)
+            if original == saved:
+                return 'original cmdline already restored; reboot required if not yet rebooted'
+            if original != enabled_cmdline(saved):
+                raise ValueError('cmdline changed since repair; backup retained, manual reconciliation required')
+            replace(cmdline, saved)
+            return 'original cmdline restored byte-for-byte; REBOOT REQUIRED'
+        updated = enabled_cmdline(original)
+        if updated == original:
+            return 'memory is not disabled in boot cmdline; running-controller check still required'
+        try:
+            saved = read(backup)
+        except FileNotFoundError:
+            fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(original)
+                stream.flush()
+                os.fsync(stream.fileno())
+            directory = os.open(cmdline.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        else:
+            if saved != original:
+                raise ValueError('prior backup differs; refusing to overwrite it')
+        replace(cmdline, updated)
+        return 'removed cgroup_disable=memory; backup=' + str(backup) + '; REBOOT REQUIRED (operator action)'
+
+
+def check(root):
+    base = root / 'sys/fs/cgroup'
+    controllers = read(base / 'cgroup.controllers').decode('ascii').split()
+    if 'memory' not in controllers:
+        raise ValueError('memory controller absent; MemoryMax is NOT enforced; reboot after boot-cmdline repair')
+    actual = read(base / 'system.slice/brrdfeeder-engine.service/memory.max').strip()
+    if actual != str(CAP).encode('ascii'):
+        raise ValueError('engine memory.max=' + actual.decode('ascii') + '; expected 268435456; cap NOT verified')
+    return 'memory controller available; engine memory.max=268435456; 256 MiB cap enforced'
+
+
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] not in ('enable', 'restore', 'check'):
+        raise ValueError('usage: brrdfeeder-memory-controller enable|restore|check')
+    command = sys.argv[1]
+    if command != 'check' and os.geteuid() != 0:
+        raise ValueError('boot-cmdline edits require root')
+    print(check(Path('/')) if command == 'check' else edit(Path('/'), command == 'restore'))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError) as error:
+        print('BRRDfeeder memory controller: ' + str(error), file=sys.stderr)
+        raise SystemExit(1)
+MEMORY_CONTROLLER_EOF
+  /usr/local/libexec/brrdfeeder-memory-controller enable || fatal "Memory controller repair failed; retained boot files require operator review."
+fi
+
 # Host memory observations are separate from engine-writable status/state.
 if [[ $DRY_RUN -eq 1 ]]; then
   say '[dry-run] would install the BRRDfeeder host memory observer and timer'
@@ -4922,8 +5078,7 @@ After=network-online.target chrony.service
 Wants=network-online.target
 Wants=brrdfeeder-memory.service brrdfeeder-memory.timer
 After=brrdfeeder-memory.service
-StartLimitIntervalSec=300
-StartLimitBurst=3
+StartLimitIntervalSec=0
 
 [Container]
 Image=${CONTAINER_IMAGE}
@@ -5116,6 +5271,8 @@ if node.get('status_file') != '/var/lib/brrdfeeder-status/status.json': raise Sy
 node['channel']=ring
 if config.get('upward') is None: config['upward']={'spool_dir':'/var/lib/brrdfeeder/upward'}
 if config['upward'].get('spool_dir')!='/var/lib/brrdfeeder/upward': raise SystemExit('Updater requires canonical upward spool for safe uninstall')
+spool=config.setdefault('backhaul',{}).get('outage_spool',{})
+if spool.get('directory','/var/lib/brrdfeeder/outage')!='/var/lib/brrdfeeder/outage': raise SystemExit('Installer requires canonical outage spool for safe uninstall')
 fd,tmp=tempfile.mkstemp(prefix='.release-config-',dir=str(Path(path).parent))
 try:
     with os.fdopen(fd,'w') as f:
@@ -5643,6 +5800,9 @@ fi
 # script pick up Quadlet changes.
 INSTALL_ENGINE_RESTART_AT=$(date +%s)
 run systemctl --no-block restart brrdfeeder-engine.service
+if [[ $DRY_RUN -eq 0 ]]; then
+  /usr/local/libexec/brrdfeeder-memory-controller check || warn "Memory cap not yet verified. If boot cmdline changed, reboot when approved, then run: sudo /usr/local/libexec/brrdfeeder-memory-controller check"
+fi
 ok "brrdfeeder-engine.service startup queued; service will wait for GPS if position is absent"
 run console_run systemctl --user daemon-reload
 run console_run systemctl --user restart brrdhouse.service

@@ -3270,7 +3270,7 @@
     "call ) . Set (\"Content-Type\", \"text/plain; charset=utf-8\")": 1,
     "call ) . Set (\"Referrer-Policy\", \"no-referrer\")": 1,
     "call ) . Set (\"X-Accel-Buffering\", \"no\")": 1,
-    "call ) . Set (\"X-BRRDhouse-Release\", \"0.8.31\")": 1,
+    "call ) . Set (\"X-BRRDhouse-Release\", \"0.9.0\")": 1,
     "call ) . Set (\"X-Content-Type-Options\", \"nosniff\")": 1,
     "call Header . Get (\"Origin\")": 1,
     "call Header . Get (\"Sec-Fetch-Site\")": 1,

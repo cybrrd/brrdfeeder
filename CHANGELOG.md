@@ -2,20 +2,33 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
-## 0.9.0 — Unreleased credential-renewal candidate
+## 0.9.0 — Unreleased public beta candidate
 
 - Automatic engine-side HTTPS credential renewal with local replacement keys,
   independent JWT verification, private atomic credential rotation and explicit
   supervisor reconnect preserving the queue.
 - Owner recovery through `sudo brrdfeeder renew`, without uninstalling or changing
   node identity; dedicated writable credential directory and read-only trust.
-- Silver renewal status and Red expiry/recovery signals. Companion flock routes,
-  identity-pinned owner recovery and short-TTL canary support must precede rollout.
-- Based after healthy drill #46; no deliberate failure code. Native canary,
-  broker confirmation, OTA/ownership validation and measured rollout remain gates.
-  Nothing is tagged, published or deployed by this change.
+- Silver renewal status and Red expiry/recovery signals. Companion server renewal
+  routes, identity-pinned owner recovery and a short-TTL canary must precede rollout.
+- Go 1.27.3 across the console, host helper, container builds and CI.
+- Explicit host helper build 2-to-3 upgrade through `--upgrade-helper`, preserving
+  node identity, configuration and credentials, with transactional recovery and
+  an idempotent repeat path.
+- Safe uninstall of known updater attempts, credential-renewal state and
+  interrupted package writes. Private credentials are removed before their
+  service account; pending-file hardlinks are accepted only as the validated
+  two-name pair inside the private updater directory.
+- Hermetic Bluetooth installer fixtures and job-wide Python bytecode suppression
+  keep offline CI independent of host adapters and generated cache files.
+- The v4 wire format is unchanged. Native helper/reboot/rollback qualification,
+  deployed-server renewal and broker confirmation remain rollout gates. This
+  candidate does not claim those checks passed or that a release was published.
+- Existing broad uninstall rules for status files, engine-state `*.tmp` and
+  quarantined pending entries remain; external temporary-file cleanup and tighter
+  provenance checks are deferred. See `docs/uninstall-state-inventory.md`.
 
-## 0.8.31 — Unreleased drill candidate
+## 0.8.31 — Published 2026-10-25 (build 1045)
 
 - Prepare the healthy follow-up to the separately reviewed, deliberately
   unhealthy `0.8.31-drill.1` prerelease. The healthy console returns its normal

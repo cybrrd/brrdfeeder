@@ -1,0 +1,121 @@
+[
+  {
+    "guard": "issuer",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "issuer",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "account",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "account",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "signature",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "signature",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "subject",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "subject",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "metadata",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "metadata",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "missing_expiry",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "missing_expiry",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "nonadvancing",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "nonadvancing",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "clock",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "clock",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "private_directory",
+    "test": "credential_renewal::tests::canonical_signature_and_storage_failclosed",
+    "case": "",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "private_file_mode",
+    "test": "credential_renewal::tests::verified_atomic_swap_and_permissions",
+    "case": "",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "rotation_signal",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "metadata",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "rotation_queue",
+    "test": "credential_renewal::tests::rotation_rereads_file_and_retains_offline_queue_in_order",
+    "case": "",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "expired",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "expired",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "lifetime",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "lifetime",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "stale_iat",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "stale_iat",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "future_iat",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "future_iat",
+    "killed": true,
+    "exit": 101
+  },
+  {
+    "guard": "nbf",
+    "test": "credential_renewal::tests::rejected_jwts_leave_file_and_live_connection_unchanged",
+    "case": "nbf",
+    "killed": true,
+    "exit": 101
+  }
+]

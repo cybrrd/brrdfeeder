@@ -23,7 +23,7 @@ loopback. Hardware/RF acceptance is not claimed by this gate.
 Provisioning downloads the exact dependencies in `.github/scripts/setup-tests.sh`
 before the offline run. Locally provide `TEST_OS_IMAGE` (an already built immutable
 fixture image) and the pinned NATS image. Tests require Python/YAML, Bash, jq,
-udevadm, a Quadlet generator, Rust 1.88.0, Go 1.27.0, C headers and rootless Podman.
+udevadm, a Quadlet generator, Rust 1.88.0, Go 1.27.3, C headers and rootless Podman.
 Do not run the guarded root fixture programs directly on an operator's machine.
 
 Only test code and necessary synthetic/frozen fixtures are shipped here.

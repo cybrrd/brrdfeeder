@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+{
+  "specification": {
+    "product_version": "0.9.0",
+    "applies_to": "0.9-beta",
+    "revision": "2026-10-26",
+    "source_sha": "6eed7b81a15415a4f9f9564cdb85341b886520cb",
+    "release_tag": null
+  },
+  "claims": [
+    {
+      "id": "D07",
+      "title": "Outage buffer default",
+      "value": 2,
+      "unit": "GiB",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": "evidence/design-basis.md#outage",
+      "verification": {
+        "scenario": "B06: outage, restart, full-buffer and exact-gap acceptance",
+        "receipt": null
+      }
+    }
+  ]
+}

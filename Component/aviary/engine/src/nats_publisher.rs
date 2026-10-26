@@ -16,6 +16,10 @@ use tokio::sync::{mpsc, oneshot, watch, Notify};
 use tokio::time::timeout;
 
 const PUBLISH_BATCH: usize = 256;
+// 1/64 of the 256-MiB service cap. Spool::peek checks this BEFORE loading
+// record bodies; count alone permits a 256-MiB lease. Decoding temporarily
+// needs at most one extra 1-MiB record, plus bounded per-message metadata.
+pub(crate) const PUBLISH_BATCH_BYTES: usize = 4 * 1024 * 1024;
 const LIVENESS_PROBE_INTERVAL: Duration = Duration::from_secs(15);
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(8);
 const RECONNECT_BACKOFF_INITIAL: Duration = Duration::from_secs(1);
@@ -193,6 +197,7 @@ pub fn start(
                     .storage_fault = spool.corrupt || result.is_err();
                 if accepted {
                     counters.resumed(Boundary::OutageSpool);
+                    counters.resumed(Boundary::ProducerHandoff);
                 }
                 if !accepted && !request.retained_by_caller {
                     counters.publish_failed.fetch_add(1, Ordering::Relaxed);
@@ -426,7 +431,7 @@ async fn pump(
         let batch = match tokio::task::spawn_blocking(move || {
             disk.lock()
                 .unwrap_or_else(|e| e.into_inner())
-                .peek(PUBLISH_BATCH)
+                .peek(PUBLISH_BATCH, PUBLISH_BATCH_BYTES)
         })
         .await
         {

@@ -50,7 +50,9 @@ fn append_rotate_recover_and_retire_in_order() {
     let mut spool = Spool::open(&config).unwrap();
     assert_eq!(spool.bytes(), bytes);
     for start in [0, 10, 20] {
-        let batch = spool.peek(10).unwrap();
+        let batch = spool
+            .peek(10, crate::nats_publisher::PUBLISH_BATCH_BYTES)
+            .unwrap();
         assert_eq!(
             batch
                 .messages
@@ -65,7 +67,14 @@ fn append_rotate_recover_and_retire_in_order() {
     drop(spool);
     let mut spool = Spool::open(&config).unwrap();
     assert!(spool.append(&message(100, 1)).unwrap());
-    assert_eq!(spool.peek(1).unwrap().messages[0].capture_ms, 100);
+    assert_eq!(
+        spool
+            .peek(1, crate::nats_publisher::PUBLISH_BATCH_BYTES)
+            .unwrap()
+            .messages[0]
+            .capture_ms,
+        100
+    );
 }
 #[test]
 fn full_keeps_oldest_bytes_and_resumes_after_commit() {
@@ -82,7 +91,9 @@ fn full_keeps_oldest_bytes_and_resumes_after_commit() {
     }
     assert_eq!(std::fs::read(&file).unwrap(), before);
     assert_eq!(spool.bytes(), size * 3);
-    let batch = spool.peek(3).unwrap();
+    let batch = spool
+        .peek(3, crate::nats_publisher::PUBLISH_BATCH_BYTES)
+        .unwrap();
     spool.commit(&batch).unwrap();
     assert!(spool.append(&message(103, 10)).unwrap());
 }
@@ -95,14 +106,23 @@ fn leased_batch_cannot_prepend_or_overshoot_capacity() {
         assert!(spool.append(&message(i, 1)).unwrap());
     }
     for _ in 0..5 {
-        let batch = spool.peek(256).unwrap();
+        let batch = spool
+            .peek(256, crate::nats_publisher::PUBLISH_BATCH_BYTES)
+            .unwrap();
         assert_eq!(batch.messages.len(), 256);
         assert!(!spool.append(&message(300, 1)).unwrap());
         assert_eq!(spool.bytes(), size * 256);
     }
     drop(spool);
     let spool = Spool::open(&tmp.config(size * 256)).unwrap();
-    assert_eq!(spool.peek(300).unwrap().messages.len(), 256);
+    assert_eq!(
+        spool
+            .peek(300, crate::nats_publisher::PUBLISH_BATCH_BYTES)
+            .unwrap()
+            .messages
+            .len(),
+        256
+    );
 }
 #[test]
 fn corrupt_tail_is_retained_byte_identical_and_valid_prefix_replayed() {
@@ -121,7 +141,9 @@ fn corrupt_tail_is_retained_byte_identical_and_valid_prefix_replayed() {
     let mut spool = Spool::open(&config).unwrap();
     assert!(spool.corrupt);
     assert!(spool.append(&message(2, 10)).unwrap());
-    let batch = spool.peek(100).unwrap();
+    let batch = spool
+        .peek(100, crate::nats_publisher::PUBLISH_BATCH_BYTES)
+        .unwrap();
     assert_eq!(
         batch
             .messages
@@ -298,7 +320,14 @@ fn actual_enospc_preserves_oldest_and_preallocated_gap_counts() {
         vec![1, 10, 100]
     );
     let mut spool = Spool::open(&config).unwrap();
-    assert_eq!(spool.peek(10).unwrap().messages[0].capture_ms, 1);
+    assert_eq!(
+        spool
+            .peek(10, crate::nats_publisher::PUBLISH_BATCH_BYTES)
+            .unwrap()
+            .messages[0]
+            .capture_ms,
+        1
+    );
     assert_eq!(std::fs::read(path(&root, 1)).unwrap(), retained);
     drop(filler);
     std::fs::remove_file(root.join("test-only-filler")).unwrap();
@@ -322,4 +351,186 @@ fn recovery_clears_active_impairment_but_keeps_history_and_unacked_red() {
     assert!(!ledger.impaired());
     assert_eq!(ledger.gaps()[0].count, 1);
     assert_eq!(ledger.pending().len(), 1);
+}
+
+fn stored_bytes(batch: &Batch) -> usize {
+    batch
+        .messages
+        .iter()
+        .map(|m| HEADER + m.subject.len() + m.payload.len())
+        .sum()
+}
+
+#[test]
+fn replay_large_records_is_byte_bounded_and_retries_after_restart() {
+    let tmp = Scratch::new();
+    let config = tmp.config(DEFAULT_CAP);
+    let budget = crate::nats_publisher::PUBLISH_BATCH_BYTES;
+    let payload_len = MAX_RECORD - HEADER - "test.frames".len();
+    let mut spool = Spool::open(&config).unwrap();
+    for i in 0..17 {
+        assert!(spool.append(&message(i, payload_len)).unwrap());
+    }
+    let original_bytes = spool.bytes();
+    for _ in 0..3 {
+        let batch = spool.peek(256, budget).unwrap();
+        assert_eq!(stored_bytes(&batch), budget);
+        assert_eq!(batch.messages.len(), 4);
+        assert_eq!(batch.messages[0].capture_ms, 0);
+        assert_eq!(batch.messages[0].payload, message(0, payload_len).payload);
+        drop(batch); // no receipt: restart must retry the exact oldest records
+        drop(spool);
+        spool = Spool::open(&config).unwrap();
+        assert_eq!(spool.bytes(), original_bytes);
+    }
+    let mut next = 0;
+    while next < 17 {
+        let batch = spool.peek(256, budget).unwrap();
+        assert!(!batch.messages.is_empty());
+        assert!(stored_bytes(&batch) <= budget);
+        for msg in &batch.messages {
+            assert_eq!(msg.capture_ms, next);
+            assert_eq!(msg.subject, "test.frames");
+            assert_eq!(msg.payload, message(next, payload_len).payload);
+            next += 1;
+        }
+        spool.commit(&batch).unwrap();
+        drop(batch);
+        drop(spool);
+        spool = Spool::open(&config).unwrap();
+    }
+    assert_eq!(next, 17);
+    assert_eq!(spool.bytes(), 0);
+}
+
+#[test]
+fn replay_checks_header_budget_before_reading_next_body() {
+    let tmp = Scratch::new();
+    let mut spool = Spool::open(&tmp.config(DEFAULT_CAP)).unwrap();
+    let payload_len = MAX_RECORD - HEADER - "test.frames".len();
+    for i in 0..2 {
+        assert!(spool.append(&message(i, payload_len)).unwrap());
+    }
+    // After startup validation, make the second body unreadable. A bounded
+    // peek must not even try to read it when the first record fills the budget.
+    OpenOptions::new()
+        .write(true)
+        .open(path(&tmp.0, 2))
+        .unwrap()
+        .set_len(HEADER as u64)
+        .unwrap();
+    let batch = spool.peek(256, MAX_RECORD).unwrap();
+    assert_eq!(batch.messages.len(), 1);
+    assert_eq!(stored_bytes(&batch), MAX_RECORD);
+    assert!(spool.peek(256, 2 * MAX_RECORD).is_err());
+    assert!(
+        spool.peek(256, MAX_RECORD - 1).is_err(),
+        "undersized budget must fail, not silently stall or overshoot"
+    );
+}
+
+#[test]
+fn replay_budget_counts_subject_and_header_not_only_payload() {
+    let tmp = Scratch::new();
+    let mut spool = Spool::open(&tmp.config(DEFAULT_CAP)).unwrap();
+    let msg = Outbound {
+        subject: "s".repeat(u16::MAX as usize),
+        payload: vec![1; 10].into(),
+        capture_ms: 1,
+    };
+    for _ in 0..2 {
+        assert!(spool.append(&msg).unwrap());
+    }
+    let size = encode(&msg).unwrap().len();
+    let batch = spool.peek(256, size).unwrap();
+    assert_eq!(batch.messages.len(), 1);
+    assert_eq!(stored_bytes(&batch), size);
+}
+
+#[test]
+#[ignore = "isolated memory-capped local container; deploy/outage/replay_memory_proof.py"]
+fn replay_memory_fixture() {
+    let root =
+        PathBuf::from(std::env::var_os("B06_REPLAY_ROOT").expect("private disk fixture root"));
+    let mode = std::env::var("B06_REPLAY_MODE").expect("seed, retry, or drain");
+    let config = Config {
+        directory: root.join("spool"),
+        cap_bytes: DEFAULT_CAP,
+    };
+    let payload_len = MAX_RECORD - HEADER - "test.frames".len();
+    if mode == "seed" {
+        assert!(
+            !config.directory.exists(),
+            "never reuse another fixture's spool"
+        );
+        let mut spool = Spool::open(&config).unwrap();
+        for i in 0..256 {
+            assert!(spool.append(&message(i, payload_len)).unwrap());
+        }
+        assert_eq!(spool.bytes(), 256 * MAX_RECORD as u64);
+        println!("MEMORY FIXTURE seeded 256 legal maximum-size records");
+        return;
+    }
+    assert!(mode == "retry" || mode == "drain");
+    // Reserve and touch 128 MiB for other engine state, plus 16 MiB of charged
+    // tmpfs. Real Podman/conmon and the test binary are additional overhead.
+    let reserve = vec![0xa5_u8; 128 * 1024 * 1024];
+    std::hint::black_box(&reserve);
+    let tmpfs = PathBuf::from(std::env::var_os("B06_REPLAY_TMPFS").expect("isolated tmpfs"));
+    assert_eq!(tmpfs, Path::new("/replay-reserve"));
+    let mut file = File::create(tmpfs.join("charged")).unwrap();
+    let block = [0x5a_u8; 4096];
+    for _ in 0..4096 {
+        file.write_all(&block).unwrap();
+    }
+    file.sync_all().unwrap();
+    let mut spool = Spool::open(&config).unwrap();
+    assert_eq!(
+        spool.bytes(),
+        256 * MAX_RECORD as u64,
+        "restart lost custody"
+    );
+    let mut next = 0;
+    let mut largest = 0;
+    loop {
+        let batch = spool
+            .peek(256, crate::nats_publisher::PUBLISH_BATCH_BYTES)
+            .unwrap();
+        if batch.messages.is_empty() {
+            break;
+        }
+        let bytes = stored_bytes(&batch);
+        assert!(
+            bytes <= 4 * 1024 * 1024,
+            "legal replay batch exceeds measured budget"
+        );
+        largest = largest.max(bytes);
+        for msg in &batch.messages {
+            assert_eq!(msg.capture_ms, next);
+            assert_eq!(msg.subject, "test.frames");
+            assert_eq!(msg.payload.len(), payload_len);
+            assert!(msg.payload.iter().all(|b| *b == next as u8));
+            next += 1;
+        }
+        if mode == "retry" {
+            break;
+        } // intentionally leave lease unconfirmed
+        spool.commit(&batch).unwrap();
+    }
+    if mode == "drain" {
+        assert_eq!(next, 256);
+        assert_eq!(spool.bytes(), 0);
+    } else {
+        assert_eq!(next, 4);
+        assert_eq!(spool.bytes(), 256 * MAX_RECORD as u64);
+    }
+    // Ensure the reservation remains live through replay and measurements.
+    assert!(std::hint::black_box(&reserve).iter().all(|b| *b == 0xa5));
+    let status = std::fs::read_to_string("/proc/self/status").unwrap();
+    let memory: Vec<_> = status
+        .lines()
+        .filter(|line| line.starts_with("VmRSS:") || line.starts_with("VmHWM:"))
+        .collect();
+    println!("MEMORY FIXTURE mode={mode} records={next} max_batch_bytes={largest} reserved_anon_bytes={} reserved_tmpfs_bytes=16777216 {}",
+             reserve.len(), memory.join("; "));
 }

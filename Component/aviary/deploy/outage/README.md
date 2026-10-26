@@ -48,7 +48,8 @@ independently of the 32-record Red queue. A full Red queue delays their admissio
 it cannot erase them. Only a confirmed JetStream PubAck retires a pending alert.
 Stable message IDs allow retries across restarts. Coverage remains impaired while
 a boundary is dropping or storage is faulty. Successful admission clears that
-boundary's active impairment, while historical counts and unacknowledged alerts
+boundary's active impairment (including `ProducerHandoff` only after durable
+admission), while historical counts and unacknowledged alerts
 remain. Capture timestamps can be untrusted until the node clock is disciplined;
 the existing clock-trust field remains authoritative.
 
@@ -59,6 +60,16 @@ disk I/O. The second 1024-item producer handoff awaits capacity and a disk recei
 A dedicated disk thread keeps accepting records during network connects, timeouts,
 and reconnect backoff. Drop-audit snapshots are subtracted only after durable
 acceptance; a refused audit retains its original window for retry.
+
+Replay leases at most 256 records **and 4 MiB of stored bytes** per batch,
+including record headers and subjects. The next header is validated and its size
+checked against the remaining byte budget before its body is read or allocated.
+A legal 1-MiB record always fits the production budget; a caller-supplied budget
+too small for the next record fails explicitly instead of stalling or overshooting.
+Decoding adds at most one temporary 1-MiB body plus bounded record metadata.
+The 4-MiB lease is 1/64 of the engine's 256-MiB/no-swap service cap, leaving room
+for capture, client buffers, conmon and charged tmpfs. This bounds replay memory;
+it does not qualify arbitrary native-radio workloads or all other engine queues.
 
 Replay leases records without removing them from disk. A failed publish retries
 the same lease; there is no prepend operation that can overshoot the cap. After
@@ -116,6 +127,25 @@ replay, missing confirmation and SIGKILL recovery. Loopback sockets are required
 Run `python3 engine/tests/run-broker-tests.py` from `Component/aviary` with the
 cached pinned NATS image available for the real-broker confirmation and existing
 Red/Silver transport tests. It never contacts a production broker.
+
+Run the focused replay-memory proof on a real local filesystem, using the compiled
+engine unit-test binary printed by `cargo test -p engine --no-run`:
+
+```sh
+python3 deploy/outage/replay_memory_proof.py /path/to/engine-test-binary /path/to/new-evidence-dir
+```
+
+It seeds the reviewer's legal 256-record/256-MiB backlog, then retries it in three
+fresh processes and drains all records byte-identically in a fourth. A transient
+user service enforces `MemoryMax=256M`, `MemorySwapMax=0` around actual Podman/conmon
+and the Rust fixture. Each replay process reserves/touches 128 MiB for other engine
+state and 16 MiB of tmpfs. The proof checks actual kernel limits, observes Podman
+and conmon in the service cgroup, requires peak use below 224 MiB and zero OOM
+counters, and records process RSS/high-water marks. It uses a cached local image,
+no network and a private disk backlog. This is synthetic headroom evidence, not
+native Pi qualification. Standard tests cover the header-before-body check,
+subject/header accounting, large records across restart, and ProducerHandoff
+recovery/refusal with historical gaps and pending alerts retained.
 
 Run the hour drill separately on a real local filesystem (not `/tmp` if tmpfs):
 

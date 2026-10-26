@@ -112,37 +112,58 @@ fn encode(msg: &Outbound) -> io::Result<Vec<u8>> {
     raw[14..HEADER].copy_from_slice(&hash.finalize());
     Ok(raw)
 }
-fn read_record(f: &mut File) -> io::Result<Option<(Outbound, u64)>> {
-    let mut header = [0u8; HEADER];
-    if f.read(&mut header[..1])? == 0 {
+struct RecordHeader {
+    raw: [u8; HEADER],
+    len: usize,
+    subject_len: usize,
+}
+fn read_header(f: &mut File) -> io::Result<Option<RecordHeader>> {
+    let mut raw = [0u8; HEADER];
+    if f.read(&mut raw[..1])? == 0 {
         return Ok(None);
     }
-    f.read_exact(&mut header[1..])?;
-    let len = u32::from_le_bytes(header[..4].try_into().map_err(|_| invalid("length"))?) as usize;
-    let slen = u16::from_le_bytes([header[4], header[5]]) as usize;
-    if !(HEADER..=MAX_RECORD).contains(&len) || slen > len - HEADER {
+    f.read_exact(&mut raw[1..])?;
+    let len = u32::from_le_bytes(raw[..4].try_into().map_err(|_| invalid("length"))?) as usize;
+    let subject_len = u16::from_le_bytes([raw[4], raw[5]]) as usize;
+    if !(HEADER..=MAX_RECORD).contains(&len) || subject_len > len - HEADER {
         return Err(invalid("corrupt length"));
     }
-    let mut body = vec![0; len - HEADER];
+    Ok(Some(RecordHeader {
+        raw,
+        len,
+        subject_len,
+    }))
+}
+fn read_body(f: &mut File, header: RecordHeader) -> io::Result<(Outbound, u64)> {
+    let mut body = vec![0; header.len - HEADER];
     f.read_exact(&mut body)?;
     let mut hash = Sha256::new();
-    hash.update(&header[..14]);
+    hash.update(&header.raw[..14]);
     hash.update(&body);
-    if hash.finalize().as_slice() != &header[14..] {
+    if hash.finalize().as_slice() != &header.raw[14..] {
         return Err(invalid("corrupt checksum"));
     }
-    let subject =
-        String::from_utf8(body[..slen].to_vec()).map_err(|_| invalid("subject encoding"))?;
-    let capture_ms =
-        u64::from_le_bytes(header[6..14].try_into().map_err(|_| invalid("timestamp"))?);
-    Ok(Some((
+    let subject = String::from_utf8(body[..header.subject_len].to_vec())
+        .map_err(|_| invalid("subject encoding"))?;
+    let capture_ms = u64::from_le_bytes(
+        header.raw[6..14]
+            .try_into()
+            .map_err(|_| invalid("timestamp"))?,
+    );
+    Ok((
         Outbound {
             subject,
-            payload: body[slen..].to_vec().into(),
+            payload: body[header.subject_len..].to_vec().into(),
             capture_ms,
         },
-        len as u64,
-    )))
+        header.len as u64,
+    ))
+}
+fn read_record(f: &mut File) -> io::Result<Option<(Outbound, u64)>> {
+    match read_header(f)? {
+        Some(header) => read_body(f, header).map(Some),
+        None => Ok(None),
+    }
 }
 impl Spool {
     pub fn open(config: &Config) -> io::Result<Self> {
@@ -308,7 +329,10 @@ impl Spool {
         self.bytes += len;
         Ok(true)
     }
-    pub fn peek(&self, count: usize) -> io::Result<Batch> {
+    /// Bound stored bytes (header + subject + payload) before allocating each
+    /// body. A too-small budget refuses instead of silently stalling replay.
+    pub fn peek(&self, count: usize, max_bytes: usize) -> io::Result<Batch> {
+        let mut used = 0;
         let mut batch = Batch {
             messages: Vec::new(),
             end: self.cursor,
@@ -325,8 +349,16 @@ impl Spool {
             let mut f = open(&path(&self.root, s.id))?;
             f.seek(SeekFrom::Start(offset))?;
             while offset < s.valid && batch.messages.len() < count {
-                let (msg, n) =
-                    read_record(&mut f)?.ok_or_else(|| invalid("segment shortened; retained"))?;
+                let header =
+                    read_header(&mut f)?.ok_or_else(|| invalid("segment shortened; retained"))?;
+                if header.len > max_bytes - used {
+                    if batch.messages.is_empty() {
+                        return Err(invalid("replay byte budget cannot fit next record"));
+                    }
+                    return Ok(batch);
+                }
+                used += header.len;
+                let (msg, n) = read_body(&mut f, header)?;
                 offset += n;
                 batch.messages.push(msg);
                 batch.end = Cursor {

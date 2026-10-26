@@ -93,6 +93,7 @@ impl Drop for Fixture {
     }
 }
 struct Peer {
+    batch_bytes: Arc<Mutex<Vec<usize>>>,
     seen: Arc<Mutex<Vec<Vec<u8>>>>,
     task: tokio::task::JoinHandle<()>,
 }
@@ -106,16 +107,20 @@ impl Peer {
         let listener = tokio::net::TcpListener::bind(address).await.unwrap();
         let seen = Arc::new(Mutex::new(Vec::new()));
         let saved = seen.clone();
+        let batch_bytes = Arc::new(Mutex::new(Vec::new()));
+        let saved_batches = batch_bytes.clone();
         let task = tokio::spawn(async move {
             let mut connections = tokio::task::JoinSet::new();
             loop {
                 tokio::select! {
                     result=listener.accept()=>{
                         let Ok((stream,_))=result else {break;};let seen=saved.clone();
+                        let batches=saved_batches.clone();
                         connections.spawn(async move {
                             let (rd,mut wr)=stream.into_split();let mut rd=BufReader::new(rd);
                             if wr.write_all(b"INFO {\"server_id\":\"TEST-ONLY-B06\",\"server_name\":\"TEST-ONLY\",\"version\":\"2.11.17\",\"proto\":1,\"host\":\"127.0.0.1\",\"max_payload\":1048576,\"headers\":true}\r\n").await.is_err(){return;}
                             let mut subscriptions=Vec::<(String,String)>::new();
+                            let mut batch_bytes = 0;
                             loop {
                                 let mut line=String::new();if rd.read_line(&mut line).await.unwrap_or(0)==0 {return;}
                                 let fields:Vec<_>=line.split_whitespace().collect();
@@ -129,6 +134,8 @@ impl Peer {
                                         let len:usize=fields.last().unwrap().parse().unwrap();let mut raw=vec![0;len+2];
                                         if rd.read_exact(&mut raw).await.is_err(){return;}raw.truncate(len);
                                         if fields[1].starts_with("$JS.API.STREAM.INFO.") {
+                                            batches.lock().unwrap().push(batch_bytes);
+                                            batch_bytes = 0;
                                             if !confirm {continue;}
                                             let reply=fields[2];
                                             let Some((_,sid))=subscriptions.iter().find(|(subject,_)|reply.starts_with(subject.trim_end_matches(['>','*']))) else {continue;};
@@ -136,7 +143,7 @@ impl Peer {
                                             let body=serde_json::to_vec(&json!({"config":config,"created":"2026-01-01T00:00:00Z","state":{"messages":0,"bytes":0,"first_seq":0,"first_ts":"2026-01-01T00:00:00Z","last_seq":0,"last_ts":"2026-01-01T00:00:00Z","consumer_count":0}})).unwrap();
                                             if wr.write_all(format!("MSG {reply} {sid} {}\r\n",body.len()).as_bytes()).await.is_err(){return;}
                                             if wr.write_all(&body).await.is_err() || wr.write_all(b"\r\n").await.is_err(){return;}
-                                        } else {seen.lock().unwrap().push(raw);}
+                                        } else {batch_bytes += raw.len(); seen.lock().unwrap().push(raw);}
                                     },
                                     _=>panic!("unexpected synthetic NATS operation: {line}"),
                                 }
@@ -147,7 +154,11 @@ impl Peer {
                 }
             }
         });
-        Self { seen, task }
+        Self {
+            seen,
+            task,
+            batch_bytes,
+        }
     }
 }
 async fn until(mut ready: impl FnMut() -> bool, seconds: u64) {
@@ -490,8 +501,90 @@ async fn broker_real_stream_info_confirms_ordered_batch() {
     until(|| status.spool_bytes.load(Ordering::Relaxed) == 0, 10).await;
     rotation.send(1).unwrap();
     assert!(matches!(task.await.unwrap(), PumpExit::Rotate));
-    assert!(disk.lock().unwrap().peek(1).unwrap().messages.is_empty());
+    assert!(disk
+        .lock()
+        .unwrap()
+        .peek(1, crate::nats_publisher::PUBLISH_BATCH_BYTES)
+        .unwrap()
+        .messages
+        .is_empty());
     println!(
         "REAL BROKER PASS: 1000 byte-identical ordered records, retired after stream-info reply"
     );
+}
+
+#[tokio::test]
+async fn producer_handoff_recovery_keeps_history_and_pending_alerts() {
+    let f = Fixture::new(1024 * 1024);
+    let handle = f.start();
+    handle.counters.record_loss(Boundary::ProducerHandoff, 42);
+    let (gaps, pending) = {
+        let ledger = handle.counters.loss.lock().unwrap();
+        assert!(ledger.impaired());
+        (ledger.gaps(), ledger.pending())
+    };
+    assert!(handle.publish("test".into(), fixture_frame(43)).await);
+    handle.counters.resumed(Boundary::OutageSpool);
+    {
+        let ledger = handle.counters.loss.lock().unwrap();
+        assert!(
+            !ledger.impaired(),
+            "ProducerHandoff remained permanently impaired after successful admission"
+        );
+        assert_eq!(ledger.gaps(), gaps);
+        assert_eq!(ledger.pending(), pending);
+    }
+    let reopened = Ledger::open(&f.config.directory).unwrap();
+    assert!(!reopened.impaired());
+    assert_eq!(reopened.gaps(), gaps);
+    assert_eq!(reopened.pending(), pending);
+}
+
+#[tokio::test]
+async fn refused_durable_admission_does_not_resume_producer_handoff() {
+    let f = Fixture::new(46);
+    let handle = f.start();
+    handle.counters.record_loss(Boundary::ProducerHandoff, 42);
+    assert!(!handle.publish("test".into(), fixture_frame(43)).await);
+    handle.counters.resumed(Boundary::OutageSpool);
+    let ledger = handle.counters.loss.lock().unwrap();
+    assert!(
+        ledger.impaired(),
+        "refused admission falsely cleared producer impairment"
+    );
+    assert_eq!(ledger.gaps()[0].boundary, Boundary::ProducerHandoff);
+    assert_eq!(ledger.gaps()[0].count, 1);
+}
+
+#[tokio::test]
+async fn publisher_confirms_each_byte_bounded_large_record_batch() {
+    let f = Fixture::new(32 * 1024 * 1024);
+    let handle = f.start();
+    let payload_len = 1024 * 1024 - 46 - "test.telemetry".len();
+    for i in 0..17_u8 {
+        assert!(
+            handle
+                .publish("test.telemetry".into(), vec![i; payload_len])
+                .await
+        );
+    }
+    let peer = Peer::start(f.address, true).await;
+    assert!(handle.rotate_credentials().await);
+    until(
+        || handle.status.spool_bytes.load(Ordering::Relaxed) == 0,
+        30,
+    )
+    .await;
+    let batches = peer.batch_bytes.lock().unwrap();
+    assert!(batches.iter().filter(|size| **size > 0).count() >= 5);
+    assert!(
+        batches.iter().all(|size| *size <= 4 * 1024 * 1024),
+        "publisher materialized/sent a count-only large-record batch: {batches:?}"
+    );
+    let seen = peer.seen.lock().unwrap();
+    assert_eq!(seen.len(), 17);
+    for (i, payload) in seen.iter().enumerate() {
+        assert_eq!(payload.len(), payload_len);
+        assert!(payload.iter().all(|byte| *byte == i as u8));
+    }
 }

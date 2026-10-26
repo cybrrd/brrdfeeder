@@ -329,6 +329,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cybrrd-rid-v5"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "darling"
 version = "0.20.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"

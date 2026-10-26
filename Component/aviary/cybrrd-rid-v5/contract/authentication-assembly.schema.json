@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PROPOSAL \u2014 derived authentication assembly",
+  "type": "object",
+  "properties": {
+    "assembly_id": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "state": {
+      "enum": [
+        "incomplete",
+        "complete",
+        "conflicting",
+        "ambiguous"
+      ]
+    },
+    "page_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "observation_id": {
+            "type": "object",
+            "properties": {
+              "node_id": {
+                "type": "string"
+              },
+              "boot_id": {
+                "type": "string"
+              },
+              "capture_sequence": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9][0-9]*)$",
+                "maxLength": 20,
+                "x-parquet": "BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615)"
+              }
+            },
+            "required": [
+              "node_id",
+              "boot_id",
+              "capture_sequence"
+            ],
+            "additionalProperties": true
+          },
+          "unit_index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "message_index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "page_number": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "observation_id",
+          "unit_index",
+          "message_index",
+          "page_number",
+          "role"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "counter_raw": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "auth_type_raw": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "last_page_raw": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "payload_length_raw": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "timestamp_raw": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "payload_hex": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{2})*$",
+          "x-parquet": "BYTE_ARRAY(hex decoded)"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "additional_length_raw": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "additional_data_hex": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{2})*$",
+          "x-parquet": "BYTE_ARRAY(hex decoded)"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "padding_hex": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{2})*$",
+          "x-parquet": "BYTE_ARRAY(hex decoded)"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "path",
+          "detail"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "assembler_version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "assembly_id",
+    "revision",
+    "state",
+    "page_refs",
+    "counter_raw",
+    "auth_type_raw",
+    "last_page_raw",
+    "payload_length_raw",
+    "timestamp_raw",
+    "payload_hex",
+    "additional_length_raw",
+    "additional_data_hex",
+    "padding_hex",
+    "issues",
+    "assembler_version"
+  ],
+  "additionalProperties": true
+}

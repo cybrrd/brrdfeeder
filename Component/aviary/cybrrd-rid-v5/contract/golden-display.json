@@ -1,0 +1,1426 @@
+{
+  "status": "declarative selection and browser acceptance cases; no browser run claimed",
+  "cases": [
+    {
+      "name": "display_basic_id_type_0",
+      "message_vectors": [
+        "basic_id_type_0"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_0",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_1",
+      "message_vectors": [
+        "basic_id_type_1"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": "SYNTHETIC-ID-ONLY",
+        "drone_id": "SYNTHETIC-ID-ONLY",
+        "drone_id_kind": "serial",
+        "serial_texts": [
+          "SYNTHETIC-ID-ONLY"
+        ],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_1",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_2",
+      "message_vectors": [
+        "basic_id_type_2"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "SYNTHETIC-ID-ONLY",
+        "drone_id_kind": "caa_registration",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_2",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_3",
+      "message_vectors": [
+        "basic_id_type_3"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "53594e54-4845-5449-432d-49442d4f4e4c",
+        "drone_id_kind": "utm_uuid",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_3",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_4",
+      "message_vectors": [
+        "basic_id_type_4"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "53594e5448455449432d49442d4f4e4c59000000",
+        "drone_id_kind": "session_id",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_4",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_5",
+      "message_vectors": [
+        "basic_id_type_5"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_5",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_6",
+      "message_vectors": [
+        "basic_id_type_6"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_6",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_7",
+      "message_vectors": [
+        "basic_id_type_7"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_7",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_8",
+      "message_vectors": [
+        "basic_id_type_8"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_8",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_9",
+      "message_vectors": [
+        "basic_id_type_9"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_9",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_10",
+      "message_vectors": [
+        "basic_id_type_10"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_10",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_11",
+      "message_vectors": [
+        "basic_id_type_11"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_11",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_12",
+      "message_vectors": [
+        "basic_id_type_12"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_12",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_13",
+      "message_vectors": [
+        "basic_id_type_13"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_13",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_14",
+      "message_vectors": [
+        "basic_id_type_14"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_14",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_basic_id_type_15",
+      "message_vectors": [
+        "basic_id_type_15"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_15",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "complete_serial",
+      "message_vectors": [
+        "serial_display_a"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": "0000FTEST00000000001",
+        "drone_id": "0000FTEST00000000001",
+        "drone_id_kind": "serial",
+        "serial_texts": [
+          "0000FTEST00000000001"
+        ],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "serial_display_a",
+            "raw_hex": "3030303046544553543030303030303030303031"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "equal_repeated_serial",
+      "message_vectors": [
+        "serial_display_a",
+        "serial_display_a"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": "0000FTEST00000000001",
+        "drone_id": "0000FTEST00000000001",
+        "drone_id_kind": "serial",
+        "serial_texts": [
+          "0000FTEST00000000001",
+          "0000FTEST00000000001"
+        ],
+        "basic_id_occurrences": 2,
+        "raw_identifier_rows": [
+          {
+            "vector": "serial_display_a",
+            "raw_hex": "3030303046544553543030303030303030303031"
+          },
+          {
+            "vector": "serial_display_a",
+            "raw_hex": "3030303046544553543030303030303030303031"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "conflicting_serials",
+      "message_vectors": [
+        "serial_display_a",
+        "serial_display_b"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "synthetic-entity",
+        "drone_id_kind": "conflicting_serial",
+        "serial_texts": [
+          "0000FTEST00000000001",
+          "0000FTEST00000000002"
+        ],
+        "basic_id_occurrences": 2,
+        "raw_identifier_rows": [
+          {
+            "vector": "serial_display_a",
+            "raw_hex": "3030303046544553543030303030303030303031"
+          },
+          {
+            "vector": "serial_display_b",
+            "raw_hex": "3030303046544553543030303030303030303032"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "conflicting_serials_reversed",
+      "message_vectors": [
+        "serial_display_b",
+        "serial_display_a"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "synthetic-entity",
+        "drone_id_kind": "conflicting_serial",
+        "serial_texts": [
+          "0000FTEST00000000002",
+          "0000FTEST00000000001"
+        ],
+        "basic_id_occurrences": 2,
+        "raw_identifier_rows": [
+          {
+            "vector": "serial_display_b",
+            "raw_hex": "3030303046544553543030303030303030303032"
+          },
+          {
+            "vector": "serial_display_a",
+            "raw_hex": "3030303046544553543030303030303030303031"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "all_identifiers_with_operator_position",
+      "message_vectors": [
+        "basic_id_type_2",
+        "serial_display_a",
+        "basic_id_type_3",
+        "session_binary",
+        "operator_id"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": "0000FTEST00000000001",
+        "drone_id": "0000FTEST00000000001",
+        "drone_id_kind": "serial",
+        "serial_texts": [
+          "0000FTEST00000000001"
+        ],
+        "basic_id_occurrences": 4,
+        "raw_identifier_rows": [
+          {
+            "vector": "basic_id_type_2",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          },
+          {
+            "vector": "serial_display_a",
+            "raw_hex": "3030303046544553543030303030303030303031"
+          },
+          {
+            "vector": "basic_id_type_3",
+            "raw_hex": "53594e5448455449432d49442d4f4e4c59000000"
+          },
+          {
+            "vector": "session_binary",
+            "raw_hex": "0100ff0000000000000000000000000000000000"
+          }
+        ],
+        "operator_id_texts": [
+          "SYNTHETIC-OPERATOR"
+        ],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "malformed_serial_with_caa",
+      "message_vectors": [
+        "serial_embedded_nul",
+        "caa_valid_text"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "SYNTHETIC-TEXT",
+        "drone_id_kind": "caa_registration",
+        "serial_texts": [],
+        "basic_id_occurrences": 2,
+        "raw_identifier_rows": [
+          {
+            "vector": "serial_embedded_nul",
+            "raw_hex": "4142004344000000000000000000000000000000"
+          },
+          {
+            "vector": "caa_valid_text",
+            "raw_hex": "53594e5448455449432d54455854000000000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_serial_nul_only",
+      "message_vectors": [
+        "serial_nul_only"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "serial_nul_only",
+            "raw_hex": "0000000000000000000000000000000000000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_serial_first_nul_with_tail",
+      "message_vectors": [
+        "serial_first_nul_with_tail"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "serial_first_nul_with_tail",
+            "raw_hex": "005441494c000000000000000000000000000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_serial_embedded_nul",
+      "message_vectors": [
+        "serial_embedded_nul"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "serial_embedded_nul",
+            "raw_hex": "4142004344000000000000000000000000000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_serial_whitespace",
+      "message_vectors": [
+        "serial_whitespace"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "serial_whitespace",
+            "raw_hex": "2020200000000000000000000000000000000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_serial_invalid_text",
+      "message_vectors": [
+        "serial_invalid_text"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "serial_invalid_text",
+            "raw_hex": "41ff420000000000000000000000000000000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "display_serial_spaces_preserved",
+      "message_vectors": [
+        "serial_spaces_preserved"
+      ],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": " A B ",
+        "drone_id": " A B ",
+        "drone_id_kind": "serial",
+        "serial_texts": [
+          " A B "
+        ],
+        "basic_id_occurrences": 1,
+        "raw_identifier_rows": [
+          {
+            "vector": "serial_spaces_preserved",
+            "raw_hex": "2041204220000000000000000000000000000000"
+          }
+        ],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "no_basic_id",
+      "message_vectors": [],
+      "source_mac": "020000000001",
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "020000000001",
+        "drone_id_kind": "source_mac",
+        "serial_texts": [],
+        "basic_id_occurrences": 0,
+        "raw_identifier_rows": [],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    },
+    {
+      "name": "no_basic_id_or_mac",
+      "message_vectors": [],
+      "source_mac": null,
+      "entity_ref": "synthetic-entity",
+      "operator_position": {
+        "latitude": "0.0000001",
+        "longitude": "0.0000002",
+        "altitude_hae_m": "0"
+      },
+      "expected": {
+        "hardware_serial": null,
+        "drone_id": "synthetic-entity",
+        "drone_id_kind": "entity_ref",
+        "serial_texts": [],
+        "basic_id_occurrences": 0,
+        "raw_identifier_rows": [],
+        "operator_id_texts": [],
+        "hidden_fields": [
+          "operator_position"
+        ],
+        "visible_identifier_fields": [
+          "hardware_serial",
+          "caa_registration",
+          "utm_uuid",
+          "session_id",
+          "basic_id_raw",
+          "source_MAC",
+          "operator_id"
+        ],
+        "positive_browser_surfaces": [
+          "selected_aircraft_detail",
+          "identifier_panel",
+          "copy_value",
+          "accessibility_text",
+          "identifier_export"
+        ]
+      }
+    }
+  ]
+}

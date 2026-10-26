@@ -1,0 +1,56 @@
+{
+  "status": "passed",
+  "base_commit": "6eed7b81a15415a4f9f9564cdb85341b886520cb",
+  "design_merge": "27b45e0c5aa691bb2ba3e1d32cc1f19dffdc91c9",
+  "default_rust_tests_passed": 18,
+  "dedicated_tests_ignored_by_default": 3,
+  "default_gate_elapsed_seconds": 38.872,
+  "families": {
+    "messages_and_multiplicity": 788,
+    "no_position": 5,
+    "authentication": 789,
+    "special_numeric_field_codes": 8590394704,
+    "other_semantics_including_reserved_patterns": 33621890,
+    "empty_and_nul_inputs": 141,
+    "na_cells": 262,
+    "na_cell_mutations": 1048,
+    "malformed_and_unsupported_cases": 70824,
+    "evolution": "11 existing v4 tests; explicit/unversioned/v5/unknown-major routing, optional members/numeric enums, all 16 message versions"
+  },
+  "raw_interface_cases": 7,
+  "golden_messages": 175,
+  "golden_observations": 6,
+  "golden_assemblies": 1,
+  "semantic_negative_controls": 195,
+  "independent_codec_cases": 182,
+  "mutation_cases": 26064,
+  "inventory_rows": 140,
+  "inventory_homes_with_aliases": 146,
+  "declared_leaf_paths": 1055,
+  "leaf_boundaries": {
+    "decode": 1030,
+    "schema_alternative_codec": 2,
+    "derived_assembly": 23
+  },
+  "untested_required_cells": 0,
+  "historic_regressions": 6,
+  "v4_targeted_before_after": [
+    11,
+    11
+  ],
+  "v4_full_before_after": [
+    70,
+    70
+  ],
+  "existing_dependency_records_unchanged": true,
+  "shared_metadata_changes": "approved addition of workspace member and new package record only",
+  "limitations": [
+    "No RF adapter or hardware proof",
+    "No WAL/fsync/custody or production-hop proof",
+    "No lake/browser execution; their pinned negatives remain offline contract checks",
+    "Two broadcast-inapplicable polygon-coordinate leaves exercised through schema/codec alternatives",
+    "Timestamp u32 sweep checks numeric primitives; message offset/endianness uses deterministic bindings",
+    "Reserved 24-bit sweep checks byte codec; full-message bindings use deterministic subset",
+    "Repository workflow unchanged; new offline gates have explicit reproduction commands"
+  ]
+}

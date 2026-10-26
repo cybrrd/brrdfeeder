@@ -1,0 +1,200 @@
+{
+  "assembly_id": "synthetic-assembly",
+  "revision": 1,
+  "state": "complete",
+  "page_refs": [
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "0"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 0,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "1"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 1,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "2"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 2,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "3"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 3,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "4"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 4,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "5"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 5,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "6"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 6,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "7"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 7,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "8"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 8,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "9"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 9,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "10"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 10,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "11"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 11,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "12"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 12,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "13"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 13,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "14"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 14,
+      "role": "contributing"
+    },
+    {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "15"
+      },
+      "unit_index": 0,
+      "message_index": 0,
+      "page_number": 15,
+      "role": "contributing"
+    }
+  ],
+  "counter_raw": 7,
+  "auth_type_raw": 1,
+  "last_page_raw": 15,
+  "payload_length_raw": 255,
+  "timestamp_raw": 123,
+  "payload_hex": "000102030405060708090a0b0c0d0e0f100101010101010101010101010101010101010101010101020202020202020202020202020202020202020202020203030303030303030303030303030303030303030303030404040404040404040404040404040404040404040404050505050505050505050505050505050505050505050506060606060606060606060606060606060606060606060707070707070707070707070707070707070707070707080808080808080808080808080808080808080808080809090909090909090909090909090909090909090909090a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b0b0b0b0b0b0b0b",
+  "additional_length_raw": 106,
+  "additional_data_hex": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f",
+  "padding_hex": "",
+  "issues": [
+    {
+      "code": "reserved_bits_nonzero",
+      "path": "page0.byte2",
+      "detail": "Synthetic page retains reserved high nibble 10; assembly completeness is not conformance or authentication verification."
+    }
+  ],
+  "assembler_version": "design-oracle-0"
+}

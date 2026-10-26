@@ -1,0 +1,53 @@
+{
+  "status": "passed",
+  "v4_files_byte_identical": 19,
+  "approved_shared_metadata_changes": [
+    "Component/aviary/Cargo.lock",
+    "Component/aviary/Cargo.toml"
+  ],
+  "all_existing_lock_package_records_unchanged": true,
+  "test_counts": {
+    "v4-targeted-before": {
+      "groups": [
+        5,
+        6
+      ],
+      "total": 11,
+      "log_sha256": "23c8d242cf0e98b6f2045c793c9425f820159c9755d4dd23ae96ef421ced1b4f"
+    },
+    "v4-targeted-after": {
+      "groups": [
+        5,
+        6
+      ],
+      "total": 11,
+      "log_sha256": "74e333f131ea2935f5bcea57dcee4bb2b0c8d63ae44feaf71197e81b014e2ce3"
+    },
+    "v4-full-before": {
+      "groups": [
+        16,
+        32,
+        5,
+        6,
+        11,
+        0,
+        0
+      ],
+      "total": 70,
+      "log_sha256": "fda044d5cc2027312c0c39a30bde63a142be01b0d3ec300fe35958a2dc05d710"
+    },
+    "v4-full-after": {
+      "groups": [
+        16,
+        32,
+        5,
+        6,
+        11,
+        0,
+        0
+      ],
+      "total": 70,
+      "log_sha256": "688a1f20f1f0aa3dbe934f71a53b0674aaac91074de18bee946766455e71808a"
+    }
+  }
+}

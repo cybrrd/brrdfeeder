@@ -11,9 +11,9 @@
 //! command surface believe a healthy node was dead. Now every publisher routes
 //! through this one supervisor, so every path inherits the same armor:
 //!
-//!   - transactional flush-confirm delivery (a frame leaves the edge buffer only
-//!     once the broker round-trip confirms receipt — closes the fire-and-forget
-//!     silent-loss hole);
+//!   - local socket-flush completion before a frame leaves the edge buffer;
+//!     async-nats flush is NOT a broker acknowledgment. Application-level
+//!     delivery confirmation (e.g. JetStream) remains a separate guarantee;
 //!   - wedge detection via timeout(FLUSH_TIMEOUT, flush()), WEDGE_GRACE patience;
 //!   - in-place reconnect (exp backoff, retries forever) with NO process restart;
 //!   - bounded edge buffer (ring, drop-oldest) that survives the outage.
@@ -33,7 +33,7 @@ use std::time::{Duration, Instant};
 
 use async_nats::{Client, ConnectOptions};
 use bytes::Bytes;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tokio::time::timeout;
 
 use crate::audit::DropCounters;
@@ -89,6 +89,8 @@ pub struct Outbound {
 /// elastic capacity.
 #[derive(Clone)]
 pub struct NatsHandle {
+    rotation: watch::Sender<u64>,
+    rotated: watch::Receiver<u64>,
     tx: mpsc::Sender<Outbound>,
     counters: DropCounters,
     pub status: Arc<NatsStatus>,
@@ -113,6 +115,14 @@ impl NatsStatus {
 }
 
 impl NatsHandle {
+    pub async fn rotate_credentials(&self) -> bool {
+        self.rotation.send_modify(|n| *n=n.saturating_add(1));
+        let generation=*self.rotation.borrow();
+        crate::credential_renewal::signal_upward_rotation();
+        let mut confirmed=self.rotated.clone();
+        let ok=matches!(timeout(Duration::from_secs(45),confirmed.wait_for(|n|*n>=generation)).await,Ok(Ok(_)));
+        ok
+    }
     /// Enqueue an already-serialized payload for `subject`. Never blocks the
     /// caller (capture loop, heartbeat, etc.).
     pub fn publish(&self, subject: String, payload: Vec<u8>) {
@@ -150,19 +160,23 @@ pub fn start(
     control: Option<ControlConfig>,
 ) -> NatsHandle {
     let (tx, rx) = mpsc::channel::<Outbound>(HANDOFF_CAPACITY);
+    let (rotation, rotation_rx) = watch::channel(0u64);
+    let (rotated_tx, rotated) = watch::channel(0u64);
     let status = Arc::new(NatsStatus::default());
     let handle = NatsHandle {
+        rotation, rotated,
         tx,
         counters: counters.clone(),
         status: Arc::clone(&status),
     };
     tokio::spawn(supervisor_loop(
-        rx, broker_urls, credentials_path, counters, control, status,
+        rx, broker_urls, credentials_path, counters, control, status, rotation_rx, rotated_tx,
     ));
     handle
 }
 
 enum PumpExit {
+    Rotate,
     ChannelClosed,
     Wedged,
 }
@@ -174,6 +188,8 @@ async fn supervisor_loop(
     counters: DropCounters,
     control: Option<ControlConfig>,
     status: Arc<NatsStatus>,
+    mut rotation: watch::Receiver<u64>,
+    rotated: watch::Sender<u64>,
 ) {
     println!(
         "[nats] multiplexed supervisor starting; broker(s)={:?} creds={} edge_buffer={}",
@@ -182,15 +198,18 @@ async fn supervisor_loop(
     let mut buffer: VecDeque<Outbound> = VecDeque::with_capacity(1024);
 
     loop {
-        let client = match connect_with_backoff(
+        let generation=*rotation.borrow_and_update();
+        let connected = tokio::select! {
+            result = connect_with_backoff(
             &broker_urls,
             &credentials_path,
             &mut rx,
             &mut buffer,
             &counters,
-        )
-        .await
-        {
+            ) => result,
+            _ = rotation.changed() => continue,
+        };
+        let client = match connected {
             Some(c) => c,
             None => {
                 println!("[nats] handoff closed during reconnect; supervisor exiting");
@@ -199,6 +218,7 @@ async fn supervisor_loop(
         };
         println!("[nats] connected; pumping (buffered={})", buffer.len());
         status.client.store(Some(Arc::new(client.clone())));
+        rotated.send_replace(generation);
 
         // #185 Drop 1c — the inbound control consumer rides THIS connection
         // (the #178 ethos: one supervised link). It holds a client clone, so we
@@ -208,9 +228,14 @@ async fn supervisor_loop(
             .as_ref()
             .map(|ctrl| tokio::spawn(control_consumer(client.clone(), ctrl.clone())));
 
-        let outcome = pump(&client, &mut rx, &mut buffer, &counters, &status).await;
+        let outcome = pump(&client, &mut rx, &mut buffer, &counters, &status, &mut rotation).await;
         status.client.store(None); // release the clone before reconnect/shutdown
         match outcome {
+            PumpExit::Rotate => {
+                if let Some(h) = consumer_task { h.abort(); }
+                let _ = timeout(FLUSH_TIMEOUT, client.flush()).await;
+                drop(client);
+            }
             PumpExit::ChannelClosed => {
                 if let Some(h) = consumer_task {
                     h.abort();
@@ -356,14 +381,17 @@ async fn pump(
     buffer: &mut VecDeque<Outbound>,
     counters: &DropCounters,
     status: &NatsStatus,
+    rotation: &mut watch::Receiver<u64>,
 ) -> PumpExit {
     let mut last_roundtrip = Instant::now();
 
     loop {
+        if rotation.has_changed().unwrap_or(false) { return PumpExit::Rotate; }
         ingest_ready(rx, buffer, counters);
 
         if buffer.is_empty() {
             tokio::select! {
+                _ = rotation.changed() => return PumpExit::Rotate,
                 maybe = rx.recv() => match maybe {
                     Some(msg) => push_drop_oldest(buffer, msg, counters),
                     None => return PumpExit::ChannelClosed,
@@ -387,17 +415,25 @@ async fn pump(
         let in_flight: Vec<Outbound> = buffer.drain(..n).collect();
 
         for msg in &in_flight {
-            if let Err(e) = client.publish(msg.subject.clone(), msg.payload.clone()).await {
+            let published = tokio::select! {
+                result = client.publish(msg.subject.clone(), msg.payload.clone()) => result,
+                _ = rotation.changed() => { prepend(buffer,in_flight); return PumpExit::Rotate; }
+            };
+            if let Err(e) = published {
                 eprintln!("[nats] publish error: {} — reconnecting in place", e);
                 prepend(buffer, in_flight);
                 return PumpExit::Wedged;
             }
         }
 
-        // Confirm the batch reached the broker (flush = round-trip). Retry the
-        // flush (messages already enqueued), not the publish.
+        // Complete the local socket flush, not a broker/application receipt.
+        // Retry the flush (messages already enqueued), not the publish.
         loop {
-            match timeout(FLUSH_TIMEOUT, client.flush()).await {
+            let flushed = tokio::select! {
+                result = timeout(FLUSH_TIMEOUT, client.flush()) => result,
+                _ = rotation.changed() => { prepend(buffer,in_flight); return PumpExit::Rotate; }
+            };
+            match flushed {
                 Ok(Ok(())) => {
                     last_roundtrip = Instant::now();
                     status

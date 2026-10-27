@@ -161,7 +161,13 @@ survives. No new credentials or shell NATS publish are introduced.
 The host executable has its OWN install SHA256 pin. Neither workload image
 contains it or supplies rollback code. A package manifest cannot replace it.
 A separate timer/command poll-updater fetches <ring>/updater.json, never within
-the engine/console transaction:
+the engine/console transaction.
+
+HTTP 404 for this ring manifest means no host-updater release is published:
+the command logs that outcome and succeeds, retaining its normal durable poll
+schedule. An executable download returning 404 still fails, as do all other
+HTTP errors and verification failures. HTTP failures identify the manifest or
+executable stage and numeric status. This does not enable host publication.
 
 ```sh
 ./brrdfeeder-release publish-updater --updater-only \

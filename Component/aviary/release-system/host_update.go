@@ -11,6 +11,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -101,7 +102,17 @@ func hostSelfTest(path string) error {
 	}
 	return nil
 }
-func (u *Updater) getReleaseBytes(path string, limit int64) ([]byte, error) {
+
+type hostHTTPError struct {
+	stage  string
+	status int
+}
+
+func (e *hostHTTPError) Error() string {
+	return fmt.Sprintf("host-updater %s HTTP %d", e.stage, e.status)
+}
+
+func (u *Updater) getReleaseBytes(stage, path string, limit int64) ([]byte, error) {
 	endpoint, e := url.Parse(strings.TrimRight(u.cfg.BaseURL, "/") + "/" + path)
 	if e != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
 		return nil, errors.New("credential-free HTTPS required")
@@ -111,8 +122,8 @@ func (u *Updater) getReleaseBytes(path string, limit int64) ([]byte, error) {
 		return nil, e
 	}
 	defer r.Body.Close()
-	if r.StatusCode != 200 {
-		return nil, errors.New("host-updater download unavailable")
+	if r.StatusCode != http.StatusOK {
+		return nil, &hostHTTPError{stage: stage, status: r.StatusCode}
 	}
 	b, e := io.ReadAll(io.LimitReader(r.Body, limit+1))
 	if int64(len(b)) > limit {
@@ -152,8 +163,13 @@ func (u *Updater) pollHostAt(binary, receipt string) error {
 	if e := atomicJSON(path, s, 0600); e != nil {
 		return e
 	}
-	b, e := u.getReleaseBytes(u.cfg.Ring+"/updater.json", maxDocument)
+	b, e := u.getReleaseBytes("manifest", u.cfg.Ring+"/updater.json", maxDocument)
 	if e != nil {
+		var status *hostHTTPError
+		if errors.As(e, &status) && status.stage == "manifest" && status.status == http.StatusNotFound {
+			fmt.Printf("host-updater: no release published for ring %s; nothing to do\n", u.cfg.Ring)
+			return nil
+		}
 		return e
 	}
 	m, e := verifyHost(b, u.keys, u.now())
@@ -174,7 +190,7 @@ func (u *Updater) pollHostAt(binary, receipt string) error {
 	if len(s.Attempted) >= 32 {
 		return errors.New("host-updater attempt history full; review required")
 	}
-	b, e = u.getReleaseBytes("updater/"+m.SHA256+"/linux-"+m.Architecture+"/brrdfeeder-release", maxHostBinary)
+	b, e = u.getReleaseBytes("executable", "updater/"+m.SHA256+"/linux-"+m.Architecture+"/brrdfeeder-release", maxHostBinary)
 	if e != nil {
 		return e
 	}

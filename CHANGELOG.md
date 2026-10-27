@@ -17,6 +17,9 @@
   an idempotent repeat path. Existing 0.8.31 system-only credential layouts
   are accepted without creating or migrating credentials; present renewal
   credentials retain their full ownership, mode and trust checks.
+- An unpublished host-updater ring manifest (HTTP 404) is a successful no-op
+  with an explicit journal message. Executable 404 and all other HTTP failures
+  still fail, with the download stage and numeric status in the error.
 - Safe uninstall of known updater attempts, credential-renewal state and
   interrupted package writes. Private credentials are removed before their
   service account; pending-file hardlinks are accepted only as the validated

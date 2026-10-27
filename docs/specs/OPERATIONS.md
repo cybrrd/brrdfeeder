@@ -3,7 +3,7 @@
 # Operations and data handling
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-26**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-27**.
 
 **Next/unreleased draft; release tag pending.** Source baseline: [6eed7b81](https://github.com/cybrrd/brrdfeeder/tree/6eed7b81a15415a4f9f9564cdb85341b886520cb). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
@@ -35,6 +35,20 @@ capture or a measured current archive guarantee. Radio hardware may not expose
 fields, older records may lack fields, and outages can cause explicit gaps.
 The [known limits](KNOWN-LIMITS.md) record those boundaries. Delayed records keep
 their original capture times; their later arrival does not make them live.
+
+## Registration and node capacity
+
+<!-- BEGIN GENERATED: enrollment -->
+| Claim | Expectation | Scope / status | Source and boundary |
+|---|---|---|---|
+| **P04 — Sign-up and quota posture** | 1 node per new registrant by default | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#enrollment) More nodes require an audited exception during beta. No manual approval of registrants. Capacity earned through reputation is post-beta work. New nodes' own drones are never hidden because the node is new or provisional. Deployment acceptance remains pending. |
+<!-- END GENERATED: enrollment -->
+
+Registration does not require manual approval. The beta node allowance is a
+separate owner policy: additional nodes require an audited exception. A capacity
+refusal must explain the reason and support route. Reputation-earned capacity
+comes after beta. A new node's own drones remain visible; being new or
+provisional must never hide its detections.
 
 ## Outages and power loss
 
@@ -101,9 +115,14 @@ Nothing is uploaded automatically. Review it before sharing; include the release
 run ID and symptom, and remove credentials, raw identifiers and location data.
 Do not send an unfiltered terminal recording.
 
-The existing installation page lists `support@cybrrd.com` for ordinary help.
-The beta support-channel decision remains with the release owner, including
-whether public Issues will open. They are currently closed; see
-[contribution policy](../../CONTRIBUTING.md). No support response deadline or
-support period is promised. For vulnerabilities, use
-[private security reporting](../../SECURITY.md), whose no-deadline policy applies.
+For install help and bugs, use [GitHub Issues](https://github.com/cybrrd/brrdfeeder/issues),
+enabled at launch. Use [admin@cybrrd.com](mailto:admin@cybrrd.com) as the private
+fallback. No support response deadline or support period is promised. For
+vulnerabilities, use [private security reporting](../../SECURITY.md), whose
+no-deadline policy applies.
+
+<!-- BEGIN GENERATED: support -->
+| Claim | Expectation | Scope / status | Source and boundary |
+|---|---|---|---|
+| **P05 — Ordinary beta support path** | GitHub Issues for install help and bugs; admin@cybrrd.com as the private fallback | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#support) Issues enabled at launch. No response deadline or support period is promised; vulnerability reports remain private under SECURITY.md. |
+<!-- END GENERATED: support -->

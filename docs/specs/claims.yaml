@@ -4,7 +4,7 @@
   "specification": {
     "product_version": "0.9.0",
     "applies_to": "0.9-beta",
-    "revision": "2026-10-26",
+    "revision": "2026-10-27",
     "source_sha": "6eed7b81a15415a4f9f9564cdb85341b886520cb",
     "release_tag": null
   },
@@ -919,7 +919,7 @@
     },
     {
       "id": "P01",
-      "section": "placeholders",
+      "section": "capacity",
       "title": "Viewer advisory threshold",
       "value": 100,
       "unit": "concurrent viewers",
@@ -936,12 +936,12 @@
         "scenario": "B07: cross global threshold and verify alerts/metrics without count-based refusal.",
         "receipt": null
       },
-      "note": "Chosen alert level; deployed behavior and public acceptance receipt remain pending.",
+      "note": "Chosen alert level; deployed behavior and public acceptance receipt remain pending. Metrics are internal only. This is an advisory monitoring threshold, not a user limit.",
       "semantics": "advisory-alert"
     },
     {
       "id": "P02",
-      "section": "placeholders",
+      "section": "capacity",
       "title": "Per-IP viewer advisory threshold",
       "value": 32,
       "unit": "concurrent viewers per IP",
@@ -958,7 +958,7 @@
         "scenario": "B07: cross per-IP threshold and verify alerts/metrics without count-based refusal.",
         "receipt": null
       },
-      "note": "Shared networks must not hit a fixed count-based wall. Threshold crossing raises an alert.",
+      "note": "Shared networks must not hit a fixed count-based wall. Threshold crossing raises an alert. Metrics are internal only. This is an advisory monitoring threshold, not a user limit.",
       "semantics": "advisory-alert"
     },
     {
@@ -977,54 +977,120 @@
       "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
       "owner": "B05 stream capacity",
       "verification": {
-        "scenario": "B05: publish approved alert thresholds and measure saturation, custody, refusal visibility and recovery.",
+        "scenario": "B05: obtain release-owner signature before publishing values; measure saturation, custody, refusal visibility and recovery.",
         "receipt": null
       },
-      "note": "Pending public thresholds and implementation evidence; no internal broker limits published as user allowances.",
+      "note": "Pending signature. Values remain unpublished until signed approval; implementation and acceptance evidence are also pending.",
       "semantics": "advisory-alert"
     },
     {
       "id": "P04",
-      "section": "placeholders",
+      "section": "enrollment",
       "title": "Sign-up and quota posture",
-      "value": null,
-      "unit": "advisory thresholds and enrollment policy",
+      "value": 1,
+      "unit": "node per new registrant by default",
       "scope": "0.9-beta",
-      "status": "unverified",
+      "status": "target",
       "evidence_kind": "source",
       "source_ref": [
-        "evidence/design-basis.md#pending"
+        "evidence/design-basis.md#enrollment"
       ],
       "public": true,
       "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
-      "owner": "B04 enrollment",
+      "owner": "B04/B04a enrollment and capacity administration",
       "verification": {
-        "scenario": "B04: publish approved enrollment policy and prove capacity alerts do not impose arbitrary count-based refusals.",
+        "scenario": "B04/B04a: verify automatic registration, default owner quota, audited exception and visible capacity refusal; prove a new node's own drones remain displayed. Post-beta reputation earning is outside this beta acceptance.",
         "receipt": null
       },
-      "note": "Pending owner decision and acceptance. Authentication and security checks still apply.",
-      "semantics": "advisory-alert"
+      "note": "More nodes require an audited exception during beta. No manual approval of registrants. Capacity earned through reputation is post-beta work. New nodes' own drones are never hidden because the node is new or provisional. Deployment acceptance remains pending.",
+      "semantics": "expectation"
     },
     {
       "id": "P05",
-      "section": "placeholders",
+      "section": "support",
       "title": "Ordinary beta support path",
-      "value": null,
+      "value": "GitHub Issues for install help and bugs; admin@cybrrd.com as the private fallback",
       "unit": "support channel",
       "scope": "0.9-beta",
-      "status": "unverified",
+      "status": "target",
       "evidence_kind": "source",
       "source_ref": [
-        "evidence/design-basis.md#pending"
+        "evidence/design-basis.md#support"
       ],
       "public": true,
       "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
       "owner": "Release owner (support policy)",
       "verification": {
-        "scenario": "Release owner: decide whether public Issues open; verify published support route and redacted-bundle handling.",
+        "scenario": "Release owner: verify Issues enabled at launch, install/bug forms and private fallback, and redacted-bundle handling.",
         "receipt": null
       },
-      "note": "Public Issues and Discussions are currently closed. Beta choice is pending; no response deadline.",
+      "note": "Issues enabled at launch. No response deadline or support period is promised; vulnerability reports remain private under SECURITY.md.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "P06",
+      "section": "capacity",
+      "title": "Slow-client guard",
+      "value": 1,
+      "unit": "MiB queued ACTIVE_HEXES bytes before ejection",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#viewer-guards"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "B07 viewer capacity",
+      "verification": {
+        "scenario": "B07: stall a client and trigger send-buffer exhaustion; verify the browser reason, internal counter and routed alert.",
+        "receipt": null
+      },
+      "note": "A stalled browser can be disconnected with a user-facing reason; the event is counted and alerted through internal monitoring. Queue-slot exhaustion can also trigger this guard. This is a protective guard, not a viewer-count limit.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "P07",
+      "section": "capacity",
+      "title": "ACTIVE_HEXES overflow guard",
+      "value": 64,
+      "unit": "KiB outgoing frame bound",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#viewer-guards"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "B07 viewer capacity",
+      "verification": {
+        "scenario": "B07: trigger an ACTIVE_HEXES marshal overflow; verify the browser reason, internal counter and routed alert.",
+        "receipt": null
+      },
+      "note": "Overflow closes the connection with a user-facing reason; the event is counted and alerted through internal monitoring. This is a frame-safety guard, not a viewer-count limit.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "P08",
+      "section": "capacity",
+      "title": "Inbound frame and per-browser rate guard",
+      "value": 64,
+      "unit": "KiB inbound frame bound, plus per-browser message rate limits",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#viewer-guards"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "B07 viewer capacity",
+      "verification": {
+        "scenario": "B07: send oversized frames and exceed the per-browser message rate; verify each browser reason, internal counter and routed alert.",
+        "receipt": null
+      },
+      "note": "Oversized frames or excessive message rates close the connection with a user-facing reason; each is counted and alerted through internal monitoring. This bounds browser input, not viewer counts.",
       "semantics": "expectation"
     },
     {

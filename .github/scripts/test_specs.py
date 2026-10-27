@@ -97,7 +97,7 @@ class ClaimGate(unittest.TestCase):
         self.rejects(self.data, "miss behavior or visible signal")
 
     def test_capacity_is_advisory(self):
-        for cid in ("P01", "P02", "P03", "P04", "D13", "D14"):
+        for cid in ("P01", "P02", "P03", "D13", "D14"):
             with self.subTest(claim=cid):
                 data = deepcopy(self.data)
                 next(c for c in data["claims"] if c["id"] == cid)["semantics"] = "expectation"

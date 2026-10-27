@@ -3,7 +3,7 @@
 # Beta service objectives
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-26**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-27**.
 
 **Next/unreleased draft; release tag pending.** Source baseline: [6eed7b81](https://github.com/cybrrd/brrdfeeder/tree/6eed7b81a15415a4f9f9564cdb85341b886520cb). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
@@ -66,10 +66,24 @@ receipts for later reconciliation.
 
 ## Capacity and future sizing
 
-Capacity values are advisory alert thresholds. Crossing them must not refuse
+Viewer counts are advisory monitoring thresholds. Crossing them must not refuse
 users, impose a fixed aircraft count, or silently thin collection. Monitoring
-and operational capacity management handle load. Security enforcement, malformed
-input checks and actual storage exhaustion are separate conditions.
+and operational capacity management handle load. The retained guards below can
+close a connection to protect other viewers or handle invalid input. Each shows
+a reason to the user, counts the event and alerts internal monitoring. Metrics
+are internal only. These remain source-backed targets pending public acceptance,
+including routed alerts. The [owner quota](OPERATIONS.md#registration-and-node-capacity)
+and actual storage exhaustion are separate policies and conditions.
+
+<!-- BEGIN GENERATED: capacity -->
+| Claim | Expectation | Scope / status | Source and boundary |
+|---|---|---|---|
+| **P01 — Viewer advisory threshold** | 100 concurrent viewers | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Chosen alert level; deployed behavior and public acceptance receipt remain pending. Metrics are internal only. This is an advisory monitoring threshold, not a user limit. |
+| **P02 — Per-IP viewer advisory threshold** | 32 concurrent viewers per IP | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Shared networks must not hit a fixed count-based wall. Threshold crossing raises an alert. Metrics are internal only. This is an advisory monitoring threshold, not a user limit. |
+| **P06 — Slow-client guard** | 1 MiB queued ACTIVE_HEXES bytes before ejection | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) A stalled browser can be disconnected with a user-facing reason; the event is counted and alerted through internal monitoring. Queue-slot exhaustion can also trigger this guard. This is a protective guard, not a viewer-count limit. |
+| **P07 — ACTIVE_HEXES overflow guard** | 64 KiB outgoing frame bound | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) Overflow closes the connection with a user-facing reason; the event is counted and alerted through internal monitoring. This is a frame-safety guard, not a viewer-count limit. |
+| **P08 — Inbound frame and per-browser rate guard** | 64 KiB inbound frame bound, plus per-browser message rate limits | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) Oversized frames or excessive message rates close the connection with a user-facing reason; each is counted and alerted through internal monitoring. This bounds browser input, not viewer counts. |
+<!-- END GENERATED: capacity -->
 
 <!-- BEGIN GENERATED: future -->
 | Claim | Expectation | Scope / status | Source and boundary |
@@ -91,22 +105,14 @@ purchase recommendation, or a promise of a particular outage duration.
 <!-- BEGIN GENERATED: placeholders -->
 | Claim | Expectation | Scope / status | Source and boundary |
 |---|---|---|---|
-| **P01 — Viewer advisory threshold** | 100 concurrent viewers | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Chosen alert level; deployed behavior and public acceptance receipt remain pending. |
-| **P02 — Per-IP viewer advisory threshold** | 32 concurrent viewers per IP | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Shared networks must not hit a fixed count-based wall. Threshold crossing raises an alert. |
-| **P03 — Stream capacity alerts** | Pending (advisory thresholds) | 0.9-beta / **unverified** (source) | [source 1](evidence/design-basis.md#pending) Pending public thresholds and implementation evidence; no internal broker limits published as user allowances. |
-| **P04 — Sign-up and quota posture** | Pending (advisory thresholds and enrollment policy) | 0.9-beta / **unverified** (source) | [source 1](evidence/design-basis.md#pending) Pending owner decision and acceptance. Authentication and security checks still apply. |
-| **P05 — Ordinary beta support path** | Pending (support channel) | 0.9-beta / **unverified** (source) | [source 1](evidence/design-basis.md#pending) Public Issues and Discussions are currently closed. Beta choice is pending; no response deadline. |
+| **P03 — Stream capacity alerts** | Pending (advisory thresholds) | 0.9-beta / **unverified** (source) | [source 1](evidence/design-basis.md#pending) Pending signature. Values remain unpublished until signed approval; implementation and acceptance evidence are also pending. |
 
 | Claim | Owner / acceptance still needed |
 |---|---|
-| P01 | B07 viewer capacity: B07: cross global threshold and verify alerts/metrics without count-based refusal. |
-| P02 | B07 viewer capacity: B07: cross per-IP threshold and verify alerts/metrics without count-based refusal. |
-| P03 | B05 stream capacity: B05: publish approved alert thresholds and measure saturation, custody, refusal visibility and recovery. |
-| P04 | B04 enrollment: B04: publish approved enrollment policy and prove capacity alerts do not impose arbitrary count-based refusals. |
-| P05 | Release owner (support policy): Release owner: decide whether public Issues open; verify published support route and redacted-bundle handling. |
+| P03 | B05 stream capacity: B05: obtain release-owner signature before publishing values; measure saturation, custody, refusal visibility and recovery. |
 <!-- END GENERATED: placeholders -->
 
 Threshold selection is not proof of deployed alert behavior. The viewer values
-have been selected, but their implementation and acceptance evidence remain
-pending. Stream and enrollment values stay unset until their owners publish
-reviewed policy and receipts. Support has no invented response-time objective.
+have been selected; deployment and public acceptance evidence remain pending.
+Stream values stay unset pending signature. Enrollment and support policies are
+recorded in [operations](OPERATIONS.md). Support has no response-time objective.

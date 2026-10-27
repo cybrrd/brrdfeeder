@@ -3,7 +3,7 @@
 # Product Technical and Operational Specifications
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-26**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-27**.
 
 **Next/unreleased draft; release tag pending.** Source baseline: [6eed7b81](https://github.com/cybrrd/brrdfeeder/tree/6eed7b81a15415a4f9f9564cdb85341b886520cb). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
@@ -38,8 +38,8 @@ No claim in this draft has been promoted to measured from a private summary.
 | **U02 — Existing-node helper update** | 1 explicit command per existing node | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#helper) [source 2](https://github.com/cybrrd/brrdfeeder/blob/0b6a132180d03812f0bf1e80c23c4f65206c311a/Component/brrdfeeder/install/README.md#explicit-helper-only-upgrade-090) Signed helper feed is not published for the beta. Use the documented helper-only command after the approved installer/helper chain is published. |
 | **S01 — First contact on wired/Wi-Fi/LTE** | ≤ 2 seconds (target) | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#service) Send as soon as possible on every link. This is a beta acceptance objective adopted from the future service design; measurement is outstanding. |
 | **S02 — First contact on narrow links** | ≤ 15 seconds (target) | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#service) Best effort as soon as possible. This target does not declare any particular narrow-link radio supported. |
-| **P01 — Viewer advisory threshold** | 100 concurrent viewers | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Chosen alert level; deployed behavior and public acceptance receipt remain pending. |
-| **P02 — Per-IP viewer advisory threshold** | 32 concurrent viewers per IP | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Shared networks must not hit a fixed count-based wall. Threshold crossing raises an alert. |
+| **P01 — Viewer advisory threshold** | 100 concurrent viewers | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Chosen alert level; deployed behavior and public acceptance receipt remain pending. Metrics are internal only. This is an advisory monitoring threshold, not a user limit. |
+| **P02 — Per-IP viewer advisory threshold** | 32 concurrent viewers per IP | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Shared networks must not hit a fixed count-based wall. Threshold crossing raises an alert. Metrics are internal only. This is an advisory monitoring threshold, not a user limit. |
 <!-- END GENERATED: summary -->
 
 The declared setup uses an ARM board, a dedicated monitor-mode Wi-Fi adapter,
@@ -57,10 +57,17 @@ The host helper has a separate beta update path. Outage handling preserves
 stored data and makes missing coverage explicit; no unconditional zero-loss
 claim is made.
 
-Capacity numbers are **advisory thresholds that raise alerts**. They must not
-be arbitrary hard limits that refuse users or thin observations. Physical
+Viewer counts are **advisory monitoring thresholds that raise alerts**. Crossing
+them does not refuse users. The [retained protective guards](SERVICE-LEVELS.md#capacity-and-future-sizing)
+show a reason, count the event and alert internal monitoring; metrics are internal
+only. [Registration and node capacity](OPERATIONS.md#registration-and-node-capacity)
+have a separate approved policy. Physical
 storage can still fill; [outage behavior](OPERATIONS.md#outages-and-power-loss)
 describes that separate condition.
+
+For install help and bugs, use [GitHub Issues](https://github.com/cybrrd/brrdfeeder/issues),
+enabled at launch, with [admin@cybrrd.com](mailto:admin@cybrrd.com) as the private
+fallback. Vulnerabilities follow [private security reporting](../../SECURITY.md).
 
 ## Read more
 

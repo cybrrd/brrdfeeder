@@ -3,7 +3,7 @@
 # Known limits
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-26**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-27**.
 
 **Next/unreleased draft; release tag pending.** Source baseline: [6eed7b81](https://github.com/cybrrd/brrdfeeder/tree/6eed7b81a15415a4f9f9564cdb85341b886520cb). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
@@ -46,22 +46,17 @@ remain scoped to their evidence. The registry does not close open tests.
 <!-- BEGIN GENERATED: placeholders -->
 | Claim | Expectation | Scope / status | Source and boundary |
 |---|---|---|---|
-| **P01 — Viewer advisory threshold** | 100 concurrent viewers | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Chosen alert level; deployed behavior and public acceptance receipt remain pending. |
-| **P02 — Per-IP viewer advisory threshold** | 32 concurrent viewers per IP | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Shared networks must not hit a fixed count-based wall. Threshold crossing raises an alert. |
-| **P03 — Stream capacity alerts** | Pending (advisory thresholds) | 0.9-beta / **unverified** (source) | [source 1](evidence/design-basis.md#pending) Pending public thresholds and implementation evidence; no internal broker limits published as user allowances. |
-| **P04 — Sign-up and quota posture** | Pending (advisory thresholds and enrollment policy) | 0.9-beta / **unverified** (source) | [source 1](evidence/design-basis.md#pending) Pending owner decision and acceptance. Authentication and security checks still apply. |
-| **P05 — Ordinary beta support path** | Pending (support channel) | 0.9-beta / **unverified** (source) | [source 1](evidence/design-basis.md#pending) Public Issues and Discussions are currently closed. Beta choice is pending; no response deadline. |
+| **P03 — Stream capacity alerts** | Pending (advisory thresholds) | 0.9-beta / **unverified** (source) | [source 1](evidence/design-basis.md#pending) Pending signature. Values remain unpublished until signed approval; implementation and acceptance evidence are also pending. |
 
 | Claim | Owner / acceptance still needed |
 |---|---|
-| P01 | B07 viewer capacity: B07: cross global threshold and verify alerts/metrics without count-based refusal. |
-| P02 | B07 viewer capacity: B07: cross per-IP threshold and verify alerts/metrics without count-based refusal. |
-| P03 | B05 stream capacity: B05: publish approved alert thresholds and measure saturation, custody, refusal visibility and recovery. |
-| P04 | B04 enrollment: B04: publish approved enrollment policy and prove capacity alerts do not impose arbitrary count-based refusals. |
-| P05 | Release owner (support policy): Release owner: decide whether public Issues open; verify published support route and redacted-bundle handling. |
+| P03 | B05 stream capacity: B05: obtain release-owner signature before publishing values; measure saturation, custody, refusal visibility and recovery. |
 <!-- END GENERATED: placeholders -->
 
-The viewer alert levels are selected; measured behavior is still pending.
-No pending value authorizes an arbitrary count-based cap. Physical storage and
-security checks have their own failure behavior. Recheck this list against the
-actual release source, deployment and evidence before tagging.
+Viewer thresholds and guards, enrollment policy and the support path are decided;
+see [service expectations](SERVICE-LEVELS.md#capacity-and-future-sizing) and
+[operations](OPERATIONS.md#registration-and-node-capacity). Their public acceptance
+receipts remain pending. Stream capacity is pending signature; no values are
+published here. The release tag and the power-loss vulnerable window (D09, owned
+by B06 outage acceptance) also remain pending. Recheck actual release source,
+deployment and evidence before tagging.

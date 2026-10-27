@@ -21,13 +21,13 @@ ROOT = Path(__file__).resolve().parents[2]
 PAGES = {
     "README.md": ["summary"],
     "REQUIREMENTS.md": ["requirements", "reception"],
-    "OPERATIONS.md": ["operations", "outage", "updates"],
-    "SERVICE-LEVELS.md": ["service", "service-methods", "future", "placeholders"],
+    "OPERATIONS.md": ["operations", "enrollment", "outage", "updates", "support"],
+    "SERVICE-LEVELS.md": ["service", "service-methods", "capacity", "future", "placeholders"],
     "KNOWN-LIMITS.md": ["placeholders"],
     "SBOM.md": ["evidence"],
 }
 SECTIONS = {"requirements", "reception", "operations", "outage", "updates",
-            "service", "future", "placeholders", "evidence"}
+            "service", "capacity", "enrollment", "support", "future", "placeholders", "evidence"}
 SUMMARY = {"H07", "D07", "U02", "S01", "S02", "P01", "P02"}
 STATUSES = {"measured", "target", "unverified"}
 KINDS = {"source", "synthetic", "native", "field"}
@@ -154,7 +154,8 @@ def validate(data, root=ROOT):
         if c["section"] == "service":
             require(nonempty(c.get("on_miss")) and nonempty(c.get("failure_signal")),
                     f"{cid}: service claim lacks miss behavior or visible signal")
-        if cid in {"P01", "P02", "P03", "P04", "D13", "D14"}:
+        # P04 is the separately approved owner quota, not a viewer/occupancy alert.
+        if cid in {"P01", "P02", "P03", "D13", "D14"}:
             require(c["semantics"] == "advisory-alert", f"{cid}: capacity must be advisory")
     require(SECTIONS <= {c["section"] for c in claims}, "missing claim section")
     require(SUMMARY <= seen, "missing summary claim")

@@ -6,7 +6,7 @@ This is a sanitized record of accepted product decisions, not a test receipt.
 Decision dates identify provenance; claim values live only in
 [claims.yaml](../claims.yaml). Private meeting records, infrastructure details,
 identities and licensed standards text are not reproduced here. The source
-review date is 2026-10-26. The hardware projection was checked against
+review date is 2026-10-27. The hardware projection was checked against
 installation-page template revision `7fb1a3b060e66ef075de9b9496b1faf592946019`
 and settings revision `67fc869f135805eba5d669a94a7f6094c70f9e10`. Future-wire
 policy and sizing were checked against design revision
@@ -99,18 +99,68 @@ source and native acceptance are not interchangeable.
 
 ## Capacity
 
-Latest capacity ruling, 2026-10-26: viewer and per-IP values are advisory
-thresholds that raise alerts, never hard count-based user limits. Apply the same
-principle to capacity planning: monitor and manage load without arbitrary caps
-that refuse users or thin observations. Future occupancy levels raise warnings;
-physical exhaustion retains the explicit outage policy. Security enforcement
-is not a capacity quota. Selected viewer values still need deployment evidence.
+Accepted viewer decision, 2026-10-26, verbatim:
+
+> This should just be advisory and not a hard fixed limit anywhere.
+
+The viewer and per-IP values in the registry are monitoring thresholds. Crossing
+them raises alerts without count-based refusal. This decision does not remove
+the separately approved enrollment policy or protective viewer guards. Future
+occupancy warnings remain advisory; physical exhaustion retains the outage policy.
+
+## Viewer guards
+
+Accepted decision, 2026-10-26, verbatim:
+
+> keep all three guards, metrics internal only
+
+The retained guards are slow-client send-buffer ejection, ACTIVE_HEXES outgoing
+frame overflow, and inbound frame size plus per-browser message rate limits.
+Each must show the user a reason, count the event and alert internal monitoring.
+Metrics are internal only. The registry owns the public guard values.
+
+Source review: viewer implementation revision
+`42219ed17c9054578d51f0edfbe6c25ec012c492`, including its read-limit correction,
+provides the reason and counter paths. Oversized input beyond the library memory
+backstop can show the library's size-limit reason rather than the application's
+reason; it is still counted as oversized input. Source review does not establish
+live deployment or routed alert delivery. B07 acceptance must cover each guard
+and the internal monitoring path before any measured claim is made.
+
+## Enrollment
+
+The beta policy accepts automatic registration, the default node allowance in
+the registry, and additional nodes by authenticated, audited exception. The
+2026-10-26 approval, verbatim, was:
+
+> I approve a now.
+
+The approved option was stored owner-capacity policy with an authenticated,
+audited exception control. The exception decision later that day was:
+
+> I approve exception granting.
+
+No manual approval of registrants is introduced. Capacity earned through
+reputation is post-beta work; it is not a beta registration requirement. The
+accepted 2026-10-20 reputation decision, verbatim, was:
+
+> Reputational tiers I approve. That is the original design.
+
+New nodes' own drones must never be hidden because a node is new or provisional.
+Source review of capacity administration at revision
+`5ccaefcb0ac8569e7c04e948f7219126a0c15532` does not establish live acceptance.
+
+## Support
+
+Accepted support decision, 2026-10-26, verbatim:
+
+> GitHub issues for install help and bugs with that admin@cybrrd.com as private fallback.
+
+Issues are to be enabled at launch. This decision promises no response deadline.
+Vulnerabilities follow SECURITY.md's private reporting path and no-deadline policy.
 
 ## Pending
 
-Release work ownership, 2026-10-26: B07 owns viewer alert implementation and
-acceptance; B05 owns stream capacity alerts and evidence; B04 owns sign-up and
-quota policy and acceptance. The release owner has not decided whether public
-Issues open for ordinary beta support. Leave undecided values unset. The
-existing installation-page support alias is an ordinary help route, not a
-response-time guarantee or a decision to open Issues.
+Stream capacity (B05) remains **pending signature**. The release owner must sign
+before values are published. B05 owns implementation and acceptance evidence.
+The beta release tag and public acceptance receipts are also outstanding.

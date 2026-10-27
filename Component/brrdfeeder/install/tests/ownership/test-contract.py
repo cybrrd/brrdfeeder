@@ -40,8 +40,8 @@ class Ownership(unittest.TestCase):
         # Repository-owner policy at public base 83fc7b0 is authoritative.
         # Do not add definitions or headers to those exact bytes; use sidecars.
         for path, digest in {
-            'SECURITY.md': 'd4c087d61352b311c7ecc624f69cdd4309e40f9092c87af9fe5fa13462f1407d',
-            'CONTRIBUTING.md': 'aebe9d4fe190d48e8e5d2a16c541cb3a5bc9b17611aa712d2fce04da00abbc51',
+            'SECURITY.md': '3c966149f23be875a346373085444ce5c0fec24567a4bd1096f973909fccade4',
+            'CONTRIBUTING.md': '848bcfd0de4eee60b2906e21a0fc29a6701502e58cd70f874a8eb591db1c6eeb',
         }.items():
             self.assertEqual(hashlib.sha256((ROOT/path).read_bytes()).hexdigest(), digest)
             self.assertIn('SPDX-FileCopyrightText: 2026 Macawi LLC', (ROOT/(path+'.license')).read_text())

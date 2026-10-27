@@ -12,9 +12,11 @@
 - Silver renewal status and Red expiry/recovery signals. Companion server renewal
   routes, identity-pinned owner recovery and a short-TTL canary must precede rollout.
 - Go 1.27.3 across the console, host helper, container builds and CI.
-- Explicit host helper build 2-to-3 upgrade through `--upgrade-helper`, preserving
+- Explicit host helper build 2-or-3-to-4 upgrade through `--upgrade-helper`, preserving
   node identity, configuration and credentials, with transactional recovery and
-  an idempotent repeat path.
+  an idempotent repeat path. Existing 0.8.31 system-only credential layouts
+  are accepted without creating or migrating credentials; present renewal
+  credentials retain their full ownership, mode and trust checks.
 - Safe uninstall of known updater attempts, credential-renewal state and
   interrupted package writes. Private credentials are removed before their
   service account; pending-file hardlinks are accepted only as the validated

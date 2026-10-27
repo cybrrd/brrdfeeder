@@ -92,7 +92,7 @@ neither S5 credentials nor its signing key and never contact S5.
 Every history-derived component build sequence remains `1000 + commit count`.
 Never lower the offset/floors, rewrite the public lineage or publish a build from
 the larger private history. The 0.9.0 bootstrap host helper has separate fixed
-build 3, rebuilt with Go 1.27.3. Reproduce its bytes, update the installer helper
+build 4, rebuilt with Go 1.27.3. Reproduce its bytes, update the installer helper
 pin, then hash that installer and update all three bootstrap installer pins.
 Neither an image update nor an ordinary installer rerun replaces an existing
 valid helper; fleet delivery needs its separately approved host-update path.
@@ -104,9 +104,11 @@ curl -fsSL https://get.cybrrd.com | bash -s -- --upgrade-helper
 ```
 
 The installer flag works with the old installed command and requires no staging
-step. It downloads only the pinned build-3 SHA-addressed artifact (or accepts
+step. It downloads only the pinned build-4 SHA-addressed artifact (or accepts
 `--helper-file PATH` with the same SHA256), preserves identity, credentials and
-all workload pins/floors, and never enrolls. Incomplete local identity, invalid
+all workload pins/floors, and never enrolls. An absent runtime credential is
+accepted only with the configured 0.8.31 system credential path; present runtime
+state retains its strict ownership, mode and trust checks. Incomplete local identity, invalid
 old-helper receipts, downgrades and equal-build/different-hash replacements are
 refused. Do not present this command as live before publication or describe an
 ordinary rerun as equivalent.
@@ -118,7 +120,8 @@ host-floor bytes. Self-test/exact-build checks bracket atomic replacement;
 receipt/floor writes precede durable journal removal. Failure/crash restores
 helper, receipt and floor; the new launcher remains to finish recovery. This
 does not publish or enable signed host metadata. Require all six refusal
-mutation proofs, byte-preservation/rollback/crash tests, full offline gate, two
+mutation proofs plus the old/renewal-layout acceptance and refusal mutations,
+byte-preservation/rollback/crash tests, full offline gate, two
 helper reproductions and native ARM64 interruption/service proof before release.
 The drill versions and their existing build floors remain unchanged.
 

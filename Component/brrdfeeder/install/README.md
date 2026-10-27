@@ -23,6 +23,56 @@ that one-time reinstall. See the [Friday runbook](../../../governance/reviews/d4
 
 ## Standard single command
 
+### Explicit helper-only upgrade (0.9.0)
+
+After approved publication of the 0.9.0 bootstrap/installer/helper hash chain,
+an already provisioned ARM64 Self-Update installation can run:
+
+```sh
+curl -fsSL https://get.cybrrd.com | bash -s -- --upgrade-helper
+```
+
+An ordinary rerun still preserves the existing valid helper. The installer flag
+works even when the old installed command lacks this operation. No manual
+staging is needed: only the exact pinned build-4 SHA-addressed artifact is
+downloaded. Optionally append `--helper-file /absolute/path/brrdfeeder-release`
+to use local bytes; the same SHA256 is required and a root-private copy executes.
+
+The operation requires a valid existing node ID, matching updater config,
+intact system credentials, and a self-testing old helper with a
+valid receipt. Credential signatures, node binding and seed/key pairing are
+checked locally. On an existing 0.8.31 installation whose configuration names
+`/etc/brrdfeeder/secrets/brrdfeeder.creds`, an absent runtime credential is
+expected: the root-owned system bundle supplies both bootstrap and active trust
+with the original 0027 mask (0640 is accepted). When the runtime credential
+exists, its service ownership, 0077 mask, signature and matching bootstrap trust
+remain mandatory; a dangling symlink is present and refused. No credential
+file or directory is created, copied or migrated. Expired but intact credentials
+are preserved. Other missing or unsafe state is refused, never repaired by
+enrollment. There are no OAuth, device-flow, Flock,
+renewal or other identity-service calls. Python 3/PyYAML and curl must already
+be installed; this mode does not install dependencies or change accounts/services.
+
+Config, existing credential bundles, workload image pins and workload build/sequence
+floors are not written. The independent helper floor may only advance to 4.
+Higher floors, equal-build/different-hash replacements, busy locks and pending
+updater work are refused. Finish/recover pending work before retrying; do not
+uninstall or re-enroll to bypass a refusal.
+
+After validation, under launcher and updater locks, the mode installs a
+backward-compatible launcher, retains `.previous` plus checksum, and journals
+the old helper-floor bytes. Self-test/exact-build checks bracket atomic helper
+replacement. Receipt/floor writes precede durable journal removal (commit).
+Failure or interruption restores the old helper, receipt and floor. The new
+launcher stays installed on rollback so reboot recovery understands the journal.
+Older signed-host journals remain supported; signed host publication stays gated.
+
+This isolated mode bypasses general installer logging/preparation/enrollment.
+Retain its terminal result and the bootstrap log/run ID for support. Native ARM64
+crash/restart/service-readiness proof remains required before fleet publication.
+
+### Install, inspect, or remove
+
 From your normal sudo-enabled account on the Pi:
 
 ```sh

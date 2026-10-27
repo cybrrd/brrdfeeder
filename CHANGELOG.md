@@ -2,8 +2,11 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
-## 0.8.32 — Unreleased credential-renewal candidate
+## 0.9.0 — Unreleased credential-renewal candidate
 
+- Explicit helper build 4 upgrades preserve existing 0.8.31 system-only
+  credentials without creating or migrating credential state. Present runtime
+  credentials retain their full ownership, permission and trust checks.
 - Automatic engine-side HTTPS credential renewal with local replacement keys,
   independent JWT verification, private atomic credential rotation and explicit
   supervisor reconnect preserving the queue.

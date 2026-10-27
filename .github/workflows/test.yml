@@ -13,6 +13,8 @@ jobs:
   contracts:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 90
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -20,6 +22,8 @@ jobs:
           persist-credentials: false
       - name: Single workspace Cargo lockfile
         run: python3 Component/brrdfeeder/install/tests/public-ci/check-single-lockfile.py
+      - name: Packaged writer paths have uninstall coverage
+        run: python3 Component/brrdfeeder/install/tests/uninstall-state/check-writers.py
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.27.3'

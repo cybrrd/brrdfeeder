@@ -34,20 +34,27 @@ curl -fsSL https://get.cybrrd.com | bash -s -- --upgrade-helper
 
 An ordinary rerun still preserves the existing valid helper. The installer flag
 works even when the old installed command lacks this operation. No manual
-staging is needed: only the exact pinned build-3 SHA-addressed artifact is
+staging is needed: only the exact pinned build-4 SHA-addressed artifact is
 downloaded. Optionally append `--helper-file /absolute/path/brrdfeeder-release`
 to use local bytes; the same SHA256 is required and a root-private copy executes.
 
 The operation requires a valid existing node ID, matching updater config,
-intact bootstrap and active credentials, and a self-testing old helper with a
+intact system credentials, and a self-testing old helper with a
 valid receipt. Credential signatures, node binding and seed/key pairing are
-checked locally. Expired but intact credentials are preserved. Missing state is
-refused, never repaired by enrollment. There are no OAuth, device-flow, Flock,
+checked locally. On an existing 0.8.31 installation whose configuration names
+`/etc/brrdfeeder/secrets/brrdfeeder.creds`, an absent runtime credential is
+expected: the root-owned system bundle supplies both bootstrap and active trust
+with the original 0027 mask (0640 is accepted). When the runtime credential
+exists, its service ownership, 0077 mask, signature and matching bootstrap trust
+remain mandatory; a dangling symlink is present and refused. No credential
+file or directory is created, copied or migrated. Expired but intact credentials
+are preserved. Other missing or unsafe state is refused, never repaired by
+enrollment. There are no OAuth, device-flow, Flock,
 renewal or other identity-service calls. Python 3/PyYAML and curl must already
 be installed; this mode does not install dependencies or change accounts/services.
 
-Config, both credential bundles, workload image pins and workload build/sequence
-floors are not written. The independent helper floor may only advance to 3.
+Config, existing credential bundles, workload image pins and workload build/sequence
+floors are not written. The independent helper floor may only advance to 4.
 Higher floors, equal-build/different-hash replacements, busy locks and pending
 updater work are refused. Finish/recover pending work before retrying; do not
 uninstall or re-enroll to bypass a refusal.

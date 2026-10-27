@@ -2,12 +2,17 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Signed releases and independent host convergence
 
-0.9.0 adds an explicit installer-authorized build-3 upgrade, distinct from the
+0.9.0 adds an explicit installer-authorized build-4 upgrade, distinct from the
 signed host channel. See the [operator command and prerequisites](../../brrdfeeder/install/README.md#explicit-helper-only-upgrade-090).
-The opt-in local operation preserves identity/workload state, verifies both
-credential bundles locally, and serializes on `launch.lock` then `lock`.
+The opt-in local operation preserves identity/workload state, verifies existing
+credentials locally, and serializes on `launch.lock` then `lock`.
 It installs the backward-compatible launcher before journaling helper/floor
 rollback state. That launcher remains on rollback to complete crash recovery.
+On a 0.8.31 installation configured to use the system credential directly,
+an absent runtime credential uses that same securely checked root-owned bundle
+as bootstrap and active trust. Present runtime state still requires the strict
+service-owned 0600 layout; unsafe or dangling-symlink state is refused. No
+credential is created or migrated by this operation.
 Ordinary installer reruns still preserve the existing valid helper.
 
 AGPL-3.0-or-later. Nodes autonomously PULL. Command and Blue no longer initiate
@@ -161,7 +166,7 @@ the engine/console transaction:
 ```sh
 ./brrdfeeder-release publish-updater --updater-only \
   --ring dev --architecture arm64 \
-  --sha256 <standalone-executable-sha256> --build-seq 3 --sequence 1 \
+  --sha256 <standalone-executable-sha256> --build-seq 4 --sequence 1 \
   --salt updater-three --out updater.unsigned.json
 ```
 
@@ -170,7 +175,7 @@ signing/publication is blocked pending a separately validated S5 endpoint; no
 caller loads the private key. The installed verifier/recovery remains tested.
 Distinct signed domain cybrrd.host-updater.v1, explicit updater_only=true,
 architecture, ring/cohort, sequence/build, expiry and SHA256 are all checked.
-Build the example with -X main.updaterBuild=3; candidate identity must match.
+Build the example with -X main.updaterBuild=4; candidate identity must match.
 Serve its bytes at /releases/v1/updater/<sha256>/linux-arm64/brrdfeeder-release.
 No manifest URL can redirect the artifact downloader. Each failed executable
 retains its attempt receipt; 32-entry history cap then requires operator review.

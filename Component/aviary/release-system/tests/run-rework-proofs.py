@@ -31,9 +31,19 @@ mutants=[
  ('helper-missing-bootstrap',release,'local_upgrade.go','bootstrap, e := p.read(p.bootstrap, p.owner, 0027, 32768)','bootstrap, e := p.read(p.active, p.service, 0077, 32768)','TestLocalUpgradeRefusals/missing_bootstrap'),
  ('helper-missing-node',release,'local_upgrade.go','if !tokenRE.MatchString(node) {','if false {','TestLocalUpgradeRefusals/missing_node'),
  ('helper-receipt',release,'local_upgrade.go','if string(s.receipt) != contentHash(s.old)+"  "+p.binary+"\\n" {','if false {','TestLocalUpgradeRefusals/corrupt_receipt'),
- ('helper-downgrade',release,'local_upgrade.go','if s.build > 3 {','if false {','TestLocalUpgradeRefusals/downgrade'),
- ('helper-equal-build',release,'local_upgrade.go','if s.build == 3 && contentHash(s.old) != hash {','if false {','TestLocalUpgradeRefusals/equal_build_different_hash'),
+ ('helper-downgrade',release,'local_upgrade.go','if s.build > 4 {','if false {','TestLocalUpgradeRefusals/downgrade'),
+ ('helper-equal-build',release,'local_upgrade.go','if s.build == 4 && contentHash(s.old) != hash {','if false {','TestLocalUpgradeRefusals/equal_build_different_hash'),
  ('helper-architecture',release,'local_upgrade.go','binary.LittleEndian.Uint16(candidate[18:20]) != machine','false && binary.LittleEndian.Uint16(candidate[18:20]) != machine','TestLocalUpgradeRefusals/wrong_arch'),
+ ('layout-old-installer',release,'local_upgrade.go','os.IsNotExist(err) && identity.Credentials == localSystemCredentials','false && os.IsNotExist(err) && identity.Credentials == localSystemCredentials','TestLocalUpgradeOldInstallerLayout'),
+ ('layout-renewal',release,'local_upgrade.go','p.active, p.service, os.FileMode(0077)','p.active, p.service+1, os.FileMode(0077)','TestLocalUpgradeRenewalLayout'),
+ ('layout-configured-system-only',release,'local_upgrade.go','os.IsNotExist(err) && identity.Credentials == localSystemCredentials','os.IsNotExist(err)','TestLocalUpgradeAbsentRuntimeRequiresSystemConfig/_custom_credentials'),
+ ('layout-present-unsafe',release,'local_upgrade.go','os.IsNotExist(err) && identity.Credentials == localSystemCredentials','identity.Credentials == localSystemCredentials && (err == nil || os.IsNotExist(err))','TestLocalUpgradeLayoutRefusals/runtime_group_read'),
+ ('layout-dangling-symlink',release,'local_upgrade.go','os.Lstat(p.active)','os.Stat(p.active)','TestLocalUpgradeLayoutRefusals/runtime_dangling_symlink'),
+ ('layout-runtime-mode',release,'local_upgrade.go','p.active, p.service, os.FileMode(0077)','p.active, p.service, os.FileMode(0027)','TestLocalUpgradeLayoutRefusals/runtime_group_read'),
+ ('layout-trust-mismatch',release,'local_upgrade.go','if e != nil || a != t {','if e != nil || (false && a != t) {','TestLocalUpgradeLayoutRefusals/runtime_trust_mismatch'),
+ ('layout-system-missing',release,'local_upgrade.go','bootstrap, e := p.read(p.bootstrap, p.owner, 0027, 32768)','bootstrap, e := p.read(p.active, p.service, 0077, 32768)','TestLocalUpgradeLayoutRefusals/system_missing'),
+ ('layout-bootstrap-mode',release,'local_upgrade.go','p.read(p.bootstrap, p.owner, 0027, 32768)','p.read(p.bootstrap, p.owner, 0007, 32768)','TestLocalUpgradeLayoutRefusals/system_group_write'),
+ ('layout-fallback-mode',release,'local_upgrade.go','activePath, activeOwner, activeMask = p.bootstrap, p.owner, 0027','activePath, activeOwner, activeMask = p.bootstrap, p.owner, 0077','TestLocalUpgradeOldInstallerLayout'),
 ]
 receipts=[]
 for name,path,file,before,after,test in mutants:

@@ -36,7 +36,10 @@ func testNKey(raw []byte) string {
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(raw)
 }
 func testCreds(node string, salt byte) []byte {
-	issuer := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{17}, 32))
+	return testCredsIssuer(node, salt, 17)
+}
+func testCredsIssuer(node string, salt, issuerSalt byte) []byte {
+	issuer := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{issuerSalt}, 32))
 	seed := bytes.Repeat([]byte{salt}, 32)
 	key := ed25519.NewKeyFromSeed(seed)
 	account := testNKey(append([]byte{0}, issuer[32:]...))
@@ -108,7 +111,7 @@ func (f *localFixture) probe(path, verb string) (string, error) {
 	if old {
 		return f.oldBuild, nil
 	}
-	return "3\n", nil
+	return "4\n", nil
 }
 func treeBytes(t *testing.T, root string) map[string]string {
 	t.Helper()
@@ -118,6 +121,14 @@ func treeBytes(t *testing.T, root string) map[string]string {
 			return e
 		}
 		if !info.IsDir() {
+			if info.Mode()&os.ModeSymlink != 0 {
+				target, e := os.Readlink(path)
+				if e != nil {
+					return e
+				}
+				out[path] = info.Mode().String() + ":link:" + target
+				return nil
+			}
 			b, e := os.ReadFile(path)
 			if e != nil {
 				return e
@@ -150,8 +161,8 @@ func TestLocalUpgradeRefusals(t *testing.T) {
 		{"corrupt_receipt", "receipt", func(f *localFixture) {
 			os.WriteFile(f.p.receipt, []byte(strings.Repeat("0", 64)+"  "+f.p.binary+"\n"), 0600)
 		}},
-		{"downgrade", "downgrade", func(f *localFixture) { f.oldBuild = "4\n" }},
-		{"equal_build_different_hash", "equal-build", func(f *localFixture) { f.oldBuild = "3\n" }},
+		{"downgrade", "downgrade", func(f *localFixture) { f.oldBuild = "5\n" }},
+		{"equal_build_different_hash", "equal-build", func(f *localFixture) { f.oldBuild = "4\n" }},
 		{"wrong_arch", "architecture", func(f *localFixture) { f.candidate[18] = 0; f.hash = contentHash(f.candidate) }},
 		{"missing_active", "active", func(f *localFixture) { os.Remove(f.p.active) }},
 		{"bad_active_signature", "credentials", func(f *localFixture) { b, _ := os.ReadFile(f.p.active); b[40] ^= 1; os.WriteFile(f.p.active, b, 0600) }},
@@ -202,7 +213,7 @@ func TestLocalUpgradeSuccess(t *testing.T) {
 	var state map[string]any
 	b, _ = os.ReadFile(f.p.private + "/host-state.json")
 	json.Unmarshal(b, &state)
-	if state["build_seq"] != float64(3) || state["seen"].(map[string]any)["sequence"] != float64(27) || state["attempted"].(map[string]any)["retained"] != true {
+	if state["build_seq"] != float64(4) || state["seen"].(map[string]any)["sequence"] != float64(27) || state["attempted"].(map[string]any)["retained"] != true {
 		t.Fatal("host floor/sequence preservation")
 	}
 	if _, e := os.Stat(f.p.private + "/host-transaction.json"); !os.IsNotExist(e) {

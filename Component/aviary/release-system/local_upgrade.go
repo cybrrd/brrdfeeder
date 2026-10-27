@@ -34,6 +34,8 @@ type localPaths struct {
 	boundary string
 }
 
+const localSystemCredentials = "/etc/brrdfeeder/secrets/brrdfeeder.creds"
+
 func localHelperCLI(args []string) error {
 	f := flag.NewFlagSet("upgrade-local-helper", flag.ContinueOnError)
 	hash := f.String("sha256", "", "verified installer pin; installer use only")
@@ -60,14 +62,14 @@ func localHelperCLI(args []string) error {
 		return e
 	}
 	p := localPaths{binary: hostBinary, receipt: "/etc/brrdfeeder/.updater-helper.sha256",
-		config: "/etc/brrdfeeder/config.yaml", bootstrap: "/etc/brrdfeeder/secrets/brrdfeeder.creds",
+		config: "/etc/brrdfeeder/config.yaml", bootstrap: localSystemCredentials,
 		active: "/var/lib/brrdfeeder/credentials/brrdfeeder.creds", updater: "/etc/brrdfeeder/updater.json",
 		private: "/var/lib/brrdfeeder-updater", launch: "/usr/local/libexec/brrdfeeder-release-launch",
 		service: uint32(uid), boundary: "/"}
 	if e = upgradeLocal(p, candidate, *hash, probeLocal, func(string) {}); e != nil {
 		return e
 	}
-	fmt.Println("Helper build 3 verified; identity, credentials and workload state preserved. No enrollment performed.")
+	fmt.Println("Helper build 4 verified; identity, credentials and workload state preserved. No enrollment performed.")
 	return nil
 }
 
@@ -220,7 +222,7 @@ func localPreflight(p localPaths, candidate []byte, hash string, probe func(stri
 	// bounded input, no config writes and no raw YAML/credential diagnostics.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "python3", "-I", "-c", `import sys,yaml
+	cmd := exec.CommandContext(ctx, "python3", "-I", "-c", `import json,sys,yaml
 class Unique(yaml.SafeLoader): pass
 def mapping(loader,node):
     pairs=loader.construct_pairs(node)
@@ -230,13 +232,22 @@ Unique.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,mapping)
 c=yaml.load(sys.stdin.buffer.read(),Loader=Unique)
 node=c.get('node',{}).get('id','')
 if not isinstance(node,str): raise ValueError()
-print(node)`)
+configured=c.get('backhaul',{}).get('credentials_path','')
+if not isinstance(configured,str): raise ValueError()
+print(json.dumps({'node_id':node,'credentials_path':configured}))`)
 	cmd.Stdin = bytes.NewReader(config)
 	nodeRaw, e := cmd.Output()
 	if e != nil {
 		return s, errors.New("invalid existing config")
 	}
-	node := strings.TrimSuffix(string(nodeRaw), "\n")
+	var identity struct {
+		Node        string `json:"node_id"`
+		Credentials string `json:"credentials_path"`
+	}
+	if strictJSON(nodeRaw, &identity) != nil {
+		return s, errors.New("invalid existing config")
+	}
+	node := identity.Node
 	if !tokenRE.MatchString(node) {
 		return s, errors.New("missing or invalid node ID")
 	} // LOCAL MUTATE node
@@ -252,7 +263,14 @@ print(node)`)
 	if e != nil {
 		return s, errors.New("missing or unsafe bootstrap credentials")
 	} // LOCAL MUTATE bootstrap
-	active, e := p.read(p.active, p.service, 0077, 32768)
+	activePath, activeOwner, activeMask := p.active, p.service, os.FileMode(0077)
+	// 0.8.31 uses the root-owned system credential directly. Only an absent
+	// runtime pathname and that exact configured path permit this fallback.
+	// Lstat keeps dangling symlinks on the strict runtime-reader path.
+	if _, err := os.Lstat(p.active); os.IsNotExist(err) && identity.Credentials == localSystemCredentials {
+		activePath, activeOwner, activeMask = p.bootstrap, p.owner, 0027
+	}
+	active, e := p.read(activePath, activeOwner, activeMask, 32768)
 	if e != nil {
 		return s, errors.New("missing or unsafe active credentials")
 	}
@@ -317,10 +335,10 @@ print(node)`)
 	} else if !os.IsNotExist(e) {
 		return s, e
 	}
-	if s.build > 3 {
+	if s.build > 4 {
 		return s, errors.New("helper downgrade refused")
 	} // LOCAL MUTATE downgrade
-	if s.build == 3 && contentHash(s.old) != hash {
+	if s.build == 4 && contentHash(s.old) != hash {
 		return s, errors.New("equal-build different-hash helper refused")
 	} // LOCAL MUTATE equal
 	return s, nil
@@ -391,8 +409,8 @@ func upgradeLocal(p localPaths, candidate []byte, hash string, probe func(string
 			return errors.New("candidate self-test failed")
 		}
 		r, e = probe(path, "build-seq")
-		if e != nil || r != "3\n" {
-			return errors.New("candidate build is not exactly 3")
+		if e != nil || r != "4\n" {
+			return errors.New("candidate build is not exactly 4")
 		}
 		return nil
 	}
@@ -451,7 +469,7 @@ func upgradeLocal(p localPaths, candidate []byte, hash string, probe func(string
 	if len(s.floor) == 0 {
 		s.state = map[string]json.RawMessage{"next_poll": json.RawMessage(`"0001-01-01T00:00:00Z"`), "seen": json.RawMessage(`{"sequence":0,"hash":""}`), "attempted": json.RawMessage(`{}`)}
 	}
-	s.state["build_seq"] = json.RawMessage(`3`)
+	s.state["build_seq"] = json.RawMessage(`4`)
 	if e = atomicJSON(filepath.Join(p.private, "host-state.json"), s.state, 0600); e != nil {
 		return rollback(e)
 	}

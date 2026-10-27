@@ -1,0 +1,32 @@
+# /etc/brrdfeeder/config.yaml — BRRDfeeder node configuration
+# Generated as a TEMPLATE by brrdfeeder-install.sh.
+# Replace the placeholder field(s) below, then re-run: sudo bash brrdfeeder-install.sh
+
+node:
+  id: "unenrolled"                 # AUTO-ASSIGNED by flock at Device Flow enrollment
+  channel: general                # Self-Update channel: dev | staging | general; signed release must match
+  status_file: /var/lib/brrdfeeder-status/status.json
+  storage_class: "ephemeral"       # ephemeral = SD-card (BRRDfeeder tier, journald-to-RAM)
+  # location is seeded by the service from GPS, not guessed by the installer.
+
+capture:
+  interface: "EDIT-ME-wlanX"       # monitor-mode-capable Wi-Fi iface (ip link show)
+  hunter:
+    enabled: true
+
+backhaul:
+  broker_urls:
+    - "tls://ingest.cybrrd.com:4222"
+  credentials_path: "/etc/brrdfeeder/secrets/brrdfeeder.creds"
+  target_subject: "cybrrd.telemetry.frame.rid"
+
+tuning:
+  edge_processing:
+    deduplication_window_ms: 1000
+  heartbeat:
+    interval_secs: 5
+
+sensors:
+  gps:
+    device: "/dev/cybrrd_gps"      # stable udev symlink — leave as-is
+    required: true

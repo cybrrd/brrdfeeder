@@ -22,6 +22,7 @@ ROOT = HERE.parents[3]
 INSTALL = ROOT/'Component/brrdfeeder/install'
 RELEASE = ROOT/'Component/aviary/release-system'
 BASELINES = [
+    'credential-renewal/test-contract.py',
     'gps-runtime/test-contract.py',
     'gps-usb-id/test-contract.py',
     'directory-modes/test-contract.py',
@@ -45,9 +46,11 @@ BASELINES = [
     'oneliner-A/test-contract.py',
     'simple-uninstall/test-contract.py',
     'simple-uninstall/test-behavior.py',
+    'uninstall-state/test-contract.py',
     'installer-vcgencmd/test-safety.py',
     'installer-vcgencmd/test-contract.py',
     'd44-rework/test-friday.py',
+    'd44-rework/test-helper-upgrade.py',
     'self-update-2026-09-29/test-integration.py',
 ]
 MUTATIONS = [
@@ -56,6 +59,7 @@ MUTATIONS = [
     'github-scaffold/test-mutations.py',
     'source-date/test-mutations.py',
     'simple-uninstall/test-mutations.py',
+    'uninstall-state/test-mutations.py',
     'pi-native-p0/test-mutations.py',
     'ble-rfkill/run-proof.py',
 ]
@@ -113,6 +117,7 @@ groups = GROUPS if args.group == 'all' else (args.group,)
 for group in groups:
     if group == 'installer':
         run('single-lockfile', [sys.executable, HERE/'public-ci/check-single-lockfile.py'], timeout=30)
+        run('uninstall-writer-paths', [sys.executable, HERE/'uninstall-state/check-writers.py'], timeout=30)
         run('reuse-lint',[sys.executable,HERE/'ownership/check-reuse.py'],timeout=240)
         run('actionlint', ['actionlint', '-shellcheck=', '-pyflakes=', *sorted((ROOT/'.github/workflows').glob('*.yml'))])
         for path in sorted((ROOT/'.github/scripts').glob('*.sh')):
@@ -125,6 +130,7 @@ for group in groups:
         run('bt-dongle-gate',['bash',ROOT/'Component/aviary/tools/test-bt-dongle-gate.sh'])
         run('quadlet-cidfile',[sys.executable,ROOT/'Component/aviary/tools/check-quadlet-cidfile.py'])
         run('memory-host-contracts',[sys.executable,ROOT/'Component/aviary/deploy/memory/test_memory.py'])
+        run('memory-controller-contracts',[sys.executable,ROOT/'Component/aviary/deploy/memory/test_controller.py'])
         run('verbose',[sys.executable,HERE/'oneliner-verbose/proof.py','working',out/'verbose'])
         for path in sorted((ROOT/'Component').rglob('*.sh')):
             if (path.is_relative_to(ROOT/'Component/aviary') or path.is_relative_to(ROOT/'Component/brrdfeeder') or path.is_relative_to(ROOT/'Component/brrdhouse')) and not any(part in path.parts for part in ('target','.git')):
@@ -152,6 +158,8 @@ for group in groups:
         base = ['podman','run','--rm','--pull=never','--network=none','-v',str(ROOT)+':/repo:ro',
                 '-e','PYTHONDONTWRITEBYTECODE=1']
         run('uninstall-wtmpdb',base+[image,'python3','/repo/Component/brrdfeeder/install/tests/uninstall-wtmpdb/test-history.py'])
+        run('uninstall-state',base+['-e','BRRD_UNINSTALL_STATE_CONTAINER=1',image,
+            'python3','/repo/Component/brrdfeeder/install/tests/uninstall-state/test-container.py'])
         run('installer-ux-sudoers',base+['-e','BRRD_INSTALLER_UX_CONTAINER=1',image,
             'python3','/repo/Component/brrdfeeder/install/tests/installer-ux/test-sudoers.py'])
         run('installer-ux-full',base+['-e','BRRD_INSTALLER_UX_CONTAINER=1',image,

@@ -66,6 +66,7 @@ INSTALLER_SHA256="<verified below>"
 BANNER="BRRDfeeder — installer"
 BOOT_MODE=install
 case "${1:-}" in
+  --upgrade-helper) BOOT_MODE=upgrade-helper ;;
   uninstall|--uninstall) BOOT_MODE=uninstall ;;
   status) BOOT_MODE=status ;;
   support-bundle|--support-bundle) BOOT_MODE=support-bundle ;;

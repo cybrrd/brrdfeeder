@@ -19,6 +19,21 @@ sys.path.insert(0,str(TESTS/'github-scaffold'))
 from release_fixture import ReleaseFixture
 
 class Gate(unittest.TestCase):
+    def test_uninstall_writer_gate_is_required(self):
+        path='Component/brrdfeeder/install/tests/uninstall-state/check-writers.py'
+        self.assertTrue((ROOT/path).is_file(),'writer gate was removed')
+        self.assertTrue((ROOT/'Component/brrdfeeder/install/tests/uninstall-state/writer-paths.json').is_file())
+        steps=yaml.safe_load((ROOT/'.github/workflows/test.yml').read_text())['jobs']['contracts']['steps']
+        positions=[i for i,step in enumerate(steps) if step.get('run')=='python3 '+path]
+        self.assertEqual(len(positions),1,'writer gate must run in public CI')
+        self.assertNotIn('if',steps[positions[0]])
+        self.assertNotIn('continue-on-error',steps[positions[0]])
+        runner=(TESTS/'run.py').read_text()
+        self.assertIn("run('uninstall-writer-paths', [sys.executable, HERE/'uninstall-state/check-writers.py'], timeout=30)",runner)
+        self.assertIn("'uninstall-state/test-contract.py'",runner)
+        self.assertIn("'uninstall-state/test-mutations.py'",runner)
+        self.assertIn("run('uninstall-state',base+",runner)
+
     def test_single_lockfile_gate_is_required_before_provisioning(self):
         path = 'Component/brrdfeeder/install/tests/public-ci/check-single-lockfile.py'
         steps = yaml.safe_load((ROOT/'.github/workflows/test.yml').read_text())['jobs']['contracts']['steps']
@@ -210,6 +225,7 @@ runpy.run_path(sys.argv[0], run_name='__main__')
                if isinstance(n,ast.Assign) and isinstance(n.targets[0],ast.Name)
                and n.targets[0].id in ('BASELINES','MUTATIONS')}
         registered=set(lists['BASELINES']+lists['MUTATIONS']+['uninstall-wtmpdb/test-history.py',
+            'uninstall-state/test-container.py',
             'interrupted-install/test-container.py', 'gps-runtime/test-container.py', 'installer-ux/test-sudoers.py',
             'installer-ux/test-full-install.py'])
         found={p.relative_to(TESTS).as_posix() for p in TESTS.rglob('test-*.py')}

@@ -3,6 +3,9 @@
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 """Opt-in LOCAL transient user-unit proof; never a field/native-engine soak.
 
+This historical fixture deliberately reproduces the old 300s/3-start limiter.
+Use local_resilience_proof.py for the current unlimited-restart policy.
+
 Uses an already-cached fixture image, no network/pull, a capped split cgroup,
 one intentional OOM followed by a 60-second 32-MiB fixture soak. Artifacts stay
 under --out. Only this run's named container and transient service are removed.

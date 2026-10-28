@@ -6,8 +6,7 @@ After=network-online.target
 Wants=network-online.target
 Wants=brrdfeeder-memory.service brrdfeeder-memory.timer
 After=brrdfeeder-memory.service
-StartLimitIntervalSec=300
-StartLimitBurst=3
+StartLimitIntervalSec=0
 # The BRRDfeeder installer owns this system timer. Wants is non-fatal on persistent
 # tiers but ensures a provisioned black box starts with the engine.
 After=brrdfeeder-blackbox.timer
@@ -29,6 +28,7 @@ AddCapability=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_TIME
 Volume=/etc/brrdfeeder/config.yaml:/etc/brrdfeeder/config.yaml:ro,Z
 Volume=/etc/brrdfeeder/secrets:/etc/brrdfeeder/secrets:ro,Z
 Volume=/var/lib/brrdfeeder:/var/lib/brrdfeeder:rw,Z
+Volume=/var/lib/brrdfeeder/credentials:/var/lib/brrdfeeder/credentials:rw,Z
 AddDevice=/run/brrdfeeder-gps/device:/dev/cybrrd_gps:rw
 Environment=BRRDFEEDER_GPS_TRANSPORT=/dev/cybrrd_gps
 # Remove this mapping if rfkill support is not provisioned. It does not enable

@@ -209,6 +209,7 @@ pub struct HeartbeatPayload {
 /// node reports every heartbeat, plus the live #183 trusted-time handle.
 #[derive(Clone)]
 pub struct FleetProprioception {
+    pub loss: Option<crate::audit::DropCounters>,
     pub identity: crate::identity::RunningIdentity,
     pub silver: Option<crate::silver::Context>,
     pub channel: String,
@@ -555,7 +556,7 @@ pub fn build_payload(
     let blocked_reason = fleet
         .and_then(|f| f.identity.blocked_reason())
         .map(str::to_owned);
-    let management_status = context.map(|_| {
+    let mut management_status = context.map(|_| {
         crate::silver::management(
             blocked_reason.as_deref(),
             position_status.state,
@@ -563,6 +564,8 @@ pub fn build_payload(
             trusted,
         )
     });
+    if fleet.and_then(|f|f.loss.as_ref()).is_some_and(|c|c.loss.lock().unwrap_or_else(|e|e.into_inner()).impaired())
+        && management_status!=Some(crate::silver::ManagementStatus::Blocked) {management_status=Some(crate::silver::ManagementStatus::Attention);}
     let (engine_version, image_digest, build_seq, channel, os_clock_trusted, policy_ack) =
         match fleet {
             Some(f) => (
@@ -1353,6 +1356,7 @@ mod wave_7_4_tests {
     #[test]
     fn silver_fleet_fields_serialize_with_locked_names() {
         let fleet = FleetProprioception {
+            loss: None,
             identity: crate::identity::RunningIdentity::unverified(),
             silver: None,
             channel: "rc".to_string(),

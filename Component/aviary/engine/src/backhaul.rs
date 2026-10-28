@@ -18,9 +18,9 @@
 //! Just the telemetry-specific glue: drain the capture handoff channel
 //! (`mpsc::Receiver<NormalizedTelemetry>`), JSON-serialize each frame, derive its
 //! per-node subject, and hand the bytes to the [`NatsHandle`]. All buffering,
-//! batching, flush-confirm delivery, and reconnect now live in the supervisor —
-//! `handle.publish` is a non-blocking enqueue, so capture (System 1) still never
-//! blocks on the network (System 2). A serialization failure is a bug, not a
+//! batching, broker confirmation, and reconnect live in the supervisor.
+//! `handle.publish` awaits durable disk acceptance independently of the network.
+//! Capture uses a separate bounded handoff. A serialization failure is a bug, not a
 //! network condition: it's counted and the poison frame dropped.
 
 use crate::audit::DropCounters;
@@ -43,12 +43,13 @@ pub async fn run_telemetry_pump(
     while let Some(frame) = rx.recv().await {
         let subject = format!("{}.{}", TELEMETRY_SUBJECT_PREFIX, frame.node.id);
         match serde_json::to_vec(&frame) {
-            Ok(bytes) => handle.publish(subject, bytes),
+            Ok(bytes) => { let _=handle.publish(subject, bytes).await; },
             Err(e) => {
                 // Serialization failure is a bug, not a network condition.
                 // Count it; the poison frame is dropped.
                 eprintln!("[backhaul] serde error (frame dropped): {}", e);
                 counters.publish_failed.fetch_add(1, Ordering::Relaxed);
+                counters.record_loss(crate::telemetry_loss::Boundary::ProducerHandoff,frame.timestamp_utc);
             }
         }
     }

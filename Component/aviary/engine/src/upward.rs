@@ -108,6 +108,8 @@ pub enum Distress {
     UpdateQuarantined,
     UpdateRolledBack,
     UpdateRollbackFailed,
+    CredentialRenewalRequired,
+    TelemetryDropped,
 }
 
 /// Durable host-effector outcome; no keys or credentials cross this handoff.
@@ -149,6 +151,8 @@ impl UpdateOutcome {
 enum Message {
     #[serde(rename = "cybrrd.node.operational.v1")]
     Operational { image_digest: Option<String>, engine_version: Option<String>, build_seq: Option<u64>, health: Health,
+        #[serde(default, skip_serializing_if = "Option::is_none")] telemetry_gap: Option<crate::telemetry_loss::Gap>,
+        #[serde(default, skip_serializing_if = "Option::is_none")] credential_renewal: Option<crate::credential_renewal::Report>,
         #[serde(default, skip_serializing_if = "Option::is_none")] update: Option<UpdateOutcome> },
     #[serde(rename = "cybrrd.red.algedonic.v1")]
     Algedonic { code: Distress, operational: Diagnostics,
@@ -174,6 +178,8 @@ struct Record {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Diagnostics {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub telemetry_gap: Option<crate::telemetry_loss::Gap>,
     pub pending: u64,
     pub shed_oldest: u64,
     pub rejected_handoff: u64,
@@ -192,7 +198,7 @@ struct Status {
 }
 impl Status {
     fn snapshot(&self) -> Diagnostics {
-        Diagnostics { pending: self.pending.load(Ordering::Relaxed), shed_oldest: self.shed.load(Ordering::Relaxed),
+        Diagnostics { telemetry_gap: None, pending: self.pending.load(Ordering::Relaxed), shed_oldest: self.shed.load(Ordering::Relaxed),
             rejected_handoff: self.rejected.load(Ordering::Relaxed), rejected_payload: self.oversized.load(Ordering::Relaxed),
             attempts: self.attempts.load(Ordering::Relaxed), acknowledged: self.acknowledged.load(Ordering::Relaxed),
             failures: self.failures.load(Ordering::Relaxed), fault: self.fault.load(Ordering::Relaxed) }
@@ -239,9 +245,9 @@ impl Queue {
 }
 
 #[derive(Clone)]
-struct Channel { lane: Lane, queue: Arc<Mutex<Queue>>, status: Arc<Status> }
+struct Channel { lane: Lane, queue: Arc<Mutex<Queue>>, status: Arc<Status>, loss: Arc<Mutex<Option<crate::audit::DropCounters>>> }
 impl Channel {
-    fn new(lane: Lane) -> Self { Self { lane, queue: Arc::new(Mutex::new(Queue::default())), status: Arc::new(Status::default()) } }
+    fn new(lane: Lane) -> Self { Self { lane, queue: Arc::new(Mutex::new(Queue::default())), status: Arc::new(Status::default()), loss: Arc::new(Mutex::new(None)) } }
     fn enqueue(&self, record: Record) -> bool {
         if record.message.lane() != self.lane || serde_json::to_vec(&record).map_or(true, |v| v.len() > MAX_PAYLOAD) {
             self.status.oversized.fetch_add(1, Ordering::Relaxed);
@@ -252,6 +258,13 @@ impl Channel {
             Ok(mut queue) => { queue.push(record, self.lane); self.account(&queue); true }
             Err(_) => { self.status.rejected.fetch_add(1, Ordering::Relaxed); false }
         }
+    }
+    fn enqueue_gap(&self, record: Record) -> bool {
+        if serde_json::to_vec(&record).map_or(true, |v|v.len()>MAX_PAYLOAD) {return false;}
+        let Ok(mut q)=self.queue.try_lock() else {return false;};
+        if q.records.iter().any(|r|r.message_id==record.message_id) {return true;}
+        if q.records.len()>=self.lane.capacity() {return false;}
+        q.push(record,self.lane);self.account(&q);true
     }
     fn account(&self, q: &Queue) {
         self.status.pending.store(q.records.len() as u64, Ordering::Relaxed);
@@ -345,6 +358,7 @@ async fn publish(js: &jetstream::Context, lane: Lane, record: &Record) -> Result
 }
 
 async fn worker(channel: Channel, root: PathBuf, node: String, connection: Connection, stop: Arc<AtomicBool>) {
+    let mut rotation=crate::credential_renewal::upward_rotation();
     let mut store: Option<Store> = None;
     let mut saved_generation: Option<u64> = None;
     let mut js = None;
@@ -354,6 +368,9 @@ async fn worker(channel: Channel, root: PathBuf, node: String, connection: Conne
     let mut disk_failures = 0;
     let mut last_drops = (0, 0, 0);
     while !stop.load(Ordering::Relaxed) {
+        if rotation.has_changed().unwrap_or(false) {
+            rotation.borrow_and_update(); js=None; failures=0; next_attempt=Instant::now();
+        }
         let stats = channel.status.snapshot();
         let drops = (stats.shed_oldest, stats.rejected_handoff, stats.rejected_payload);
         if drops != last_drops {
@@ -421,6 +438,14 @@ async fn worker(channel: Channel, root: PathBuf, node: String, connection: Conne
             matches!(timeout(IO_TIMEOUT, publish(context, channel.lane, record)).await, Ok(Ok(())))
         } else { false };
         if delivered { // D40 mutation target: retirement requires a real PubAck.
+            if let Message::Algedonic {operational:Diagnostics {telemetry_gap:Some(gap),..},..}=&record.message {
+                let tracker=channel.loss.lock().ok().and_then(|v|v.clone());
+                if let Some(tracker)=tracker {
+                    let gap=gap.clone();
+                    let saved=tokio::task::spawn_blocking(move || tracker.loss.lock().unwrap_or_else(|e|e.into_inner()).acknowledge(&gap)).await;
+                    if !matches!(saved,Ok(Ok(()))) {channel.status.failed(channel.lane,1);sleep(IDLE).await;continue;}
+                }
+            }
             if let Ok(mut q) = channel.queue.lock() { q.retire(&record.message_id); channel.account(&q); }
             channel.status.delivered(durable);
             eprintln!("[upward] lane={} acknowledged={} durable_staging={} duplicate_delivery_possible=true",
@@ -463,9 +488,20 @@ impl Handle {
         health.identity_verified = identity.verified_policy_floor().is_some();
         health.healthy = health.identity_verified && health.radio_up
             && (!health.gps_required || (health.gps_healthy && health.clock_trusted));
+        let tracker=self.red.loss.lock().ok().and_then(|v|v.clone());
+        let gaps=tracker.as_ref().map(|c|c.loss.lock().unwrap_or_else(|e|e.into_inner()).gaps()).unwrap_or_default();
+        if tracker.as_ref().is_some_and(|c|c.loss.lock().unwrap_or_else(|e|e.into_inner()).impaired()) {health.healthy=false;}
         let trusted = health.clock_trusted;
+        // Emit one cumulative report per affected boundary. The optional object
+        // has the same shape in Red and Silver; existing fields stay unchanged.
+        for gap in &gaps {
+            if !self.operational.enqueue(self.record(Message::Operational { image_digest: identity.image_digest.clone(),
+                engine_version:identity.engine_version.clone(),build_seq:identity.build_seq,health:health.clone(),update:update.clone(),
+                credential_renewal:Some(crate::credential_renewal::snapshot()),telemetry_gap:Some(gap.clone())},trusted)) {return false;}
+        }
+        if !gaps.is_empty() {return true;}
         self.operational.enqueue(self.record(Message::Operational { image_digest: identity.image_digest.clone(),
-            engine_version: identity.engine_version.clone(), build_seq: identity.build_seq, health, update }, trusted))
+            engine_version: identity.engine_version.clone(), build_seq: identity.build_seq, health, update, telemetry_gap: None, credential_renewal: Some(crate::credential_renewal::snapshot()) }, trusted))
     }
     pub fn alarm(&self, code: Distress, clock_trusted: bool) -> bool {
         self.red.enqueue(self.record(Message::Algedonic { code, operational: self.operational.status.snapshot(), update: None }, clock_trusted))
@@ -474,6 +510,20 @@ impl Handle {
         let Some(code) = outcome.distress() else { return true; };
         self.red.enqueue(self.record(Message::Algedonic { code, operational: self.operational.status.snapshot(), update: Some(outcome.clone()) }, clock_trusted))
     }
+    fn gap_alarms(&self, clock_trusted:bool) {
+        let tracker=self.red.loss.lock().ok().and_then(|v|v.clone());
+        let Some(tracker)=tracker else {return;};
+        let pending=tracker.loss.lock().unwrap_or_else(|e|e.into_inner()).pending();
+        for gap in pending {
+            let mut diagnostics=self.operational.status.snapshot();diagnostics.telemetry_gap=Some(gap.clone());
+            let mut record=self.record(Message::Algedonic{code:Distress::TelemetryDropped,operational:diagnostics,update:None},clock_trusted);
+            // Stable through retry, eviction, and process restart. The ledger
+            // keeps the threshold's exact historical count and capture range.
+            record.message_id=format!("{}:gap:{:?}:{}:{}",self.node,gap.boundary,gap.first_capture_ms,gap.count);
+            record.observed_unix_ms=gap.last_capture_ms;
+            if !self.red.enqueue_gap(record) {break;}
+        }
+    }
     pub fn routine_failed(&self) -> bool { self.operational.status.fault.load(Ordering::Relaxed) != 0 }
     pub async fn shutdown(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
@@ -481,7 +531,7 @@ impl Handle {
     }
 }
 
-pub fn start(config: &Config, node: &str, urls: Vec<String>, credentials: String) -> Result<Handle, String> {
+pub fn start(config: &Config, node: &str, urls: Vec<String>, credentials: String, counters: crate::audit::DropCounters) -> Result<Handle, String> {
     config.validate(node)?;
     // Nonblocking kernel randomness, not wall-clock uniqueness on an RTC-less node.
     let mut nonce = [0u8; 16];
@@ -489,7 +539,9 @@ pub fn start(config: &Config, node: &str, urls: Vec<String>, credentials: String
         return Err("upward session identity unavailable".into());
     }
     let connection = Connection { urls, credentials, #[cfg(test)] test_user: None };
-    Ok(launch(config, node, hex::encode(nonce), connection))
+    let handle=launch(config,node,hex::encode(nonce),connection);
+    *handle.red.loss.lock().unwrap_or_else(|e|e.into_inner())=Some(counters);
+    Ok(handle)
 }
 fn launch(config: &Config, node: &str, nonce: String, connection: Connection) -> Handle {
     let operational = Channel::new(Lane::Operational);
@@ -537,7 +589,10 @@ pub async fn monitor(mut handle: Handle, identity: crate::identity::RunningIdent
         if last_update != update {
             if update.as_ref().is_none_or(|outcome| handle.update_alarm(outcome, health.clock_trusted)) { last_update = update; }
         }
+        // Data-loss Red is never suppressed by the sensor boot grace.
+        handle.gap_alarms(health.clock_trusted);
         let mut faults = Vec::new();
+        if crate::credential_renewal::alert() {faults.push(Distress::CredentialRenewalRequired);}
         if !health.identity_verified { faults.push(Distress::RunningIdentityUnverified); }
         if !health.radio_up { faults.push(Distress::RadioUnavailable); }
         if gps_required && !health.gps_healthy { faults.push(Distress::RequiredGpsUnavailable); }

@@ -1,107 +1,72 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Macawi LLC
-//! The single multiplexed, supervised NATS connection (#178).
-//!
-//! Reviewed 2026-06-17 (the development team and reviewers). Consolidates the engine's
-//! five previously-independent NATS clients (telemetry / heartbeat / audit /
-//! substrate-audit / green-tick) into ONE supervised connection. Five TCP
-//! connections to the same broker on an embedded edge node was an anti-pattern,
-//! and only telemetry carried the warm-capture armor — the **heartbeat liveness
-//! nerve** could silently wedge while telemetry pumped fine, making any future
-//! command surface believe a healthy node was dead. Now every publisher routes
-//! through this one supervisor, so every path inherits the same armor:
-//!
-//!   - transactional flush-confirm delivery (a frame leaves the edge buffer only
-//!     once the broker round-trip confirms receipt — closes the fire-and-forget
-//!     silent-loss hole);
-//!   - wedge detection via timeout(FLUSH_TIMEOUT, flush()), WEDGE_GRACE patience;
-//!   - in-place reconnect (exp backoff, retries forever) with NO process restart;
-//!   - bounded edge buffer (ring, drop-oldest) that survives the outage.
-//!
-//! Producers hold a cheap, cloneable [`NatsHandle`] and call `publish(subject,
-//! bytes)` — a non-blocking enqueue. The payload is already serialized: this
-//! module is transport-only, type-agnostic (it carries opaque `Outbound`).
-//!
-//! v1 uses a single drop-oldest buffer for all message types. Priority lanes
-//! (never drop a heartbeat/algedonic in favour of a telemetry frame) are a
-//! noted v2 refinement.
-
-use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-
+//! One supervised connection with disk custody independent of network waits.
+//! Producers await a bounded disk-writer handoff; network reconnect, publish,
+//! and flush never stop the writer. Every accepted message is fsynced before
+//! acceptance. A replay batch remains on disk until the broker barrier passes.
+use crate::audit::DropCounters;
+use crate::outage_spool::{Config, Spool};
+use crate::telemetry_loss::{Boundary, Ledger};
 use async_nats::{Client, ConnectOptions};
 use bytes::Bytes;
-use tokio::sync::mpsc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use tokio::sync::{mpsc, oneshot, watch, Notify};
 use tokio::time::timeout;
 
-use crate::audit::DropCounters;
-
-/// Max messages retained locally during a backhaul outage (ring buffer; oldest
-/// evicted on overflow). WHAT: depth between producers and the broker, across
-/// ALL message types. WHY: a mobile sensor must keep witnessing through cell
-/// dead-zones; drop-oldest = freshest telemetry wins under sustained overflow.
-/// WHEN-to-tune: raise for longer-outage retention at more RAM. DEPENDS-ON:
-/// per-message size, node RAM.
-const EDGE_BUFFER_CAPACITY: usize = 10_000;
-
-/// Messages per publish→flush delivery transaction. WHY: amortizes the
-/// confirming flush() round-trip over a batch while bounding unconfirmed
-/// in-flight messages.
 const PUBLISH_BATCH: usize = 256;
-
-/// Idle liveness-probe cadence (buffer empty → no traffic to carry the
-/// round-trip). A wedge must be caught even when nothing is flowing.
+// 1/64 of the 256-MiB service cap. Spool::peek checks this BEFORE loading
+// record bodies; count alone permits a 256-MiB lease. Decoding temporarily
+// needs at most one extra 1-MiB record, plus bounded per-message metadata.
+pub(crate) const PUBLISH_BATCH_BYTES: usize = 4 * 1024 * 1024;
 const LIVENESS_PROBE_INTERVAL: Duration = Duration::from_secs(15);
-
-/// Single flush round-trip deadline. A healthy broker PONGs in <1 s even over
-/// LTE; 8 s tolerates a slow-but-alive link without false-positiving.
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(8);
-
-/// Sustained no-confirmed-round-trip window before declaring a wedge and
-/// reconnecting in place. THE patience knob. (Effective detection is this +
-/// async-nats's own dead-socket detection ≈ +60 s; see #177.)
-const WEDGE_GRACE: Duration = Duration::from_secs(60);
-
-/// Wait between flush retries within the grace window (batch already enqueued;
-/// we retry the confirm, not the publish).
-const FLUSH_RETRY: Duration = Duration::from_secs(1);
-
 const RECONNECT_BACKOFF_INITIAL: Duration = Duration::from_secs(1);
 const RECONNECT_BACKOFF_MAX: Duration = Duration::from_secs(30);
-
-/// Handoff channel depth (producers → supervisor). The real outage buffer is the
-/// VecDeque below; this just needs headroom for the supervisor's non-draining
-/// windows (a connect attempt / flush).
 const HANDOFF_CAPACITY: usize = 1024;
 
-/// One already-serialized message bound for a NATS subject.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Outbound {
     pub subject: String,
     pub payload: Bytes,
+    pub capture_ms: u64,
 }
-
-/// Cheap, cloneable handle every producer holds. `publish` is a non-blocking
-/// enqueue into the supervisor's handoff channel; on a (rare) full channel the
-/// message is dropped and counted — the supervisor's ring buffer is the real
-/// elastic capacity.
+impl Outbound {
+    fn new(subject: String, payload: Vec<u8>) -> Self {
+        // Transport metadata only; the original v4 bytes are never rewritten.
+        let capture_ms = serde_json::from_slice::<serde_json::Value>(&payload)
+            .ok()
+            .and_then(|v| v.get("timestamp_utc").and_then(|n| n.as_u64()))
+            .unwrap_or_else(crate::heartbeat::now_unix_ms);
+        Self {
+            subject,
+            payload: payload.into(),
+            capture_ms,
+        }
+    }
+}
+struct Ingest {
+    message: Outbound,
+    retained_by_caller: bool,
+    accepted: oneshot::Sender<bool>,
+}
 #[derive(Clone)]
 pub struct NatsHandle {
-    tx: mpsc::Sender<Outbound>,
+    rotation: watch::Sender<u64>,
+    rotated: watch::Receiver<u64>,
+    tx: mpsc::Sender<Ingest>,
     counters: DropCounters,
     pub status: Arc<NatsStatus>,
 }
-
-/// Only connection state and confirmed-publish time are exposed to status.
-/// No URLs, subjects, credentials, tokens, or broker errors are serialized.
 #[derive(Default)]
 pub struct NatsStatus {
     client: arc_swap::ArcSwapOption<Client>,
     pub last_publish_ms: AtomicU64,
+    pub spool_bytes: AtomicU64,
+    pub spool_fault: AtomicBool,
+    pub max_sync_us: AtomicU64,
 }
-
 impl NatsStatus {
     pub fn connection_state(&self) -> String {
         self.client
@@ -111,16 +76,52 @@ impl NatsStatus {
             .unwrap_or_else(|| "disconnected".to_string())
     }
 }
-
 impl NatsHandle {
-    /// Enqueue an already-serialized payload for `subject`. Never blocks the
-    /// caller (capture loop, heartbeat, etc.).
-    pub fn publish(&self, subject: String, payload: Vec<u8>) {
-        let msg = Outbound { subject, payload: Bytes::from(payload) };
-        if self.tx.try_send(msg).is_err() {
-            // Handoff full (supervisor briefly not draining) — drop + account.
-            self.counters.publish_failed.fetch_add(1, Ordering::Relaxed);
+    pub async fn rotate_credentials(&self) -> bool {
+        self.rotation.send_modify(|n| *n = n.saturating_add(1));
+        let generation = *self.rotation.borrow();
+        crate::credential_renewal::signal_upward_rotation();
+        let mut confirmed = self.rotated.clone();
+        let ok = matches!(
+            timeout(
+                Duration::from_secs(45),
+                confirmed.wait_for(|n| *n >= generation)
+            )
+            .await,
+            Ok(Ok(_))
+        );
+        ok
+    }
+    pub async fn publish(&self, subject: String, payload: Vec<u8>) -> bool {
+        self.enqueue(subject, payload, false).await
+    }
+    /// Audit retries retain their own window. A refused attempt is not another
+    /// dropped observation and must not recursively create more audit loss.
+    pub async fn publish_retained(&self, subject: String, payload: Vec<u8>) -> bool {
+        self.enqueue(subject, payload, true).await
+    }
+    async fn enqueue(&self, subject: String, payload: Vec<u8>, retained_by_caller: bool) -> bool {
+        let message = Outbound::new(subject, payload);
+        let capture_ms = message.capture_ms;
+        let (accepted, receipt) = oneshot::channel();
+        if self
+            .tx
+            .send(Ingest {
+                message,
+                retained_by_caller,
+                accepted,
+            })
+            .await
+            .is_err()
+        {
+            if !retained_by_caller {
+                self.counters.publish_failed.fetch_add(1, Ordering::Relaxed);
+                self.counters
+                    .record_loss(Boundary::ProducerHandoff, capture_ms);
+            }
+            return false;
         }
+        receipt.await.unwrap_or(false)
     }
 }
 
@@ -141,96 +142,144 @@ pub struct ControlConfig {
     pub running_build_seq: Option<u64>,
 }
 
-/// Start the supervised connection. Spawns the supervisor task and returns the
-/// handle producers publish through. Replaces the five inline connects.
+/// Open durable state before capture starts. A broken/locked store fails loud;
+/// no implicit RAM-only fallback can silently discard the only saved copy.
 pub fn start(
     broker_urls: Vec<String>,
     credentials_path: String,
     counters: DropCounters,
     control: Option<ControlConfig>,
-) -> NatsHandle {
-    let (tx, rx) = mpsc::channel::<Outbound>(HANDOFF_CAPACITY);
+    config: &Config,
+) -> std::io::Result<NatsHandle> {
+    let spool = Spool::open(config)?;
+    *counters.loss.lock().unwrap_or_else(|e| e.into_inner()) = Ledger::open(&config.directory)?;
+    counters
+        .loss
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .storage_fault = spool.corrupt;
     let status = Arc::new(NatsStatus::default());
+    status.spool_bytes.store(spool.bytes(), Ordering::Relaxed);
+    status.spool_fault.store(spool.corrupt, Ordering::Relaxed);
+    let spool = Arc::new(Mutex::new(spool));
+    let wake = Arc::new(Notify::new());
+    let (tx, mut rx) = mpsc::channel::<Ingest>(HANDOFF_CAPACITY);
+    let (rotation, rotation_rx) = watch::channel(0u64);
+    let (rotated_tx, rotated) = watch::channel(0u64);
     let handle = NatsHandle {
+        rotation,
+        rotated,
         tx,
         counters: counters.clone(),
-        status: Arc::clone(&status),
+        status: status.clone(),
     };
+    let (disk, signal, stats) = (spool.clone(), wake.clone(), status.clone());
+    // Dedicated bounded writer continues through DNS, connect, flush, and
+    // broker timeouts. No file syscall runs on a Tokio reactor thread.
+    std::thread::Builder::new()
+        .name("outage-spool".into())
+        .spawn(move || {
+            while let Some(request) = rx.blocking_recv() {
+                let mut spool = disk.lock().unwrap_or_else(|e| e.into_inner());
+                let result = spool.append(&request.message);
+                let accepted = matches!(result, Ok(true));
+                stats.spool_bytes.store(spool.bytes(), Ordering::Relaxed);
+                stats
+                    .max_sync_us
+                    .store(spool.max_sync_us, Ordering::Relaxed);
+                stats
+                    .spool_fault
+                    .store(spool.corrupt || result.is_err(), Ordering::Relaxed);
+                counters
+                    .loss
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .storage_fault = spool.corrupt || result.is_err();
+                if accepted {
+                    counters.resumed(Boundary::OutageSpool);
+                    counters.resumed(Boundary::ProducerHandoff);
+                }
+                if !accepted && !request.retained_by_caller {
+                    counters.publish_failed.fetch_add(1, Ordering::Relaxed);
+                    counters.record_loss(Boundary::OutageSpool, request.message.capture_ms);
+                }
+                if let Err(e) = result {
+                    eprintln!("[nats] spool append failed; saved records retained: {e}");
+                }
+                drop(spool);
+                let _ = request.accepted.send(accepted);
+                signal.notify_one();
+            }
+        })?;
     tokio::spawn(supervisor_loop(
-        rx, broker_urls, credentials_path, counters, control, status,
+        spool,
+        wake,
+        broker_urls,
+        credentials_path,
+        control,
+        status,
+        rotation_rx,
+        rotated_tx,
     ));
-    handle
+    Ok(handle)
 }
-
 enum PumpExit {
-    ChannelClosed,
+    Rotate,
     Wedged,
 }
-
 async fn supervisor_loop(
-    mut rx: mpsc::Receiver<Outbound>,
+    spool: Arc<Mutex<Spool>>,
+    wake: Arc<Notify>,
     broker_urls: Vec<String>,
     credentials_path: String,
-    counters: DropCounters,
     control: Option<ControlConfig>,
     status: Arc<NatsStatus>,
+    mut rotation: watch::Receiver<u64>,
+    rotated: watch::Sender<u64>,
 ) {
-    println!(
-        "[nats] multiplexed supervisor starting; broker(s)={:?} creds={} edge_buffer={}",
-        broker_urls, credentials_path, EDGE_BUFFER_CAPACITY
-    );
-    let mut buffer: VecDeque<Outbound> = VecDeque::with_capacity(1024);
-
+    let mut backoff = RECONNECT_BACKOFF_INITIAL;
     loop {
-        let client = match connect_with_backoff(
-            &broker_urls,
-            &credentials_path,
-            &mut rx,
-            &mut buffer,
-            &counters,
-        )
-        .await
-        {
-            Some(c) => c,
-            None => {
-                println!("[nats] handoff closed during reconnect; supervisor exiting");
-                return;
+        if rotation.has_changed().is_err() {
+            return;
+        }
+        let generation = *rotation.borrow_and_update();
+        let result = tokio::select! {
+            result=connect_once(&broker_urls,&credentials_path)=>result,
+            _=rotation.changed()=>continue,
+        };
+        let client = match result {
+            Ok(c) => {
+                backoff = RECONNECT_BACKOFF_INITIAL;
+                c
+            }
+            Err(e) => {
+                eprintln!("[nats] connect failed: {e}; disk writer remains active");
+                tokio::select! { _=tokio::time::sleep(jittered_delay(backoff))=>{}, _=rotation.changed()=>{} }
+                backoff = (backoff * 2).min(RECONNECT_BACKOFF_MAX);
+                continue;
             }
         };
-        println!("[nats] connected; pumping (buffered={})", buffer.len());
         status.client.store(Some(Arc::new(client.clone())));
-
-        // #185 Drop 1c — the inbound control consumer rides THIS connection
-        // (the #178 ethos: one supervised link). It holds a client clone, so we
-        // must abort it before drop(client), or the clone would pin the
-        // connection open and defeat the wedge-reconnect.
-        let consumer_task = control
+        rotated.send_replace(generation);
+        let consumer = control
             .as_ref()
             .map(|ctrl| tokio::spawn(control_consumer(client.clone(), ctrl.clone())));
-
-        let outcome = pump(&client, &mut rx, &mut buffer, &counters, &status).await;
-        status.client.store(None); // release the clone before reconnect/shutdown
-        match outcome {
-            PumpExit::ChannelClosed => {
-                if let Some(h) = consumer_task {
-                    h.abort();
-                }
-                let _ = timeout(FLUSH_TIMEOUT, client.flush()).await;
-                println!("[nats] handoff closed; supervisor exiting");
-                return;
-            }
-            PumpExit::Wedged => {
-                if let Some(h) = consumer_task {
-                    h.abort();
-                }
-                eprintln!(
-                    "[nats] WEDGE: no confirmed broker round-trip in {}s — dropping client, \
-                     reconnecting in place (capture stays warm; {} buffered)",
-                    WEDGE_GRACE.as_secs(),
-                    buffer.len()
-                );
-                drop(client);
-            }
+        let outcome = pump(
+            &client,
+            &spool,
+            &wake,
+            &status,
+            &mut rotation,
+            control.as_ref(),
+        )
+        .await;
+        if let Some(task) = consumer {
+            task.abort();
+        }
+        status.client.store(None);
+        drop(client);
+        if matches!(outcome, PumpExit::Wedged) {
+            tokio::time::sleep(jittered_delay(RECONNECT_BACKOFF_INITIAL)).await;
         }
     }
 }
@@ -350,128 +399,96 @@ async fn control_consumer(client: Client, ctrl: ControlConfig) {
     println!("[blue] control membrane ended (reconnect)");
 }
 
+async fn broker_barrier(client: &Client, control: Option<&ControlConfig>) -> Result<(), String> {
+    client.flush().await.map_err(|e| e.to_string())?;
+    // async-nats 0.50 flush only drains its local socket buffer. The existing
+    // Blue stream-info permission provides an ordered broker round trip on
+    // THIS connection. The caller checks the connection generation: a new
+    // socket cannot confirm messages from an old one. This confirms broker receipt,
+    // not permanent lake custody (v5's separate contract).
+    let stream = control
+        .map(|c| c.stream.as_str())
+        .unwrap_or("CYBRRD_CONTROL");
+    async_nats::jetstream::new(client.clone())
+        .get_stream(stream)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
 async fn pump(
     client: &Client,
-    rx: &mut mpsc::Receiver<Outbound>,
-    buffer: &mut VecDeque<Outbound>,
-    counters: &DropCounters,
+    spool: &Arc<Mutex<Spool>>,
+    wake: &Notify,
     status: &NatsStatus,
+    rotation: &mut watch::Receiver<u64>,
+    control: Option<&ControlConfig>,
 ) -> PumpExit {
-    let mut last_roundtrip = Instant::now();
-
     loop {
-        ingest_ready(rx, buffer, counters);
-
-        if buffer.is_empty() {
+        if rotation.has_changed().unwrap_or(false) {
+            return PumpExit::Rotate;
+        }
+        let disk = spool.clone();
+        let batch = match tokio::task::spawn_blocking(move || {
+            disk.lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .peek(PUBLISH_BATCH, PUBLISH_BATCH_BYTES)
+        })
+        .await
+        {
+            Ok(Ok(b)) => b,
+            _ => {
+                status.spool_fault.store(true, Ordering::Relaxed);
+                return PumpExit::Wedged;
+            }
+        };
+        if batch.messages.is_empty() {
             tokio::select! {
-                maybe = rx.recv() => match maybe {
-                    Some(msg) => push_drop_oldest(buffer, msg, counters),
-                    None => return PumpExit::ChannelClosed,
-                },
-                _ = tokio::time::sleep(LIVENESS_PROBE_INTERVAL) => {
-                    match timeout(FLUSH_TIMEOUT, client.flush()).await {
-                        Ok(Ok(())) => last_roundtrip = Instant::now(),
-                        _ => {
-                            if last_roundtrip.elapsed() >= WEDGE_GRACE {
-                                return PumpExit::Wedged;
-                            }
-                        }
-                    }
+                _=rotation.changed()=>return PumpExit::Rotate,
+                _=wake.notified()=>{},
+                _=tokio::time::sleep(LIVENESS_PROBE_INTERVAL)=>{
+                    if !matches!(timeout(FLUSH_TIMEOUT,broker_barrier(client,control)).await,Ok(Ok(()))) {return PumpExit::Wedged;}
                 }
             }
             continue;
         }
-
-        // Take a batch out so concurrent eviction can't misalign removal.
-        let n = buffer.len().min(PUBLISH_BATCH);
-        let in_flight: Vec<Outbound> = buffer.drain(..n).collect();
-
-        for msg in &in_flight {
-            if let Err(e) = client.publish(msg.subject.clone(), msg.payload.clone()).await {
-                eprintln!("[nats] publish error: {} — reconnecting in place", e);
-                prepend(buffer, in_flight);
+        let generation = client.statistics().connects.load(Ordering::Acquire);
+        let publish = async {
+            for msg in &batch.messages {
+                client
+                    .publish(msg.subject.clone(), msg.payload.clone())
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+            broker_barrier(client, control).await
+        };
+        let confirmed = tokio::select! {
+            result=timeout(FLUSH_TIMEOUT,publish)=>match result {
+                Ok(Ok(()))=>true,
+                Ok(Err(e))=>{eprintln!("[nats] broker confirmation failed; batch retained: {e}");false},
+                Err(_)=>{eprintln!("[nats] broker confirmation timed out; batch retained");false},
+            },
+            _=rotation.changed()=>return PumpExit::Rotate,
+        };
+        if !confirmed || generation != client.statistics().connects.load(Ordering::Acquire) {
+            return PumpExit::Wedged;
+        }
+        let disk = spool.clone();
+        match tokio::task::spawn_blocking(move || {
+            let mut spool = disk.lock().unwrap_or_else(|e| e.into_inner());
+            spool.commit(&batch)?;
+            Ok::<_, std::io::Error>(spool.bytes())
+        })
+        .await
+        {
+            Ok(Ok(bytes)) => {
+                status.spool_bytes.store(bytes, Ordering::Relaxed);
+                status
+                    .last_publish_ms
+                    .store(crate::heartbeat::now_unix_ms(), Ordering::Relaxed);
+            }
+            _ => {
+                status.spool_fault.store(true, Ordering::Relaxed);
                 return PumpExit::Wedged;
-            }
-        }
-
-        // Confirm the batch reached the broker (flush = round-trip). Retry the
-        // flush (messages already enqueued), not the publish.
-        loop {
-            match timeout(FLUSH_TIMEOUT, client.flush()).await {
-                Ok(Ok(())) => {
-                    last_roundtrip = Instant::now();
-                    status
-                        .last_publish_ms
-                        .store(crate::heartbeat::now_unix_ms(), Ordering::Relaxed);
-                    break; // confirmed → in_flight dropped (delivered)
-                }
-                _ => {
-                    if last_roundtrip.elapsed() >= WEDGE_GRACE {
-                        prepend(buffer, in_flight);
-                        return PumpExit::Wedged;
-                    }
-                    ingest_ready(rx, buffer, counters);
-                    tokio::time::sleep(FLUSH_RETRY).await;
-                }
-            }
-        }
-    }
-}
-
-/// Drain everything currently waiting in the handoff into the ring buffer
-/// without blocking (drop-oldest at capacity).
-fn ingest_ready(
-    rx: &mut mpsc::Receiver<Outbound>,
-    buffer: &mut VecDeque<Outbound>,
-    counters: &DropCounters,
-) {
-    while let Ok(msg) = rx.try_recv() {
-        push_drop_oldest(buffer, msg, counters);
-    }
-}
-
-/// Ring-buffer push: evict (and count) the oldest at capacity. Generic so the
-/// drop policy is unit-testable without constructing `Outbound`.
-fn push_drop_oldest<T>(buffer: &mut VecDeque<T>, msg: T, counters: &DropCounters) {
-    if buffer.len() >= EDGE_BUFFER_CAPACITY {
-        buffer.pop_front();
-        counters.publish_failed.fetch_add(1, Ordering::Relaxed);
-    }
-    buffer.push_back(msg);
-}
-
-/// Return an unconfirmed batch to the FRONT (preserving order) so it re-sends
-/// first after reconnect. Generic for testability.
-fn prepend<T>(buffer: &mut VecDeque<T>, in_flight: Vec<T>) {
-    for msg in in_flight.into_iter().rev() {
-        buffer.push_front(msg);
-    }
-}
-
-/// Connect, retrying forever with exponential backoff, while still ingesting
-/// producer messages into the buffer during the wait. Returns `None` only if
-/// the handoff channel closes (clean shutdown).
-async fn connect_with_backoff(
-    broker_urls: &[String],
-    credentials_path: &str,
-    rx: &mut mpsc::Receiver<Outbound>,
-    buffer: &mut VecDeque<Outbound>,
-    counters: &DropCounters,
-) -> Option<Client> {
-    let mut backoff = RECONNECT_BACKOFF_INITIAL;
-    loop {
-        match connect_once(broker_urls, credentials_path).await {
-            Ok(client) => return Some(client),
-            Err(e) => {
-                let delay = jittered_delay(backoff);
-                eprintln!(
-                    "[nats] connect failed: {} — retry in {:?} (buffered={})",
-                    e, delay, buffer.len()
-                );
-                if !sleep_while_ingesting(delay, rx, buffer, counters).await {
-                    return None;
-                }
-                backoff = (backoff * 2).min(RECONNECT_BACKOFF_MAX);
             }
         }
     }
@@ -483,13 +500,14 @@ fn jittered_delay(base: Duration) -> Duration {
     use std::hash::BuildHasher;
     use std::sync::atomic::{AtomicU64, Ordering};
     static ATTEMPT: AtomicU64 = AtomicU64::new(0);
-    let sample = std::collections::hash_map::RandomState::new().hash_one(ATTEMPT.fetch_add(1,Ordering::Relaxed));
-    delay_from_sample(base,sample)
+    let sample = std::collections::hash_map::RandomState::new()
+        .hash_one(ATTEMPT.fetch_add(1, Ordering::Relaxed));
+    delay_from_sample(base, sample)
 }
-fn delay_from_sample(base:Duration,sample:u64)->Duration {
-    let ceiling=base.as_millis().min(u64::MAX as u128) as u64;
-    let floor=ceiling/2;
-    Duration::from_millis(floor + sample % (ceiling-floor+1))
+fn delay_from_sample(base: Duration, sample: u64) -> Duration {
+    let ceiling = base.as_millis().min(u64::MAX as u128) as u64;
+    let floor = ceiling / 2;
+    Duration::from_millis(floor + sample % (ceiling - floor + 1))
 }
 
 #[cfg(test)]
@@ -497,12 +515,16 @@ mod retry_tests {
     use super::*;
     #[test]
     fn jitter_varies_and_stays_inside_backoff_cap() {
-        for base in [RECONNECT_BACKOFF_INITIAL,RECONNECT_BACKOFF_MAX,Duration::from_secs(60)] {
-            for sample in [0,1,500,1000,u64::MAX] {
-                let delay=delay_from_sample(base,sample);
-                assert!(delay>=base/2 && delay<=base);
+        for base in [
+            RECONNECT_BACKOFF_INITIAL,
+            RECONNECT_BACKOFF_MAX,
+            Duration::from_secs(60),
+        ] {
+            for sample in [0, 1, 500, 1000, u64::MAX] {
+                let delay = delay_from_sample(base, sample);
+                assert!(delay >= base / 2 && delay <= base);
             }
-            assert_ne!(delay_from_sample(base,0),delay_from_sample(base,1));
+            assert_ne!(delay_from_sample(base, 0), delay_from_sample(base, 1));
         }
     }
 }
@@ -511,65 +533,14 @@ async fn connect_once(broker_urls: &[String], credentials_path: &str) -> Result<
     let opts = ConnectOptions::with_credentials_file(credentials_path)
         .await
         .map_err(|e| format!("credentials {}: {}", credentials_path, e))?;
-    opts.connection_timeout(Duration::from_secs(10))
+    opts.max_reconnects(1)
+        .connection_timeout(Duration::from_secs(10))
         .ping_interval(Duration::from_secs(15))
         .connect(broker_urls.join(","))
         .await
         .map_err(|e| format!("connect: {}", e))
 }
 
-/// Sleep up to `dur` while draining producer messages into the buffer. Returns
-/// `false` if the handoff channel closed.
-async fn sleep_while_ingesting(
-    dur: Duration,
-    rx: &mut mpsc::Receiver<Outbound>,
-    buffer: &mut VecDeque<Outbound>,
-    counters: &DropCounters,
-) -> bool {
-    let deadline = Instant::now() + dur;
-    loop {
-        let now = Instant::now();
-        if now >= deadline {
-            return true;
-        }
-        let remaining = deadline - now;
-        tokio::select! {
-            _ = tokio::time::sleep(remaining) => return true,
-            maybe = rx.recv() => match maybe {
-                Some(msg) => push_drop_oldest(buffer, msg, counters),
-                None => return false,
-            }
-        }
-    }
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ring_buffer_drops_oldest_at_capacity() {
-        let counters = DropCounters::new();
-        let mut buf: VecDeque<usize> = VecDeque::new();
-        for i in 0..EDGE_BUFFER_CAPACITY {
-            push_drop_oldest(&mut buf, i, &counters);
-        }
-        assert_eq!(buf.len(), EDGE_BUFFER_CAPACITY);
-        assert_eq!(counters.publish_failed.load(Ordering::Relaxed), 0);
-        for i in EDGE_BUFFER_CAPACITY..EDGE_BUFFER_CAPACITY + 5 {
-            push_drop_oldest(&mut buf, i, &counters);
-        }
-        assert_eq!(buf.len(), EDGE_BUFFER_CAPACITY);
-        assert_eq!(counters.publish_failed.load(Ordering::Relaxed), 5);
-        assert_eq!(*buf.front().unwrap(), 5);
-        assert_eq!(*buf.back().unwrap(), EDGE_BUFFER_CAPACITY + 4);
-    }
-
-    #[test]
-    fn prepend_restores_batch_in_order_at_front() {
-        let mut buf: VecDeque<usize> = VecDeque::new();
-        buf.push_back(100);
-        prepend(&mut buf, vec![1usize, 2, 3]);
-        assert_eq!(buf.iter().copied().collect::<Vec<_>>(), vec![1, 2, 3, 100]);
-    }
-}
+#[path = "nats_publisher_tests.rs"]
+pub(crate) mod tests;

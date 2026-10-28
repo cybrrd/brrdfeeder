@@ -8,8 +8,108 @@ if [ -z "${BASH_VERSION:-}" ]; then
   exec bash "$0" "$@"
 fi
 
+# Opt-in dispatch precedes logging, preparation and every enrollment path.
+if [[ ${1:-} == --upgrade-helper ]]; then
+  set +x
+  exec python3 -I -c "$(cat <<'HELPER_UPGRADE_PY'
+#!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+"""Embedded opt-in dispatch: pin authority is the verified installer itself.
+
+Only the SHA-addressed public artifact may be fetched. No identity endpoints,
+ordinary installer preparation, package installation or enrollment fallback.
+"""
+import hashlib
+import os
+from pathlib import Path
+import platform
+import re
+import stat
+import subprocess
+import sys
+import tempfile
+
+
+class ExecutionPrerequisiteError(RuntimeError):
+    pass
+
+
+def staging_parent():
+    # /run may be mounted noexec. Use the installed executable's filesystem,
+    # checking every parent before creating a private temporary directory.
+    parent = Path('/usr/local/libexec')
+    for path in (parent, *parent.parents):
+        info = path.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise ExecutionPrerequisiteError('Unsafe helper staging directory; root-owned executable directory required.')
+    return parent
+
+
+def main(args):
+    if os.geteuid() != 0:
+        raise RuntimeError("helper upgrade requires root via the verified bootstrap")
+    if len(args) not in (2, 4) or args[1] != '--upgrade-helper' or (len(args) == 4 and args[2] != '--helper-file'):
+        raise RuntimeError("usage: --upgrade-helper [--helper-file PATH]")
+    if platform.machine() not in ('aarch64', 'arm64'):
+        raise RuntimeError("the pinned helper requires ARM64")
+    pins = re.findall(r'^readonly RELEASE_HELPER_SHA256="([a-f0-9]{64})"$', Path(args[0]).read_text(), re.M)
+    if len(pins) != 1:
+        raise RuntimeError("verified installer helper pin unavailable")
+    expected = pins[0]
+    # Root-private staging, not an operator-writable executable pathname.
+    with tempfile.TemporaryDirectory(prefix='.brrdfeeder-helper-', dir=staging_parent()) as stage:
+        candidate = Path(stage) / 'brrdfeeder-release'
+        if len(args) == 4:
+            with open(args[3], 'rb') as source:
+                raw = source.read((32 << 20) + 1)
+            if len(raw) > 32 << 20:
+                raise RuntimeError("helper exceeds size limit")
+            candidate.write_bytes(raw)
+        else:
+            url = 'https://get.cybrrd.com/releases/v1/updater/' + expected + '/linux-arm64/brrdfeeder-release'
+            subprocess.run(['/usr/bin/curl', '--fail', '--silent', '--show-error', '--proto', '=https',
+                            '--tlsv1.2', '--connect-timeout', '10', '--max-time', '120',
+                            '--max-filesize', '33554432', '--output', str(candidate), url], check=True)
+        raw = candidate.read_bytes()
+        if len(raw) > 32 << 20 or hashlib.sha256(raw).hexdigest() != expected:
+            raise RuntimeError("helper SHA256 mismatch; no installed state changed")
+        if len(raw) < 20 or raw[:6] != b'\x7fELF\x02\x01' or raw[18:20] != b'\xb7\x00':
+            raise RuntimeError("wrong helper architecture; refusing execution")
+        candidate.chmod(0o700)
+        try:
+            subprocess.run([str(candidate), 'upgrade-local-helper', '--sha256', expected], check=True)
+        except PermissionError:
+            raise ExecutionPrerequisiteError('Cannot execute the staged helper; check executable-filesystem mount options and access policy.') from None
+
+
+if __name__ == '__main__':
+    try:
+        main(sys.argv[1:])
+    except ExecutionPrerequisiteError as error:
+        print(str(error) + ' No enrollment attempted.', file=sys.stderr)
+        sys.exit(1)
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        # Never echo credentials, caller-controlled filenames or config errors.
+        print('Helper upgrade refused or failed; existing identity was not changed. No enrollment attempted.', file=sys.stderr)
+        sys.exit(1)
+HELPER_UPGRADE_PY
+)" "$0" "$@"
+fi
+
 # BRRDfeeder local product command — self-contained recovery, no download.
 # Normalize before the logging supervisor so modes and headers remain accurate.
+# Recovery executes in the authenticated image. No credentials in argv/logs.
+if [[ ${1:-} == renew ]]; then
+  set +x
+  set -euo pipefail
+  [[ $EUID -eq 0 && $# -eq 1 ]] || { echo 'Usage: sudo brrdfeeder renew' >&2; exit 1; }
+  RENEW_CLOCK_SYNC=$(timedatectl show -p NTPSynchronized --value) && [[ $RENEW_CLOCK_SYNC == yes ]] || { echo 'Clock is not synchronized; restore time service before renewal.' >&2; exit 1; }
+  podman exec -i brrdfeeder-engine /usr/local/libexec/brrdfeeder-policy renew-owner "$(hostname)" || exit $?
+  podman kill --signal USR1 brrdfeeder-engine >/dev/null || { echo 'Credentials installed; reconnect signal failed. Contact the operator.' >&2; exit 1; }
+  echo 'Replacement installed; engine reconnect requested. Check brrdfeeder status for broker confirmation.'
+  exit 0
+fi
 case "${1:-}" in
   uninstall) shift; set -- --uninstall "$@" ;;
   status) shift; set -- --status "$@" ;;
@@ -18,7 +118,7 @@ esac
 if [[ ${0##*/} == brrdfeeder && $# -eq 0 ]]; then set -- --status; fi
 if [[ ${1:-} == --help || ${1:-} == -h ]]; then
   printf '%s\n' \
-    'Usage: brrdfeeder [status|uninstall|support-bundle] [options]' \
+    'Usage: brrdfeeder [status|renew|uninstall|support-bundle] [options]' \
     'Installer: brrdfeeder-install.sh [--image DIGEST --console-image DIGEST --console-listen IP:PORT --interface IFACE]' \
     '                           [--gps-usb-id VID:PID]   Explicit non-u-blox GPS opt-in (headless)' \
     '  --verify / --status       Check installed state' \
@@ -1155,7 +1255,7 @@ readonly BLUETOOTH_HELPER="/usr/local/libexec/brrdfeeder-bluetooth"
 readonly STATE_DIR="/var/lib/brrdfeeder"
 # Standalone ARM64 host executable: independently reproduced on worldport with
 # the pinned Go toolchain. Publication is a separate operator step, never tags.
-readonly RELEASE_HELPER_SHA256="6b5bc93381cc15b5e58fa997be226339ffc7762d0b4109ea6e0b33dd0a34e3c5"
+readonly RELEASE_HELPER_SHA256="5044fa434cc52ebcdd044cb1eed5f7cd1bcf27a1b225160ea539b666bcf6fb11"
 readonly RELEASE_HELPER_URL="https://get.cybrrd.com/releases/v1/updater/${RELEASE_HELPER_SHA256}/linux-arm64/brrdfeeder-release"
 
 # Zitadel OAuth Device Flow (BRRDfeeder-tier enrollment — binds feeder to user account)
@@ -1743,6 +1843,180 @@ safe_tree() {
   no_mounts "$1"
 }
 
+safe_added_state() {
+  safe_path "$1"
+  no_mounts "$1"
+  python3 - "$1" "${uid[brrdfeeder]:--1}" "${gid[brrdfeeder]:--1}" <<'PACKAGE_STATE_EOF' || die "unsafe package state: $1"
+#!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+"""Read-only validation of additional package state; embedded in uninstall.sh.
+
+The shell checks ancestors and mounts before calling this validator. No recovery,
+unlink, chmod, or credential reads happen here. A pending hardlink exception is
+limited to the two writer-created names in the private updater directory.
+"""
+import base64
+import binascii
+import os
+from pathlib import Path
+import re
+import stat
+import sys
+
+STATE = Path('/var/lib/brrdfeeder')
+PRIVATE = Path('/var/lib/brrdfeeder-updater')
+CONFIG = Path('/etc/brrdfeeder')
+
+
+def require(condition, reason, path):
+    if not condition:
+        raise ValueError(reason + ': ' + str(path))
+
+
+def owned_file(path, uid, gid, modes, links=(1,)):
+    info = path.lstat()
+    require(stat.S_ISREG(info.st_mode), 'not a regular package file', path)
+    require((info.st_uid, info.st_gid) == (uid, gid), 'wrong package file owner', path)
+    require(stat.S_IMODE(info.st_mode) in modes, 'wrong package file mode', path)
+    require(info.st_nlink in links, 'unexpected package file hardlinks', path)
+    return info
+
+
+def owned_directory(path, uid, gid, modes):
+    info = path.lstat()
+    require(stat.S_ISDIR(info.st_mode), 'not a package directory', path)
+    require((info.st_uid, info.st_gid) == (uid, gid), 'wrong package directory owner', path)
+    require(stat.S_IMODE(info.st_mode) in modes, 'wrong package directory mode', path)
+
+
+def go_temporary(name, prefix):
+    # os.CreateTemp uses a decimal uint32 suffix. No extra path components,
+    # arbitrary suffixes, or leading zeroes are writer-generated names.
+    match = re.fullmatch(re.escape(prefix) + r'(0|[1-9][0-9]{0,9})', name)
+    return match is not None and int(match[1]) <= 0xffffffff
+
+
+def python_temporary(name, prefix):
+    return re.fullmatch(re.escape(prefix) + r'[a-z0-9_]{8}', name) is not None
+
+
+def renewal_temporary(name):
+    if not re.fullmatch(r'\.renew-U[A-Z2-7]{55}', name):
+        return False
+    raw = base64.b32decode(name[len('.renew-'):])
+    # NATS public user keys: prefix byte, 32-byte public key, CRC16-XMODEM (LE).
+    return (len(raw) == 35 and raw[0] == 20 << 3
+            and int.from_bytes(raw[-2:], 'little') == binascii.crc_hqx(raw[:-2], 0))
+
+
+def configured(kind):
+    import yaml
+    path = CONFIG / 'config.yaml'
+    info = owned_file(path, 0, 0, (0o600, 0o640, 0o644))
+    require(info.st_size <= 1024 * 1024, 'config too large to identify optional state', path)
+    # SafeLoader does not construct arbitrary objects. Only fixed installed
+    # placements are recognized; a configured path never expands deletion roots.
+    try:
+        with path.open('rb') as stream:
+            config = yaml.safe_load(stream) or {}
+    except yaml.YAMLError:
+        raise ValueError('cannot parse config to identify optional state: ' + str(path)) from None
+    require(isinstance(config, dict), 'config is not a mapping', path)
+    if kind == 'status':
+        node = config.get('node')
+        return isinstance(node, dict) and node.get('status_file') == str(STATE / 'status.json')
+    capture = config.get('capture')
+    savefile = capture.get('savefile') if isinstance(capture, dict) else None
+    return (isinstance(savefile, dict)
+            and savefile.get('directory', str(STATE / 'capture')) == str(STATE / 'capture'))
+
+
+def pending(path):
+    owned_directory(PRIVATE, 0, 0, (0o700,))
+    info = owned_file(path, 0, 0, (0o600,), links=(1, 2))
+    if info.st_nlink == 1:
+        return
+    target = PRIVATE / 'pending_update.json'
+    if path == target:
+        candidates = [p for p in PRIVATE.iterdir() if go_temporary(p.name, '.pending-')]
+    else:
+        candidates = [target]
+    matches = []
+    for candidate in candidates:
+        try:
+            other = candidate.lstat()
+        except FileNotFoundError:
+            continue
+        if (other.st_dev, other.st_ino) != (info.st_dev, info.st_ino):
+            continue
+        owned_file(candidate, 0, 0, (0o600,), links=(2,))
+        matches.append(candidate)
+    require(len(matches) == 1 and matches[0] != path,
+            'pending hardlinks must be the exact private staging pair', path)
+
+
+def validate(path, uid, gid):
+    name = path.name
+    if path == STATE / 'release_attempt.json':
+        owned_file(path, 0, 0, (0o644,))
+    elif path == PRIVATE / 'attempt.json':
+        owned_directory(PRIVATE, 0, 0, (0o700,))
+        owned_file(path, 0, 0, (0o600,))
+    elif path == STATE / 'credentials':
+        owned_directory(path, uid, gid, (0o700,))
+        for child in path.iterdir():
+            require(child.name in ('brrdfeeder.creds', 'previous.creds', '.renew.lock')
+                    or renewal_temporary(child.name), 'unknown renewal artifact', child)
+            owned_file(child, uid, gid, (0o600,))
+    elif path == STATE / 'outage':
+        owned_directory(path, uid, gid, (0o700,))
+        for child in path.iterdir():
+            segment = re.fullmatch(r'[0-9]{20}\.seg', child.name)
+            require(child.name in ('lock', 'cursor.json', 'cursor.json.tmp', 'gaps.slots')
+                    or segment is not None and int(child.name[:20]) <= 0xffffffffffffffff,
+                    'unknown outage spool artifact', child)
+            owned_file(child, uid, gid, (0o600,))
+    elif path == STATE / 'capture':
+        require(configured('capture'), 'capture savefile is not configured here', path)
+        # create_dir_all inherits the normal service umask; sensor files remain
+        # private even with a traversable directory. No group/other writes.
+        owned_directory(path, uid, gid, (0o700, 0o750, 0o755))
+        for child in path.iterdir():
+            require(re.fullmatch(r'capture-(0[0-9]|1[0-5])\.pcap', child.name),
+                    'unknown capture artifact', child)
+            owned_file(child, uid, gid, (0o600,))
+    elif path.parent == STATE and (name == 'status.json' or
+            re.fullmatch(r'status\.json\.tmp\.[1-9][0-9]*\.(0|[1-9][0-9]*)', name)):
+        if name != 'status.json':
+            pid, sequence = map(int, name.split('.')[-2:])
+            require(pid <= 0xffffffff and sequence <= 0xffffffffffffffff,
+                    'status temporary PID/sequence out of range', path)
+        require(configured('status'), 'status is not configured here', path)
+        owned_file(path, uid, gid, (0o644,) if name == 'status.json' else (0o600, 0o644))
+    elif path.parent == PRIVATE and (name == 'pending_update.json' or go_temporary(name, '.pending-')):
+        pending(path)
+    elif path.parent in (PRIVATE, CONFIG) and python_temporary(name, '.host-recover-'):
+        if path.parent == PRIVATE:
+            owned_directory(PRIVATE, 0, 0, (0o700,))
+        owned_file(path, 0, 0, (0o600,))
+    elif path.parent == CONFIG and go_temporary(name, '.update-'):
+        owned_file(path, 0, 0, (0o600, 0o644))
+    elif path.parent == CONFIG and python_temporary(name, '.config.yaml-'):
+        owned_file(path, 0, 0, (0o600, 0o640, 0o644))
+    else:
+        raise ValueError('unknown package state: ' + str(path))
+
+
+if __name__ == '__main__':
+    try:
+        validate(Path(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
+    except (OSError, ValueError, ImportError) as error:
+        print('REFUSED: ' + str(error), file=sys.stderr)
+        sys.exit(1)
+PACKAGE_STATE_EOF
+}
+
 refuse_entry() {
   local path=$1 reason=$2 kind owner empty=not-applicable quoted
   kind=$(stat -c %F -- "$path" 2>/dev/null) || kind=unavailable
@@ -1831,6 +2105,7 @@ fi
 
 files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
   /usr/local/libexec/brrdfeeder-host-memory
+  /usr/local/libexec/brrdfeeder-memory-controller
   /etc/systemd/system/brrdfeeder-memory.service /etc/systemd/system/brrdfeeder-memory.timer
   /etc/brrdfeeder/updater.json /etc/brrdfeeder/.updater-helper.sha256
   /usr/local/libexec/brrdfeeder-release
@@ -1887,6 +2162,7 @@ if [[ -f /usr/local/libexec/brrdfeeder-release.previous ]]; then
 fi
 for pair in \
   '/usr/local/libexec/brrdfeeder-host-memory|Read-only host observations; only stop mode writes a durable OOM receipt.' \
+  '/usr/local/libexec/brrdfeeder-memory-controller|Pi memory-controller repair and read-only enforcement check.' \
   '/etc/systemd/system/brrdfeeder-memory.service|BRRDfeeder read-only host memory observations' \
   '/etc/systemd/system/brrdfeeder-memory.timer|BRRDfeeder periodic host memory observations' \
   '/etc/containers/systemd/brrdfeeder-engine.container|Installed by brrdfeeder-install.sh.' \
@@ -1949,6 +2225,7 @@ if [[ -d /var/lib/brrdfeeder-status ]]; then
 fi
 for entry in /etc/brrdfeeder/*; do
   case ${entry##*/} in config.yaml|secrets|brrdhouse.container|.installer-created-brrdfeeder|.installer-created-brrdhouse|.bluetooth-prior.json|updater.json|.updater-helper.sha256) ;;
+    .host-recover-*|.update-*|.config.yaml-*) safe_added_state "$entry";;
     .release-config-*|.config-status-*) safe_file "$entry";;
     .brrdfeeder-atomic-*) [[ ${entry##*/} =~ ^\.brrdfeeder-atomic-[a-z0-9_]{8}$ ]] && safe_file "$entry" || die "unrecognised atomic temporary: $entry";;
     .bluetooth-*) [[ ${entry##*/} =~ ^\.bluetooth-[a-z0-9_]{8}$ ]] && safe_file "$entry" || die "unrecognised Bluetooth temporary: $entry";;
@@ -1962,13 +2239,16 @@ for entry in /etc/brrdfeeder/secrets/*; do
 done
 for entry in /var/lib/brrdfeeder/*; do
   case ${entry##*/} in policy_state.json|pending_update.json|pending_update.failed|update_outcome.json|update_transaction.json|release_currency.json|*.tmp|.update-*|.pending-*) ;;
+    release_attempt.json|status.json|status.json.tmp.*) safe_added_state "$entry"; continue;;
+    credentials|capture|outage) safe_tree "$entry"; safe_added_state "$entry"; continue;;
     upward) safe_tree "$entry"; continue;;
     .config|.local|.cache) service_home_residue "$entry"; continue;;
     *) refuse_entry "$entry" 'unrecognised engine state';; esac
   [[ -f $entry && ! -L $entry ]] || refuse_entry "$entry" 'unsafe engine state'
 done
 for entry in /var/lib/brrdfeeder-updater/*; do
-  case ${entry##*/} in state.json|lock|launch.lock|host-state.json|host-transaction.json|pending_update.json|pending.failed.json|rejected.json|.update-*) safe_file "$entry";;
+  case ${entry##*/} in state.json|lock|launch.lock|host-state.json|host-transaction.json|pending.failed.json|rejected.json|.update-*) safe_file "$entry";;
+    attempt.json|pending_update.json|.pending-*|.host-recover-*) safe_added_state "$entry";;
     rejected-pending-*) [[ -d $entry ]] && safe_tree "$entry" || die "invalid rejected-pending record: $entry";;
     *) die "unrecognised updater state: $entry";; esac
 done
@@ -2242,6 +2522,14 @@ for user in brrdhouse brrdfeeder; do
       for residue in /var/lib/brrdfeeder/.config /var/lib/brrdfeeder/.local /var/lib/brrdfeeder/.cache; do
         ! exists "$residue" || service_home_residue "$residue"
       done
+    fi
+    # Renewal secrets retain 0700/0600 throughout removal. Revalidate after
+    # service/user-manager shutdown and remove them before deleting their owner;
+    # never chmod/chown a credential to make cleanup succeed.
+    if [[ $user == brrdfeeder ]] && exists /var/lib/brrdfeeder/credentials; then
+      safe_tree /var/lib/brrdfeeder/credentials
+      safe_added_state /var/lib/brrdfeeder/credentials
+      remove_tree /var/lib/brrdfeeder/credentials
     fi
     remove_tree "/var/lib/$user"
     act userdel "$user"  # never -r: home was separately checked, no guessed directories
@@ -2659,7 +2947,7 @@ capture:
 backhaul:
   broker_urls:
     - "tls://ingest.cybrrd.com:4222"
-  credentials_path: "/etc/brrdfeeder/secrets/brrdfeeder.creds"
+  credentials_path: "/var/lib/brrdfeeder/credentials/brrdfeeder.creds"
   target_subject: "cybrrd.telemetry.frame.rid"
 
 tuning:
@@ -3718,6 +4006,152 @@ IDENTITY_SH_EOF
   run chown root:root "$IDENTITY_INSTALL"
 fi
 
+# B06: enable the Pi controller at the next operator-approved reboot. This
+# does not reboot the host and never claims that editing cmdline enforces a cap.
+if [[ $DRY_RUN -eq 1 ]]; then
+  say '[dry-run] would install memory-controller check and repair Pi boot cmdline with a backup; reboot may be required'
+else
+  atomic_install 0755 root root /usr/local/libexec/brrdfeeder-memory-controller <<'MEMORY_CONTROLLER_EOF'
+#!/usr/bin/python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+"""Pi memory-controller repair and read-only enforcement check. Never reboots."""
+import fcntl
+import os
+from pathlib import Path
+import stat
+import sys
+import tempfile
+
+CAP = 256 * 1024 * 1024
+
+
+def read(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 16384:
+            raise ValueError('expected a bounded regular file: ' + str(path))
+        value = stream.read(16385)
+        if len(value) > 16384:
+            raise ValueError('oversized file: ' + str(path))
+        return value
+
+
+def enabled_cmdline(raw):
+    # Preserve all unrelated tokens. The boot command line must remain one line.
+    text = raw.decode('ascii')
+    if '\n' in text.rstrip('\n') or '\r' in text:
+        raise ValueError('cmdline must contain one line')
+    tokens = text.split()
+    updated = []
+    for token in tokens:
+        if token.startswith('cgroup_disable='):
+            controllers = token.split('=', 1)[1].split(',')
+            if 'memory' in controllers:
+                controllers = [item for item in controllers if item != 'memory']
+                if controllers:
+                    updated.append('cgroup_disable=' + ','.join(controllers))
+                continue
+        updated.append(token)
+    return (' '.join(updated) + '\n').encode('ascii') if updated != tokens else raw
+
+
+def replace(path, raw):
+    # Caller holds the boot-directory lock; atomic replace + directory fsync.
+    fd, name = tempfile.mkstemp(prefix='.brrdfeeder-memory-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            os.fchmod(stream.fileno(), stat.S_IMODE(path.stat(follow_symlinks=False).st_mode))
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(name, path)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def edit(root, restore=False):
+    cmdline = root / 'boot/firmware/cmdline.txt'
+    backup = cmdline.with_name('cmdline.txt.brrdfeeder-memory.bak')
+    if not restore:
+        try:
+            model = read(root / 'sys/firmware/devicetree/base/model')
+        except FileNotFoundError:
+            return 'not a Raspberry Pi; boot command line unchanged'
+        if not model.startswith(b'Raspberry Pi'):
+            return 'not a Raspberry Pi; boot command line unchanged'
+    lock_fd = os.open(cmdline.parent / '.brrdfeeder-memory.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(lock_fd, 'rb') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        original = read(cmdline)
+        if restore:
+            saved = read(backup)
+            if original == saved:
+                return 'original cmdline already restored; reboot required if not yet rebooted'
+            if original != enabled_cmdline(saved):
+                raise ValueError('cmdline changed since repair; backup retained, manual reconciliation required')
+            replace(cmdline, saved)
+            return 'original cmdline restored byte-for-byte; REBOOT REQUIRED'
+        updated = enabled_cmdline(original)
+        if updated == original:
+            return 'memory is not disabled in boot cmdline; running-controller check still required'
+        try:
+            saved = read(backup)
+        except FileNotFoundError:
+            fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(original)
+                stream.flush()
+                os.fsync(stream.fileno())
+            directory = os.open(cmdline.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        else:
+            if saved != original:
+                raise ValueError('prior backup differs; refusing to overwrite it')
+        replace(cmdline, updated)
+        return 'removed cgroup_disable=memory; backup=' + str(backup) + '; REBOOT REQUIRED (operator action)'
+
+
+def check(root):
+    base = root / 'sys/fs/cgroup'
+    controllers = read(base / 'cgroup.controllers').decode('ascii').split()
+    if 'memory' not in controllers:
+        raise ValueError('memory controller absent; MemoryMax is NOT enforced; reboot after boot-cmdline repair')
+    actual = read(base / 'system.slice/brrdfeeder-engine.service/memory.max').strip()
+    if actual != str(CAP).encode('ascii'):
+        raise ValueError('engine memory.max=' + actual.decode('ascii') + '; expected 268435456; cap NOT verified')
+    return 'memory controller available; engine memory.max=268435456; 256 MiB cap enforced'
+
+
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] not in ('enable', 'restore', 'check'):
+        raise ValueError('usage: brrdfeeder-memory-controller enable|restore|check')
+    command = sys.argv[1]
+    if command != 'check' and os.geteuid() != 0:
+        raise ValueError('boot-cmdline edits require root')
+    print(check(Path('/')) if command == 'check' else edit(Path('/'), command == 'restore'))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError) as error:
+        print('BRRDfeeder memory controller: ' + str(error), file=sys.stderr)
+        raise SystemExit(1)
+MEMORY_CONTROLLER_EOF
+  /usr/local/libexec/brrdfeeder-memory-controller enable || fatal "Memory controller repair failed; retained boot files require operator review."
+fi
+
 # Host memory observations are separate from engine-writable status/state.
 if [[ $DRY_RUN -eq 1 ]]; then
   say '[dry-run] would install the BRRDfeeder host memory observer and timer'
@@ -4611,6 +5045,15 @@ GPS_RUNTIME_TIMER_EOF
 fi
 # GPS_RUNTIME_INSTALL_END
 
+# --- dedicated credential state (renewal v1) ---
+[[ ! -L "$STATE_DIR/credentials" && ! -L "$STATE_DIR/credentials/brrdfeeder.creds" ]] || fatal "Refusing symlink credential state; operator repair required."
+run install -d -m 0700 -o "$TARGET_UID" -g "$TARGET_GID" "$STATE_DIR/credentials"
+# Preserve rotated active credentials on installer reruns.
+if [[ ! -e "$STATE_DIR/credentials/brrdfeeder.creds" ]]; then
+  run install -m 0600 -o "$TARGET_UID" -g "$TARGET_GID" "$CREDS_PATH" "$STATE_DIR/credentials/brrdfeeder.creds"
+fi
+# --- end dedicated credential state ---
+
 QUADLET_DIR="$(dirname "$QUADLET_FILE")"
 public_directories /etc/containers "$QUADLET_DIR"
 
@@ -4635,8 +5078,7 @@ After=network-online.target chrony.service
 Wants=network-online.target
 Wants=brrdfeeder-memory.service brrdfeeder-memory.timer
 After=brrdfeeder-memory.service
-StartLimitIntervalSec=300
-StartLimitBurst=3
+StartLimitIntervalSec=0
 
 [Container]
 Image=${CONTAINER_IMAGE}
@@ -4674,6 +5116,7 @@ Volume=${SECRETS_DIR}:/etc/brrdfeeder/secrets:ro
 # the pending_update.json hand-off the host-updater consumes). Survives
 # container restarts; no :Z (Debian-family, see header note).
 Volume=${STATE_DIR}:/var/lib/brrdfeeder
+Volume=${STATE_DIR}/credentials:/var/lib/brrdfeeder/credentials:rw
 Volume=${STATUS_DIR}:${STATUS_DIR}:rw
 
 # Ephemeral PCAP capture surface (tmpfs in RAM, 50MB cap).
@@ -4828,6 +5271,8 @@ if node.get('status_file') != '/var/lib/brrdfeeder-status/status.json': raise Sy
 node['channel']=ring
 if config.get('upward') is None: config['upward']={'spool_dir':'/var/lib/brrdfeeder/upward'}
 if config['upward'].get('spool_dir')!='/var/lib/brrdfeeder/upward': raise SystemExit('Updater requires canonical upward spool for safe uninstall')
+spool=config.setdefault('backhaul',{}).get('outage_spool',{})
+if spool.get('directory','/var/lib/brrdfeeder/outage')!='/var/lib/brrdfeeder/outage': raise SystemExit('Installer requires canonical outage spool for safe uninstall')
 fd,tmp=tempfile.mkstemp(prefix='.release-config-',dir=str(Path(path).parent))
 try:
     with os.fdopen(fd,'w') as f:
@@ -5355,6 +5800,9 @@ fi
 # script pick up Quadlet changes.
 INSTALL_ENGINE_RESTART_AT=$(date +%s)
 run systemctl --no-block restart brrdfeeder-engine.service
+if [[ $DRY_RUN -eq 0 ]]; then
+  /usr/local/libexec/brrdfeeder-memory-controller check || warn "Memory cap not yet verified. If boot cmdline changed, reboot when approved, then run: sudo /usr/local/libexec/brrdfeeder-memory-controller check"
+fi
 ok "brrdfeeder-engine.service startup queued; service will wait for GPS if position is absent"
 run console_run systemctl --user daemon-reload
 run console_run systemctl --user restart brrdhouse.service

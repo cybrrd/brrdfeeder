@@ -7,10 +7,8 @@
 //!     are lost (buffer full at try_send, or NATS publish failure).
 //!   - A 1 Hz background task drains the counter; if non-zero, emits one
 //!     audit event covering the just-elapsed second's losses.
-//!   - During a full backhaul outage the audit event also can't ship —
-//!     this is by design. Drop events are useful only for partial
-//!     degradation; full outage is signalled by silence on the heartbeat
-//!     subject (separate concern).
+//!   - Audit windows remain pending until the disk spool accepts them durably;
+//!     a refused retry does not recursively add another observation loss.
 
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -57,6 +55,7 @@ pub struct DropAuditEvent {
 /// atomics are bumped from any thread / task without a lock.
 #[derive(Debug, Clone, Default)]
 pub struct DropCounters {
+    pub loss: Arc<std::sync::Mutex<crate::telemetry_loss::Ledger>>,
     pub buffer_full: Arc<AtomicU64>,
     pub publish_failed: Arc<AtomicU64>,
     pub dedup_overflow: Arc<AtomicU64>,
@@ -68,8 +67,22 @@ impl DropCounters {
         Self::default()
     }
 
+    pub fn record_loss(&self, boundary: crate::telemetry_loss::Boundary, capture_ms: u64) {
+        let mut ledger = self.loss.lock().unwrap_or_else(|e| e.into_inner());
+        if let Err(e) = ledger.record(boundary, capture_ms) {
+            eprintln!("[telemetry] EXACT GAP PERSISTENCE FAILED: {e}; coverage impaired; in-memory counts retained");
+        }
+    }
+
+    pub fn resumed(&self,boundary:crate::telemetry_loss::Boundary) {
+        if let Err(e)=self.loss.lock().unwrap_or_else(|e|e.into_inner()).resumed(boundary) {
+            eprintln!("[telemetry] recovery checkpoint failed: {e}; impairment retained");
+        }
+    }
+
     /// Atomically take and zero each counter; returns the readings.
     /// Called by the audit-emit loop once per second.
+    #[cfg(test)]
     pub fn drain(&self) -> (u64, u64, u64, u64) {
         (
             self.buffer_full.swap(0, Ordering::Relaxed),
@@ -90,46 +103,39 @@ fn now_unix_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// Background task: every 1s, drain counters and emit one audit event per
-/// non-zero reason. Caller provides a publish closure abstracting the
-/// NATS client (so unit tests can substitute an in-memory sink).
-pub async fn run_audit_emitter<P, Fut>(
-    counters: DropCounters,
-    node_id: String,
-    mut publish: P,
-) where
-    P: FnMut(String, Vec<u8>) -> Fut + Send,
-    Fut: std::future::Future<Output = ()> + Send,
-{
-    let subject = format!("cybrrd.system.audit.frame.dropped.{}", node_id);
-
-    loop {
-        let window_start = now_unix_ms();
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        let window_end = now_unix_ms();
-
-        let (buffer_full, publish_failed, dedup_overflow, ble_unassociated) = counters.drain();
-
-        for (count, reason) in [
-            (buffer_full, DropReason::BufferFull),
-            (publish_failed, DropReason::PublishFailed),
-            (dedup_overflow, DropReason::DedupOverflow),
-            (ble_unassociated, DropReason::RidBleUnassociatedDropped),
-        ] {
-            if count == 0 {
-                continue;
-            }
-            let event = DropAuditEvent {
-                node_id: node_id.clone(),
-                window_start_utc: window_start,
-                window_end_utc: window_end,
-                dropped_count: count,
-                reason,
-            };
-            if let Ok(bytes) = serde_json::to_vec(&event) {
-                publish(subject.clone(), bytes).await;
+/// A rejected audit keeps its original window and count. Concurrent drops
+/// remain in the counter; only a durably accepted audit subtracts its snapshot.
+struct AuditWindow { start: u64, pending: Option<DropAuditEvent> }
+impl AuditWindow {
+    async fn emit<P,Fut>(&mut self,counter:&AtomicU64,node:&str,reason:DropReason,now:u64,publish:&mut P)
+    where P:FnMut(String,Vec<u8>)->Fut, Fut:std::future::Future<Output=bool> {
+        if self.pending.is_none() {
+            let count=counter.load(Ordering::Relaxed);
+            if count==0 {self.start=now;return;}
+            self.pending=Some(DropAuditEvent{node_id:node.into(),window_start_utc:self.start,
+                window_end_utc:now,dropped_count:count,reason});
+        }
+        let Some(event)=self.pending.as_ref() else {return;};
+        if let Ok(bytes)=serde_json::to_vec(event) {
+            if publish(format!("cybrrd.system.audit.frame.dropped.{node}"),bytes).await {
+                counter.fetch_sub(event.dropped_count,Ordering::Relaxed);
+                self.start=event.window_end_utc; self.pending=None;
             }
         }
+    }
+}
+pub async fn run_audit_emitter<P,Fut>(counters:DropCounters,node_id:String,mut publish:P)
+where P:FnMut(String,Vec<u8>)->Fut+Send, Fut:std::future::Future<Output=bool>+Send {
+    let start=now_unix_ms();
+    let mut windows:[AuditWindow;4]=std::array::from_fn(|_|AuditWindow{start,pending:None});
+    loop {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        for (window,(counter,reason)) in windows.iter_mut().zip([
+            (&counters.buffer_full,DropReason::BufferFull),
+            (&counters.publish_failed,DropReason::PublishFailed),
+            (&counters.dedup_overflow,DropReason::DedupOverflow),
+            (&counters.rid_ble_unassociated_dropped,DropReason::RidBleUnassociatedDropped),
+        ]) {window.emit(counter,&node_id,reason,now_unix_ms(),&mut publish).await;}
     }
 }
 
@@ -364,6 +370,24 @@ pub async fn run_substrate_audit_emitter<P, Fut>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn rejected_audit_keeps_window_and_concurrent_counts() {
+        let count=AtomicU64::new(7);
+        let mut window=AuditWindow{start:100,pending:None};
+        let mut refused=Vec::new();
+        window.emit(&count,"test",DropReason::BufferFull,200,&mut |_,bytes|{refused.push(bytes);async{false}}).await;
+        assert_eq!(count.load(Ordering::Relaxed),7);
+        count.fetch_add(3,Ordering::Relaxed);
+        let mut accepted=Vec::new();
+        window.emit(&count,"test",DropReason::BufferFull,300,&mut |_,bytes|{accepted.push(bytes);async{true}}).await;
+        assert_eq!(accepted,refused,"retry changed the original window");
+        assert_eq!(count.load(Ordering::Relaxed),3);
+        window.emit(&count,"test",DropReason::BufferFull,400,&mut |_,bytes|{accepted.push(bytes);async{true}}).await;
+        let next:DropAuditEvent=serde_json::from_slice(&accepted[1]).unwrap();
+        assert_eq!((next.window_start_utc,next.window_end_utc,next.dropped_count),(200,400,3));
+        assert_eq!(count.load(Ordering::Relaxed),0);
+    }
 
     #[test]
     fn drain_zeros_counters() {

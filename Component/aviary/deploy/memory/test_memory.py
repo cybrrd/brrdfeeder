@@ -131,14 +131,13 @@ class DeploymentContracts(unittest.TestCase):
         modes = __import__('re').findall(r'--cgroups(?:=| )([^ ]+)', command)
         self.assertTrue(modes)
         self.assertEqual(modes[-1], 'split')
-        self.assertIn('StartLimitBurst=3', rendered)
-        self.assertIn('StartLimitIntervalSec=300', rendered)
+        self.assertIn('StartLimitIntervalSec=0', rendered)
         self.assertIn('/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro', rendered)
         # Verify the shipping installer block, not just the reference template.
         installer = (ROOT / 'Component/brrdfeeder/install/brrdfeeder-install.sh').read_text()
         unit = installer.split('NEW_QUADLET=$(cat <<EOF\n', 1)[1].split('\nEOF', 1)[0]
         for line in ('MemoryMax=256M', 'MemorySwapMax=0', 'OOMPolicy=kill', 'PodmanArgs=--cgroups=split',
-                     'StartLimitBurst=3', 'StartLimitIntervalSec=300'):
+                     'StartLimitIntervalSec=0'):
             self.assertIn(line, unit.splitlines())
 
 

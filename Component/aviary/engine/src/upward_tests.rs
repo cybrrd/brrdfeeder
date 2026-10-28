@@ -91,7 +91,7 @@ fn record(id: usize, lane: Lane) -> Record {
     Record { message_id: format!("TEST-ONLY:{id}"), node_id: "test-node".into(), observed_unix_ms: 1,
         clock_trusted: false, test_only: true, message: match lane {
             Lane::Operational => Message::Operational { image_digest: Some(format!("sha256:{}", "a".repeat(64))),
-                engine_version: Some("b".repeat(40)), build_seq: Some(42), health: Health::observe(true, true, false, false, false), update: None },
+                engine_version: Some("b".repeat(40)), build_seq: Some(42), health: Health::observe(true, true, false, false, false), update: None, telemetry_gap: None, credential_renewal: None },
             Lane::Red => Message::Algedonic { code: Distress::OperationalDeliveryFailed, operational: Diagnostics::default(), update: None },
         } }
 }
@@ -440,7 +440,7 @@ mod r1 {
     // private fields are visible. Share the SAME Arcs so queue inspection sees
     // exactly what the spawned monitor enqueues.
     fn unsafe_clone_channel(c: &Channel) -> Channel {
-        Channel { lane: c.lane, queue: Arc::clone(&c.queue), status: Arc::clone(&c.status) }
+        Channel { lane: c.lane, queue: Arc::clone(&c.queue), status: Arc::clone(&c.status), loss:Arc::clone(&c.loss) }
     }
     fn clone_handle(h: &Handle) -> Handle {
         Handle { node: h.node.clone(), nonce: String::new(), sequence: AtomicU64::new(0),
@@ -626,4 +626,43 @@ mod r1 {
         assert_eq!(clamped_grace_s(300), 300);
         assert_eq!(clamped_grace_s(7200), 3600, "(f) hard clamp to 3600");
     }
+}
+
+#[test]
+fn full_red_lane_never_erases_exact_gap_or_threshold_alerts() {
+    use crate::telemetry_loss::{Boundary,Ledger};
+    let root=Scratch::new();
+    let counters=crate::audit::DropCounters::new();
+    *counters.loss.lock().unwrap()=Ledger::open(&root.0).unwrap();
+    for i in 0..137 {counters.record_loss(Boundary::OutageSpool,1000+i);}
+    let handle=Handle{node:"test-node".into(),nonce:"test-only".into(),sequence:AtomicU64::new(0),
+        operational:Channel::new(Lane::Operational),red:Channel::new(Lane::Red),stop:Arc::new(AtomicBool::new(false)),tasks:Vec::new()};
+    *handle.red.loss.lock().unwrap()=Some(counters.clone());
+    for i in 0..32 {assert!(handle.red.enqueue(record(i,Lane::Red)));}
+    let before=serde_json::to_vec(&handle.red.queue.lock().unwrap().clone()).unwrap();
+    handle.gap_alarms(true);
+    assert_eq!(serde_json::to_vec(&handle.red.queue.lock().unwrap().clone()).unwrap(),before,"gap alert evicted an existing Red");
+    assert_eq!(counters.loss.lock().unwrap().pending().iter().map(|g|g.count).collect::<Vec<_>>(),vec![1,10,100]);
+    assert_eq!(counters.loss.lock().unwrap().gaps()[0].count,137);
+    // Restart reconstruction reads exact counts independently of the full queue.
+    let recovered=Ledger::open(&root.0).unwrap();
+    assert_eq!(recovered.gaps(),counters.loss.lock().unwrap().gaps());
+    assert_eq!(recovered.pending(),counters.loss.lock().unwrap().pending());
+    {
+        let mut q=handle.red.queue.lock().unwrap();
+        for i in 0..3 {q.retire(&format!("TEST-ONLY:{i}"));}
+    }
+    handle.gap_alarms(true);
+    let q=handle.red.queue.lock().unwrap();
+    let gaps=q.records.iter().filter_map(|r|match &r.message {
+        Message::Algedonic{code:Distress::TelemetryDropped,operational,..}=>operational.telemetry_gap.as_ref(),_=>None
+    }).collect::<Vec<_>>();
+    assert_eq!(gaps.iter().map(|g|g.count).collect::<Vec<_>>(),vec![1,10,100]);
+    for g in gaps {assert_eq!(g.boundary,Boundary::OutageSpool);assert_eq!(g.first_capture_ms,1000);assert_eq!(g.last_capture_ms,999+g.count);}
+    drop(q);
+    // Handoff success is not delivery: all alerts remain pending until PubAck.
+    assert_eq!(counters.loss.lock().unwrap().pending().len(),3);
+    assert!(handle.operational_update(&crate::identity::RunningIdentity::upward_test_fixture(),Health::observe(true,true,false,false,true),None));
+    let report=handle.operational.queue.lock().unwrap().records.back().unwrap().clone();
+    match report.message {Message::Operational{telemetry_gap:Some(gap),health,..}=>{assert_eq!(gap.count,137);assert!(!health.healthy);},_=>panic!("missing exact cumulative Silver gap")}
 }

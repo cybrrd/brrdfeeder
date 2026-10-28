@@ -93,6 +93,12 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
         # Explicit GPS/P0 exceptions; enrollment internals, image pins/pulls,
         # account creation, host config, updater and other confinement stay equal.
         def normalize(text):
+            # Credential-renewal has independent behavioral/permission contracts.
+            # Remove only its newly registered state/mount scope from this old
+            # uninstall freeze; retain every other installer ordering assertion.
+            text=re.sub(r'# --- dedicated credential state \(renewal v1\) ---\n.*?# --- end dedicated credential state ---\n\n','',text,flags=re.S)
+            text=text.replace('Volume=${STATE_DIR}/credentials:/var/lib/brrdfeeder/credentials:rw\n','')
+            text=text.replace('credentials_path: "/var/lib/brrdfeeder/credentials/brrdfeeder.creds"','credentials_path: "/etc/brrdfeeder/secrets/brrdfeeder.creds"')
             # Public-directory traversal is independently exercised under
             # uutils parent semantics in directory-modes/test-contract.py.
             text=text.replace('public_directories /usr/local /usr/local/libexec',
@@ -107,12 +113,14 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
             # 0.8.29 memory scope: exact helper/unit embedding, generated cgroup
             # confinement and bounded restart behavior are independently tested
             # by deploy/memory/test_memory.py and its negative controls.
-            a = text.index('# Host memory observations are separate')
+            # B06 boot repair is covered byte-for-byte and behaviorally by
+            # deploy/memory/test_controller.py; retain the surrounding freeze.
+            a = text.index('# B06: enable the Pi controller')
             b = text.index('gate quadlets ', a)
             text = text[:a] + text[b:]
             for line in ('Wants=brrdfeeder-memory.service brrdfeeder-memory.timer',
-                         'After=brrdfeeder-memory.service', 'StartLimitIntervalSec=300',
-                         'StartLimitBurst=3', 'PodmanArgs=--cgroups=split',
+                         'After=brrdfeeder-memory.service', 'StartLimitIntervalSec=0',
+                         'PodmanArgs=--cgroups=split',
                          'Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro',
                          'MemoryAccounting=yes', 'MemoryMax=256M', 'MemorySwapMax=0',
                          'OOMPolicy=kill', 'ExecStopPost=/usr/local/libexec/brrdfeeder-host-memory stop'):

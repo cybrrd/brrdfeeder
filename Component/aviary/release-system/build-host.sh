@@ -7,13 +7,13 @@ set -euo pipefail
 source_dir=$(cd -- "$(dirname -- "$0")" && pwd)
 mkdir -p -- "$1"
 out=$(cd -- "$1" && pwd)
-[[ $(go env GOVERSION) == go1.27.0 ]] || { echo 'Go 1.27.0 required' >&2; exit 2; }
+[[ $(go env GOVERSION) == go1.27.3 ]] || { echo 'Go 1.27.3 required' >&2; exit 2; }
 export CGO_ENABLED=0 GOOS=linux GOARCH=arm64 GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 build() {
   go build -a -mod=readonly -trimpath -buildvcs=false \
-    -ldflags='-s -w -buildid= -X main.updaterBuild=2' -o "$1" .
+    -ldflags='-s -w -buildid= -X main.updaterBuild=4' -o "$1" .
 }
 (cd "$source_dir" && build "$out/brrdfeeder-release-arm64")
 cp -R "$source_dir" "$tmp/source"

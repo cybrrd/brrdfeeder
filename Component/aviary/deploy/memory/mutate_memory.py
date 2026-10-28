@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix='brrd-memory-mutants-') as folder:
         ('cap-is-enforced', 'MemoryMax=256M', 'MemoryMax=infinity'),
         ('payload-stays-in-service-cgroup', 'PodmanArgs=--cgroups=split', 'PodmanArgs=--cgroups=enabled'),
         ('oom-kills-service-group', 'OOMPolicy=kill', 'OOMPolicy=continue'),
-        ('restart-loop-is-bounded', 'StartLimitBurst=3', 'StartLimitBurst=0'),
+        ('restart-does-not-give-up', 'StartLimitIntervalSec=0', 'StartLimitIntervalSec=300'),
     ):
         project = scratch / name
         target = project / 'Component/aviary/deploy/memory'

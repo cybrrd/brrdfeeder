@@ -366,7 +366,7 @@ pub async fn run_tick_publisher(
         // supervisor owns delivery/flush/reconnect; a tick is a best-effort
         // beacon, so a momentarily-full handoff simply drops to the next tick's
         // fresh state (consumers detect gaps via tick_seq).
-        handle.publish(subject.clone(), bytes);
+        let _=handle.publish(subject.clone(), bytes).await;
     }
 }
 

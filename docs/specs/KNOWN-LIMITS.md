@@ -28,6 +28,11 @@ mechanism is broken.
 - Helper feed publication is outstanding. The explicit existing-node upgrade
   needs its approved published installer chain and native acceptance. Fixture
   or cross-build success does not prove interruption/reboot recovery.
+- In 0.9.0, reinstalling with the same account and hostname keeps the same node
+  ID and issues a new credential, but does not revoke the previous credential.
+  Workaround: arrange explicit revocation of the previous credential;
+  [local uninstall does not deregister the node](../../Component/brrdfeeder/install/README.md#status-support-and-uninstall).
+  Automatic revocation is planned for 0.9.1.
 - No beta end-to-end archive retention duration or permanent-copy custody
   guarantee is established here. Heartbeat retention is distinct from telemetry.
 - Broadcast serials and positions are reported claims, not authenticated proof

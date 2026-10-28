@@ -112,8 +112,7 @@ pinned hash. Then wait for M's own hosted gate — `contracts`, the
 Go/Python/Rust CodeQL analyses plus aggregation, and the main-only Scorecard —
 and retain those receipts before final release approval; a green pre-merge PR
 head is not a substitute. A later change to installer bytes requires a new
-reviewed pin chain before anything is published. Full gate source record: Cy's
-merge checklist steps 4–5 in the B01 landing refresh (2026-10-27).
+reviewed pin chain before anything is published.
 
 After approved publication of the complete 0.9.0 hash chain, the explicit path is:
 

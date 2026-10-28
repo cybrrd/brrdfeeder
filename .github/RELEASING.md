@@ -97,6 +97,19 @@ pin, then hash that installer and update all three bootstrap installer pins.
 Neither an image update nor an ordinary installer rerun replaces an existing
 valid helper; fleet delivery needs its separately approved host-update path.
 
+**Landing method — linear history (recorded 2026-10-28).** Public main takes
+**squash merges only**; GitHub enforces linear history, and merge commits and
+rebase-merge are disabled. Land a release as **one squash** of the single
+combined candidate PR onto an unchanged main — do not merge component PRs
+individually and do not create intermediate landing commits carrying retired
+pins. Immediately verify the resulting main commit M **before any publication
+step**: exactly one parent (the previous main), the exact expected tree, and the
+complete installer → helper-pin → three-bootstrap pin chain (installer SHA, its
+sole `RELEASE_HELPER_SHA256`, every `bootstrap*.sh` installer pin); reproduce the
+helper bytes from M with the pinned Go 1.27.3 official script and require the
+pinned hash. A later change to installer bytes requires a new reviewed pin chain
+before anything is published.
+
 After approved publication of the complete 0.9.0 hash chain, the explicit path is:
 
 ```sh

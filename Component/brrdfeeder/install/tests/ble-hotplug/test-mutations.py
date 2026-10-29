@@ -22,7 +22,7 @@ with tempfile.TemporaryDirectory(prefix='ble-hotplug-mutants-') as folder:
     test=[sys.executable,str(root/'Component/brrdfeeder/install/tests/ble-hotplug/test-contract.py')]
     positive=subprocess.run(test,capture_output=True,text=True)
     assert positive.returncode==0,positive.stdout+positive.stderr
-    print('positive: 19 tests PASS')
+    print('positive: 20 tests PASS')
     for name,path,before,after in mutants:
         p=root/path; original=p.read_text(); assert before in original
         p.write_text(original.replace(before,after,1))

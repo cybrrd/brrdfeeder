@@ -389,8 +389,8 @@ def apply(dry=False, hotplug=False):
         if prior: restore(dry)
         else: say('bluetooth.service unchanged: RID.BLE disabled')
         return
-    if not found and not sensors.get('rid_ble', {}).get('adapter'):
-        say('RID.BLE enabled-auto; waiting for a supported adapter; bluetooth.service unchanged')
+    if not found:
+        say('RID.BLE enabled; waiting for a supported adapter; bluetooth.service unchanged')
         return
     if prior is None: prior = service_state()
     if prior['enabled'] in ('absent','masked','masked-runtime') and prior['active']:

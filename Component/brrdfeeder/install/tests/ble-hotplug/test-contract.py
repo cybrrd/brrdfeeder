@@ -28,6 +28,12 @@ class Hotplug(unittest.TestCase):
         prior.BLE.adapter(self,str(index),identity)
         h=self.hci/f'hci{index}'; h.mkdir(); (h/'device').symlink_to(self.usb/str(index))
         (h/'address').write_text(f'AA:BB:CC:DD:EE:{index:02X}')
+    def test_install_with_missing_pin_defers_claim_without_mutation(self):
+        self.explicit({'enabled':True,'adapter':{'usb_id':'0bda:876e'}})
+        before=self.config.read_bytes(); ble.apply()
+        self.assertEqual(self.config.read_bytes(),before)
+        self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
+        ble.controller_down.assert_not_called()
     def test_absent_auto_then_add_preserves_bytes_and_engine(self):
         original=self.config.read_bytes(); ble.apply(hotplug=True)
         self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)

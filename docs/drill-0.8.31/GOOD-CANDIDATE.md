@@ -55,20 +55,23 @@ receiver telemetry, real release CI and keyless signing are separate gates.
    The publisher command is always given and pasted as ONE line — a multiline
    paste broke attempt 1 of the 0.8.31 session (2026-10-25); one line is a
    release-safety requirement, not a style preference.
-7. Land PRs by squash-merge, one at a time, in reviewed order — no merge
-   commits; history stays linear (maintainer landing-method ruling,
-   2026-10-26, which also matches the repository's enforced linear history).
-   Compute
-   `1000 + git rev-list --count <commit>` on full history AFTER each squash
-   lands (a squash-merge adds exactly one commit) and compare to the actual
-   bad receipt's independent engine and console builds; require good strictly
-   greater. Because each PR collapses to one commit, floors must be computed
-   on the post-squash main commit, never on the branch head. Recheck after
-   any new commits, rebase or merge-strategy change. History note: the
-   original step-7 text ("normal merge commit, no squash") was not literally
-   followed for 0.8.31 — #46/#58 were squashed and #59 landed by a one-time
-   linear-history bypass; floors and outcome passed (good 1045 > bad 1039).
-   The text above records the ruling that the operation actually established.
+7. Follow the canonical landing method in
+   [`.github/RELEASING.md`](../../.github/RELEASING.md): one squash of the
+   combined candidate, no individual component PR landings, never rebase-merge
+   and never an administrator bypass. Repository settings permit squash and
+   rebase, enforce linear history, and disable merge commits; the stricter
+   combined-candidate squash requirement is maintainer policy.
+   Compute `1000 + git rev-list --count <commit>` on full history AFTER the
+   combined candidate lands (a squash-merge adds exactly one commit), and
+   compare to the actual bad receipt's independent engine and console builds;
+   require good strictly greater. Compute floors on the post-squash main
+   commit, never on the branch head. Recheck after any new commits, rebase or
+   merge-strategy change.
+   History note: #46/#58 were squashed. #59 was a one-time merge-commit
+   exception created with an administrator bypass of the then-enforced
+   linear-history rule; it is not a precedent or an approved landing method.
+   Current policy is the canonical procedure linked above. Verified builds
+   were good 1045 > bad 1039.
    Every signing session ends with the mandatory USB close (step 8a).
 8a. End of every signing session (mandatory, maintainer decision
    2026-10-25): unmount the USB

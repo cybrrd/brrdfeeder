@@ -6,7 +6,7 @@ This is a sanitized record of accepted product decisions, not a test receipt.
 Decision dates identify provenance; claim values live only in
 [claims.yaml](../claims.yaml). Private meeting records, infrastructure details,
 identities and licensed standards text are not reproduced here. The source
-review date is 2026-10-27. The hardware projection was checked against
+review date is 2026-10-28. The hardware projection was checked against
 installation-page template revision `7fb1a3b060e66ef075de9b9496b1faf592946019`
 and settings revision `67fc869f135805eba5d669a94a7f6094c70f9e10`. Future-wire
 policy and sizing were checked against design revision
@@ -38,11 +38,11 @@ acceptance. Do not describe HCI reports as whole over-air packets.
 
 ## Display
 
-Serial-display decision, 2026-10-25, and adopted display design, 2026-10-26:
-show complete reported serials. Hide only operator position on Globe's display.
-Retain that position in backend/network/state and keep all other telemetry in
-full; other consumers may display operator position. This policy is not a claim
-that every complete-record or display acceptance case has passed.
+Accepted display decision, 2026-10-28: globe.cybrrd.com shows the operator/station
+position that the drone broadcasts in Remote ID. Complete reported serials are
+shown, operator IDs are not hidden, and telemetry is kept in full in
+backend/network/state. This policy is not a claim that every complete-record or
+display acceptance case has passed.
 
 ## Generations
 

@@ -3,7 +3,7 @@
 # Known limits
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-27**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-28**.
 
 **Next/unreleased draft; release tag pending.** Source baseline: [6eed7b81](https://github.com/cybrrd/brrdfeeder/tree/6eed7b81a15415a4f9f9564cdb85341b886520cb). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
@@ -20,8 +20,8 @@ mechanism is broken.
 - A scheduled capture radio cannot listen continuously on every channel.
   Simulator results are not measured RF coverage; DFS capture is unsupported.
 - The current wire format is not the complete future record format. Historical
-  records are not upgraded by inventing missing data. Display filtering does
-  not redact backend telemetry.
+  records are not upgraded by inventing missing data. Telemetry is kept in full
+  under the data policy.
 - The beta outage-buffer behavior is a target pending native acceptance.
   Storage wear, actual duration, the power-loss vulnerable window and behavior
   with a full distress queue need measurements on the release hardware.
@@ -30,7 +30,9 @@ mechanism is broken.
   or cross-build success does not prove interruption/reboot recovery.
 - In 0.9.0, reinstalling with the same account and hostname keeps the same node
   ID and issues a new credential, but does not revoke the previous credential.
-  Workaround: arrange explicit revocation of the previous credential;
+  To revoke the previous credential, contact support through
+  [GitHub Issues](https://github.com/cybrrd/brrdfeeder/issues) (Install help) or
+  [admin@cybrrd.com](mailto:admin@cybrrd.com);
   [local uninstall does not deregister the node](../../Component/brrdfeeder/install/README.md#status-support-and-uninstall).
   Automatic revocation is planned for 0.9.1.
 - No beta end-to-end archive retention duration or permanent-copy custody

@@ -3,7 +3,7 @@
 # Operations and data handling
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-27**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-28**.
 
 **Next/unreleased draft; release tag pending.** Source baseline: [6eed7b81](https://github.com/cybrrd/brrdfeeder/tree/6eed7b81a15415a4f9f9564cdb85341b886520cb). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
@@ -18,17 +18,17 @@ has passed acceptance.
 | Claim | Expectation | Scope / status | Source and boundary |
 |---|---|---|---|
 | **D01 — Serial display** | Complete reported serial numbers are displayed | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#display) Serials are not masked. A broadcast identifier is a reported claim, not authenticated physical identity. |
-| **D02 — Operator position** | Hidden only on globe.cybrrd.com display; all other telemetry kept in full | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#display) Display filtering is not upstream redaction. Other identifiers remain displayable; other consumers may display operator position. This is policy awaiting full acceptance, not a new claim of complete beta fidelity. |
+| **D02 — Operator/station position** | Shown on globe.cybrrd.com as broadcast in Remote ID; telemetry kept in full | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#display) Position is reported by the drone, not independently verified. Serials and operator IDs are not hidden. Display acceptance remains pending; this is not a new claim of complete beta fidelity. |
 | **D03 — Telemetry generation** | Current v4 is not a full-fidelity v5 record; v5 is design-only | future-v5 / **unverified** (source) | [source 1](evidence/design-basis.md#generations) Do not invent missing fields in older records or treat a future design as deployed behavior. |
 | **D04 — Heartbeat retention** | Heartbeats excluded from permanent lake storage by design | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#retention) This does not specify a beta retention duration for observations or settle operational/distress retention. |
 | **D05 — Delayed observations** | Archive with capture and delivery times; never replay as live Globe positions | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#backlog) A recent delivery does not make an old capture fresh. |
 <!-- END GENERATED: operations -->
 
-The display rule is narrow: hide operator **position** on Globe. Serial numbers,
-operator identifiers and other reported telemetry are not hidden by that rule.
-Backend storage, browser network payloads and state may contain operator
-position. A different consumer may display it. Do not treat Globe as a source
-of redacted data.
+Globe shows the operator/station position that the drone broadcasts in Remote ID.
+Reported serial numbers are shown in full, and operator IDs are not hidden.
+Telemetry, including operator/station position, is kept in full in backend
+storage, browser network payloads and state. These are broadcast reports, not
+independently verified identities or locations.
 
 Complete retention is the design policy; it must not be confused with complete
 capture or a measured current archive guarantee. Radio hardware may not expose

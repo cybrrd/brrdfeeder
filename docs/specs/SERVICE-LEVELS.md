@@ -3,7 +3,7 @@
 # Beta service objectives
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-27**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-28**.
 
 **Next/unreleased draft; release tag pending.** Source baseline: [6eed7b81](https://github.com/cybrrd/brrdfeeder/tree/6eed7b81a15415a4f9f9564cdb85341b886520cb). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->

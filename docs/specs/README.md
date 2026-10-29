@@ -3,7 +3,7 @@
 # Product Technical and Operational Specifications
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-27**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-28**.
 
 **Next/unreleased draft; release tag pending.** Source baseline: [6eed7b81](https://github.com/cybrrd/brrdfeeder/tree/6eed7b81a15415a4f9f9564cdb85341b886520cb). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
@@ -47,10 +47,11 @@ a recognized Bluetooth receiver, GPS, durable storage and Internet access.
 Power-loss protection is strongly recommended, not required. Hardware variants
 and field performance need their own acceptance evidence.
 
-Reported serial numbers are displayed. Only operator position is hidden on
-**globe.cybrrd.com's display**; that is not backend deletion. All other telemetry
-is kept in full under the data policy. The current wire format still has known
-fidelity gaps; the complete future record design is not a shipped beta feature.
+Reported serial numbers are shown in full, and operator IDs are not hidden.
+**globe.cybrrd.com shows the operator/station position** broadcast in Remote ID.
+Telemetry is kept in full under the data policy. The current wire format still
+has known fidelity gaps; the complete future record design is not a shipped
+beta feature.
 
 Engine/console updates use signed metadata and immutable image identities.
 The host helper has a separate beta update path. Outage handling preserves

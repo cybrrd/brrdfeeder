@@ -790,10 +790,21 @@ def engine_snapshot(context, deadline):
             if heartbeat.get('radio_status') == 'up' and any(
                     item.get('monitor_mode') is True for item in status.get('inventory', {}).get('capture', [])):
                 result['states']['Wi-Fi capture'] = 'OK'
-            # Main's status schema has only historical rfkill, not BLE health.
-            # Never use that pre-unblock snapshot as a current health verdict.
+            # Prefer local lifecycle state/reason; journal is an old-engine
+            # fallback. Historical rfkill never proves current reception.
+            inventory_ble = status.get('inventory', {}).get('rid_ble')
+            if isinstance(inventory_ble, dict) and inventory_ble.get('state') in ('initializing','healthy','degraded','failed'):
+                reason = inventory_ble.get('reason')
+                if inventory_ble.get('enabled') is False:
+                    result['states']['Bluetooth'] = 'disabled in configuration'
+                elif inventory_ble['state'] == 'healthy':
+                    result['states']['Bluetooth'] = 'OK'
+                elif isinstance(reason, str) and reason:
+                    result['states']['Bluetooth'] = json.dumps(reason[:500], ensure_ascii=True)
+                else:
+                    result['states']['Bluetooth'] = inventory_ble['state']
             ble = None
-            if rc == 0:
+            if not isinstance(inventory_ble, dict) and rc == 0:
                 for line in journal.splitlines():
                     match = re.search(r'\[rid_ble\] state=(Initializing|Healthy|Degraded|Failed)\b', line)
                     if match:
@@ -2126,6 +2137,7 @@ files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
   /usr/local/libexec/brrdfeeder-gps-runtime
   /etc/systemd/system/brrdfeeder-gps-runtime.service
   /etc/systemd/system/brrdfeeder-gps-runtime.timer
+  /etc/systemd/system/brrdfeeder-ble-takeover.service /etc/systemd/system/brrdfeeder-ble-takeover.timer
   /usr/local/libexec/brrdfeeder-bluetooth /etc/brrdfeeder/.bluetooth-prior.json
   /usr/local/bin/brrdfeeder-updater.sh /run/brrdfeeder-engine.cid /run/brrdfeeder-engine.service.cid)
 shopt -s nullglob dotglob
@@ -2186,6 +2198,8 @@ for pair in \
   '/usr/local/libexec/brrdfeeder-gps-runtime|BRRDfeeder GPS runtime transport' \
   '/etc/systemd/system/brrdfeeder-gps-runtime.service|BRRDfeeder GPS runtime transport' \
   '/etc/systemd/system/brrdfeeder-gps-runtime.timer|BRRDfeeder GPS runtime transport' \
+  '/etc/systemd/system/brrdfeeder-ble-takeover.service|BRRDfeeder Bluetooth hotplug ownership' \
+  '/etc/systemd/system/brrdfeeder-ble-takeover.timer|BRRDfeeder Bluetooth hotplug retry and ownership observation' \
   '/usr/local/libexec/brrdfeeder-bluetooth|BRRDfeeder Bluetooth ownership:' \
   '/usr/local/bin/brrdfeeder-updater.sh|# BRRDfeeder signed-update installer.|#185 Drop 2'; do
   file=${pair%%|*}; signature=${pair#*|}
@@ -2263,7 +2277,7 @@ done
 for unit in /etc/systemd/system/brrdfeeder-engine.service /etc/systemd/system/brrdhouse.service; do
   ! exists "$unit" || die "unexpected native override of generated unit: $unit"
 done
-for unit in brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-memory.service brrdfeeder-memory.timer brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
+for unit in brrdfeeder-ble-takeover.timer brrdfeeder-ble-takeover.service brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-memory.service brrdfeeder-memory.timer brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
   ! exists "/etc/systemd/system/$unit.d" || die "unexpected unit overrides: $unit.d"
 done
 console_links=()
@@ -2335,6 +2349,8 @@ progress_phase 'Stopping services'
 stop_unit system brrdfeeder-memory.timer
 stop_unit system brrdfeeder-memory.service
 stop_unit system brrdfeeder-release-poll.timer
+stop_unit system brrdfeeder-ble-takeover.timer
+stop_unit system brrdfeeder-ble-takeover.service
 stop_unit system brrdfeeder-gps-runtime.timer
 stop_unit system brrdfeeder-gps-runtime.service
 stop_unit system brrdfeeder-host-update.timer
@@ -2371,13 +2387,13 @@ remove_file /etc/systemd/system/brrdfeeder-memory.service
 remove_file /etc/systemd/system/brrdfeeder-memory.timer
 for file in /etc/systemd/system/brrdfeeder-updater.path /etc/systemd/system/brrdfeeder-updater.service /etc/containers/systemd/brrdfeeder-engine.container /etc/systemd/system/brrdfeeder-release-poll.timer /etc/systemd/system/brrdfeeder-release-poll.service /etc/systemd/system/brrdfeeder-release-recover.service /etc/systemd/system/brrdfeeder-host-update.service /etc/systemd/system/brrdfeeder-host-update.timer; do remove_file "$file"; done
 for file in "${console_links[@]}"; do remove_file "$file"; done
-for file in /etc/systemd/system/brrdfeeder-gps-runtime.timer /etc/systemd/system/brrdfeeder-gps-runtime.service; do remove_file "$file"; done
+for file in /etc/systemd/system/brrdfeeder-ble-takeover.timer /etc/systemd/system/brrdfeeder-ble-takeover.service /etc/systemd/system/brrdfeeder-gps-runtime.timer /etc/systemd/system/brrdfeeder-gps-runtime.service; do remove_file "$file"; done
 [[ ${#console_links[@]} -gt 0 ]] || absent '/etc/containers/systemd/users/<console-uid>/brrdhouse.container'
 remove_file /etc/brrdfeeder/brrdhouse.container
 act systemctl daemon-reload
 if [[ -n ${uid[brrdhouse]:-} && -S /run/user/${uid[brrdhouse]}/bus ]]; then act user_command systemctl --user daemon-reload;
 else log 'nothing to do: no active console user manager to reload; teardown order requires Quadlet removal before account deletion'; fi
-for unit in brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.timer brrdfeeder-host-update.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-engine.service brrdfeeder-gps-runtime.timer brrdfeeder-gps-runtime.service; do reset_failed_unit system "$unit"; done
+for unit in brrdfeeder-ble-takeover.timer brrdfeeder-ble-takeover.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.timer brrdfeeder-host-update.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-engine.service brrdfeeder-gps-runtime.timer brrdfeeder-gps-runtime.service; do reset_failed_unit system "$unit"; done
 reset_failed_unit user brrdhouse.service
 
 # Only package containers and exclusive package image IDs. Never force rmi/prune.
@@ -2510,7 +2526,7 @@ remove_tree() {
     else find -P "$path" -xdev -depth -delete; log "REMOVED tree: $path"; fi
   else absent "$path"; fi
 }
-for tree in /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do remove_tree "$tree"; done
+for tree in /run/brrdfeeder-bluetooth /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do remove_tree "$tree"; done
 progress_phase 'Removing service accounts'
 for user in brrdhouse brrdfeeder; do
   if [[ -n ${uid[$user]:-} ]]; then
@@ -3841,6 +3857,10 @@ ${GPS_DECLARED_RULE}
 # Nordic Semiconductor nRF52 Connectivity (BLE)
 SUBSYSTEM=="tty", ATTRS{idVendor}=="${NORDIC_VENDOR}", ATTRS{idProduct}=="${NORDIC_PRODUCT}", SYMLINK+="${BLE_SYMLINK}", GROUP="dialout", MODE="0660"
 KERNEL=="rfkill", SUBSYSTEM=="misc", GROUP="dialout", MODE="0660"
+
+# BRRDfeeder supported Bluetooth hotplug; never match arbitrary USB adapters.
+ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="876e", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-ble-takeover.service"
+ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="a728", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-ble-takeover.service"
 EOF
 )
 
@@ -5084,6 +5104,7 @@ StartLimitIntervalSec=0
 Image=${CONTAINER_IMAGE}
 ContainerName=brrdfeeder-engine
 PodmanArgs=--cgroups=split
+Volume=/run/brrdfeeder-bluetooth:/run/brrdfeeder-bluetooth:ro
 Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro
 
 # Rootful container, non-root process. IDs come from the dedicated host account.
@@ -5143,6 +5164,7 @@ RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=no
 ExecStartPre=${GPS_SEED}
 ExecStartPre=/usr/local/libexec/brrdfeeder-gps-runtime prepare
+ExecStartPre=/usr/local/libexec/brrdfeeder-bluetooth prepare
 ExecStartPre=-/usr/local/libexec/brrdfeeder-image-identity prepare %t/brrdfeeder-identity
 ExecStartPost=-/usr/local/libexec/brrdfeeder-image-identity resolve %t/brrdfeeder-identity %t/%N.cid
 Restart=always
@@ -5383,6 +5405,8 @@ SUPPORTED = ('0bda:876e', '0bda:a728')  # finite allowlist; no HCI discovery
 UNIT = 'bluetooth.service'
 ENGINE = 'brrdfeeder-engine.service'
 STATUS = Path('/var/lib/brrdfeeder-status/status.json')
+RUNTIME = Path('/run/brrdfeeder-bluetooth')
+CONFLICT = RUNTIME/'conflict'
 STATES = ('enabled', 'enabled-runtime', 'disabled', 'static', 'indirect',
           'masked', 'masked-runtime', 'absent')
 
@@ -5559,8 +5583,26 @@ def inventory():
         if identity in SUPPORTED:
             found.append(identity)
             say('supported RID.BLE adapter: Realtek USB '+identity)
-    if not found: say('no supported RID.BLE adapter found (automatic selection supports '+', '.join(SUPPORTED)+'); no HCI probe performed')
+    for path in sorted(HCI.glob('hci*')):
+        identity = controller_usb_id(path)
+        if identity and identity not in SUPPORTED:
+            say('unsupported Bluetooth adapter '+identity+'; recommended: '+', '.join(SUPPORTED))
+    if not found:
+        say('Bluetooth will activate automatically when a supported adapter is plugged in ('+', '.join(SUPPORTED)+'); no HCI probe performed')
     return found
+
+
+def prepare_runtime():
+    safe(CONFLICT)
+    RUNTIME.mkdir(mode=0o755, exist_ok=True)
+    safe(CONFLICT)
+
+
+def clear_conflict():
+    safe(CONFLICT)
+    if CONFLICT.exists():
+        CONFLICT.unlink()
+        sync_parent(CONFLICT)
 
 
 def load_config():
@@ -5583,32 +5625,57 @@ def load_config():
     return doc, sensors, raw
 
 
-def enabled_config(sensors, found):
+def enabled_config(sensors, found, hotplug=False):
     changed = False
-    if 'rid_ble' not in sensors and found:
+    if not hotplug and 'rid_ble' not in sensors and found:
         if len(found) > 1: raise ValueError('multiple supported BLE adapters; configure one explicit BD_ADDR before retrying')
         sensors['rid_ble'] = dict(enabled=True, unblock_rfkill=True, adapter=dict(usb_id=found[0]))
         changed = True
     ble = sensors.get('rid_ble', {})
     if not isinstance(ble, dict) or set(ble)-{'enabled','adapter','unblock_rfkill','quiet_window_s'}:
         raise ValueError('invalid sensors.rid_ble config keys')
-    enabled = ble.get('enabled', False)
+    enabled = ble.get('enabled', True)
     if type(enabled) is not bool or type(ble.get('unblock_rfkill',False)) is not bool:
         raise ValueError('rid_ble switches must be booleans')
     if enabled:
         a = ble.get('adapter', {})
         if not isinstance(a, dict) or set(a)-{'usb_id','bd_addr'}: raise ValueError('invalid BLE adapter identity')
         identities = [(k,v) for k,v in a.items() if v is not None]
-        if len(identities) != 1: raise ValueError('enabled BLE needs exactly one adapter identity')
-        k,v = identities[0]
-        pattern = r'[0-9a-fA-F]{4}:[0-9a-fA-F]{4}' if k == 'usb_id' else r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}'
-        if not isinstance(v,str) or not re.fullmatch(pattern,v): raise ValueError('invalid BLE adapter identity')
+        if len(identities) > 1: raise ValueError('enabled BLE accepts auto or one adapter identity, never both')
+        if identities:
+            k,v = identities[0]
+            pattern = r'[0-9a-fA-F]{4}:[0-9a-fA-F]{4}' if k == 'usb_id' else r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}'
+            if not isinstance(v,str) or not re.fullmatch(pattern,v): raise ValueError('invalid BLE adapter identity')
         quiet = ble.get('quiet_window_s',30)
         if type(quiet) is not int or not 1 <= quiet <= 2**64-1: raise ValueError('invalid BLE quiet window')
-        if 'unblock_rfkill' not in ble:
+        if not hotplug and 'rid_ble' in sensors and 'unblock_rfkill' not in ble:
             ble['unblock_rfkill'] = True
             changed = True
     return enabled, changed
+
+
+def controller_usb_id(path):
+    try:
+        device = (path/'device').resolve(strict=True)
+        for parent in [device, *device.parents]:
+            if not parent.is_relative_to(DEVICES): break
+            if (parent/'idVendor').is_file() and (parent/'idProduct').is_file():
+                identity = (parent/'idVendor').read_text().strip().lower()+':'+(parent/'idProduct').read_text().strip().lower()
+                return identity if re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', identity) else None
+    except OSError: pass
+    return None
+
+
+def controller_address(path, index):
+    # Some test/vendor sysfs trees expose address, upstream Linux does not.
+    try: return (path/'address').read_text().strip().lower()
+    except FileNotFoundError: pass
+    with socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW | socket.SOCK_CLOEXEC, socket.BTPROTO_HCI) as channel:
+        info = bytearray(92)
+        struct.pack_into('@H', info, 0, index)
+        fcntl.ioctl(channel.fileno(), 0x800448d3, info, True)
+        if struct.unpack_from('@H', info)[0] != index: raise ValueError('controller index changed')
+        return ':'.join(f'{b:02x}' for b in reversed(info[10:16]))
 
 
 def selected_controller(adapter):
@@ -5621,16 +5688,12 @@ def selected_controller(adapter):
         try:
             device = (path/'device').resolve(strict=True)
             if not device.is_relative_to(DEVICES): continue
-            usb = None
-            for parent in [device,*device.parents]:
-                if not parent.is_relative_to(DEVICES): break
-                if (parent/'idVendor').is_file() and (parent/'idProduct').is_file():
-                    usb = (parent/'idVendor').read_text().strip().lower()+':'+(parent/'idProduct').read_text().strip().lower()
-                    break
+            usb = controller_usb_id(path)
             if usb not in SUPPORTED: continue
             if adapter.get('usb_id') is not None:
                 if usb != adapter['usb_id'].lower(): continue
-            elif (path/'address').read_text().strip().lower() != adapter['bd_addr'].lower(): continue
+            elif adapter.get('bd_addr') is not None:
+                if controller_address(path, index) != adapter['bd_addr'].lower(): continue
             matches.append((index, device, path.stat().st_ino))
         except OSError: continue
     if len(matches) != 1:
@@ -5638,11 +5701,11 @@ def selected_controller(adapter):
     return matches[0]
 
 
-def controller_down(adapter):
+def controller_down(adapter, hotplug=False):
     target = selected_controller(adapter)
     engine = ctl('show', ENGINE, '--property=ActiveState', '--value').strip()
     daemon = service_state()
-    if engine != 'inactive' or daemon['active'] or daemon['enabled'] not in ('masked','masked-runtime'):
+    if (not hotplug and engine != 'inactive') or daemon['active'] or daemon['enabled'] not in ('masked','masked-runtime'):
         raise ValueError('BLE DOWN refused: engine must be inactive and bluetoothd inactive/masked')
     # Linux v6.18 include/net/bluetooth/hci_sock.h ABI: _IOW('H',202,int),
     # _IOR('H',211,int); hci_dev_info is 92 bytes, flags at offset 16 (u32).
@@ -5654,6 +5717,14 @@ def controller_down(adapter):
                 raise ValueError('BLE DOWN refused: controller changed before ioctl')
             try: fcntl.ioctl(channel.fileno(), 0x400448ca, index)  # HCIDEVDOWN only
             except OSError as error:
+                if hotplug and error.errno == errno.EBUSY:
+                    # Linux hci_dev_close refuses HCI_USER_CHANNEL with EBUSY
+                    # before changing it. Never interrupt an existing user-channel
+                    # owner; the engine's exclusive bind remains authoritative.
+                    if selected_controller(adapter) != target:
+                        raise ValueError('BLE controller changed during hotplug')
+                    say(f'hci{index} already has an exclusive user-channel owner; left untouched (not a health verdict)')
+                    return
                 if error.errno != errno.EALREADY: raise
             info = bytearray(92)
             struct.pack_into('@H',info,0,index)
@@ -5678,10 +5749,13 @@ def restore(dry=False):
         set_service_state(prior)
         RECEIPT.unlink()
         sync_parent(RECEIPT)
+        clear_conflict()
         say('restored Bluetooth prior state; removed '+str(RECEIPT))
 
 
-def apply(dry=False):
+def apply(dry=False, hotplug=False):
+    if hotplug:
+        return apply_hotplug(dry)
     import yaml
     found = inventory()
     doc, sensors, raw = load_config()
@@ -5691,6 +5765,9 @@ def apply(dry=False):
     if not enabled:
         if prior: restore(dry)
         else: say('bluetooth.service unchanged: RID.BLE disabled')
+        return
+    if not found and not sensors.get('rid_ble', {}).get('adapter'):
+        say('RID.BLE enabled-auto; waiting for a supported adapter; bluetooth.service unchanged')
         return
     if prior is None: prior = service_state()
     if prior['enabled'] in ('absent','masked','masked-runtime') and prior['active']:
@@ -5717,23 +5794,91 @@ def apply(dry=False):
         now = service_state()
         if now['active'] or now['enabled'] not in ('masked','masked-runtime'):
             raise ValueError('Bluetooth ownership not established; receipt retained')
-        controller_down(sensors['rid_ble']['adapter'])
+        controller_down(sensors.get('rid_ble', {}).get('adapter', {}))
+        clear_conflict()
         say('RID.BLE owns Bluetooth; bluetoothd stopped/masked and adapter DOWN verified. Engine still checks rfkill and exclusive USER bind.')
+
+
+def apply_hotplug(dry=False):
+    """Claim only a configured supported controller; never rewrite intent.
+
+    A saved receipt plus unmasked/running bluetoothd is operator intervention,
+    not permission to take it back. Explicit apply remains the recovery action.
+    """
+    found = inventory()
+    _doc, sensors, raw = load_config()
+    enabled, changed = enabled_config(sensors, found, hotplug=True)
+    if changed: raise ValueError('hotplug must not change configuration')
+    prior = receipt()
+    if not enabled:
+        if prior:
+            was_active = ctl('show', ENGINE, '--property=ActiveState', '--value').strip() == 'active'
+            restore(dry)
+            # Restore must release the HCI user channel. Reload explicit OFF
+            # afterwards so Wi-Fi/GPS are not stranded by a Bluetooth toggle.
+            if was_active and not dry: ctl('start', ENGINE)
+        else: say('RID.BLE explicitly disabled; Bluetooth service left unchanged')
+        return
+    current = service_state() if prior is not None or found else None
+    if prior is not None and (current['active'] or current['enabled'] not in ('masked','masked-runtime') or CONFLICT.exists()):
+        if not dry:
+            prepare_runtime()
+            atomic(CONFLICT, b'operator-changed-bluetooth.service\n', 0o644)
+        raise ValueError('Bluetooth ownership conflict: prior claim no longer exclusive; no automatic re-mask. Use explicit apply to reclaim or enabled: false to restore')
+    if not found:
+        say('RID.BLE enabled; waiting for a supported adapter; Bluetooth service left unchanged')
+        return
+    adapter = sensors.get('rid_ble', {}).get('adapter', {})
+    target = selected_controller(adapter)  # Refuse absent pins/ambiguity before mutations.
+    if dry:
+        say('WOULD claim the supported controller with a prior-state receipt; preserve config bytes and keep the engine running')
+        return
+    if CONFIG.read_bytes() != raw or selected_controller(adapter) != target:
+        raise ValueError('config or controller changed before hotplug takeover; retry')
+    if prior is None:
+        prior = current
+        atomic(RECEIPT, (json.dumps(prior,sort_keys=True)+'\n').encode(), 0o600)
+        if prior['enabled'] != 'absent': ctl('stop', UNIT)
+        if prior['enabled'] in ('enabled','enabled-runtime'):
+            ctl(*(['--runtime'] if prior['enabled'].endswith('-runtime') else []), 'disable', UNIT)
+        ctl('mask', UNIT)
+    now = service_state()
+    if now['active'] or now['enabled'] not in ('masked','masked-runtime'):
+        raise ValueError('Bluetooth ownership not established; receipt retained')
+    controller_down(adapter, hotplug=True)
+    say('RID.BLE hotplug handover complete; configuration unchanged, engine left running; engine verifies passive reception')
+
+
+def dispatch():
+    if os.geteuid() != 0: raise ValueError('run Bluetooth ownership helper as root')
+    args = sys.argv[1:]
+    if args == ['check']: receipt()
+    elif args in (['apply'], ['apply','--dry-run'], ['apply','--hotplug'], ['apply','--hotplug','--dry-run']):
+        apply('--dry-run' in args, '--hotplug' in args)
+    elif args in (['restore'], ['restore','--dry-run']): restore(len(args)==2)
+    elif args == ['inventory']: inventory()
+    elif args == ['health-summary']: health_summary()
+    elif args == ['prepare']: prepare_runtime()
+    else: raise ValueError('expected apply [--hotplug] [--dry-run], restore [--dry-run], check, inventory, health-summary, or prepare')
 
 
 def main():
     if os.geteuid() != 0: raise ValueError('run Bluetooth ownership helper as root')
-    args = sys.argv[1:]
-    if args == ['check']: receipt()
-    elif args in (['apply'], ['apply','--dry-run']): apply(len(args)==2)
-    elif args in (['restore'], ['restore','--dry-run']): restore(len(args)==2)
-    elif args == ['inventory']: inventory()
-    elif args == ['health-summary']: health_summary()
-    else: raise ValueError('expected apply|restore [--dry-run], check, inventory, or health-summary')
+    if sys.argv[1:] in (['prepare'], ['inventory'], ['health-summary'], ['check']):
+        return dispatch()
+    prepare_runtime()
+    lock = RUNTIME/'lock'
+    safe(lock)
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        dispatch()
+    finally:
+        os.close(fd)
 
 
 def summarize_health(status, journal, now=None):
-    """D17 has rfkill inventory, NOT BLE lifecycle health. Use current-run journal.
+    """Prefer current local BLE state/reason; retain the old-engine journal fallback.
 
     Freshness proves the engine is still reporting; preflight rfkill observations
     cannot prove unblock success or a Healthy radio. Only engine transitions can.
@@ -5749,6 +5894,13 @@ def summarize_health(status, journal, now=None):
             return 'RID.BLE Unknown: unsupported engine status schema'
     except (KeyError, ValueError, TypeError, AttributeError):
         return 'RID.BLE Unknown: engine status missing or invalid; not verified healthy'
+    ble = status.get('inventory', {}).get('rid_ble')
+    if isinstance(ble, dict) and ble.get('state') in ('initializing','healthy','degraded','failed'):
+        state = 'Disabled' if ble.get('enabled') is False else ble['state'].capitalize()
+        reason = ble.get('reason')
+        if isinstance(reason, str) and reason:
+            return f'RID.BLE {state}: '+json.dumps(reason[:500], ensure_ascii=True)
+        return f'RID.BLE {state}'
     result = 'RID.BLE Unknown: no lifecycle state in current engine invocation; not verified healthy'
     for line in journal.splitlines():
         if line.strip() == '[rid_ble] disabled': result = 'RID.BLE Disabled (engine configuration)'
@@ -5791,7 +5943,35 @@ if __name__ == '__main__':
 BLUETOOTH_EOF
   run chmod 0755 "$BLUETOOTH_HELPER"
   run chown root:root "$BLUETOOTH_HELPER"
+  atomic_install 0644 root root /etc/systemd/system/brrdfeeder-ble-takeover.service <<'BLE_SERVICE_EOF'
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[Unit]
+Description=BRRDfeeder Bluetooth hotplug ownership
+ConditionPathExists=/etc/brrdfeeder/config.yaml
+ConditionPathIsExecutable=/usr/local/libexec/brrdfeeder-bluetooth
+After=systemd-udevd.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/brrdfeeder-bluetooth apply --hotplug
+TimeoutStartSec=120
+BLE_SERVICE_EOF
+  atomic_install 0644 root root /etc/systemd/system/brrdfeeder-ble-takeover.timer <<'BLE_TIMER_EOF'
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[Unit]
+Description=BRRDfeeder Bluetooth hotplug retry and ownership observation
+[Timer]
+OnBootSec=5s
+OnUnitInactiveSec=5s
+AccuracySec=1s
+Unit=brrdfeeder-ble-takeover.service
+[Install]
+WantedBy=timers.target
+BLE_TIMER_EOF
   run_step bluetooth/ownership python3 "$BLUETOOTH_HELPER" apply
+  run systemctl daemon-reload
+  run systemctl enable --now brrdfeeder-ble-takeover.timer
 fi
 # NOTE: do NOT `systemctl enable` — Quadlet-generated units are transient
 # and reject enable ("Unit ... is transient or generated"). Boot-start is

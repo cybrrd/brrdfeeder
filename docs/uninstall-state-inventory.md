@@ -152,3 +152,13 @@ the existence of already-supported external package files.
 3. Quarantining an invalid pending directory preserves potentially arbitrary
    children. A new structural inventory must distinguish generated records from
    preserved untrusted input; enumerating `entry/**` as trusted would be wrong.
+
+## Bluetooth hotplug paths
+
+`brrdfeeder-ble-takeover.service` and `.timer` in `/etc/systemd/system` are
+package-marked, validated, stopped before Bluetooth restoration, removed and
+reset-failed. The exact supported-ID ADD rules live in the existing package udev
+file and are removed with it. `/run/brrdfeeder-bluetooth` contains only root-owned
+lock/conflict and atomic temporary files, is validated with `safe_tree`, and is
+removed after service shutdown. The existing prior-state receipt remains the
+only authority for restoration; no receipt means no inferred host state.

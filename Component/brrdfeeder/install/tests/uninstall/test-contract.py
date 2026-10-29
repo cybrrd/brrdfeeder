@@ -93,6 +93,13 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
         # Explicit GPS/P0 exceptions; enrollment internals, image pins/pulls,
         # account creation, host config, updater and other confinement stay equal.
         def normalize(text):
+            # BLE hotplug's exact rules/mount/pre-start are independently exercised
+            # by ble-hotplug/test-contract.py and mutation controls. Keep the
+            # surrounding frozen installer flow intact.
+            rules=(ROOT/'Component/aviary/deploy/udev/99-cybrrd-brrdfeeder.rules').read_text().split('\n# BRRDfeeder supported Bluetooth hotplug;',1)[1]
+            text=text.replace('\n# BRRDfeeder supported Bluetooth hotplug;'+rules,'')
+            text=text.replace('Volume=/run/brrdfeeder-bluetooth:/run/brrdfeeder-bluetooth:ro\n','')
+            text=text.replace('ExecStartPre=/usr/local/libexec/brrdfeeder-bluetooth prepare\n','')
             # Credential-renewal has independent behavioral/permission contracts.
             # Remove only its newly registered state/mount scope from this old
             # uninstall freeze; retain every other installer ordering assertion.

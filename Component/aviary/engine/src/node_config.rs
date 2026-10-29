@@ -281,8 +281,11 @@ pub struct RidBleYaml {
 impl Default for RidBleYaml {
     fn default() -> Self {
         Self {
-            enabled: false,
-            unblock_rfkill: false,
+            // Absence is enabled intent, not an inventory snapshot. Only an
+            // explicit enabled:false opts out; an empty identity selects the
+            // unique supported USB adapter when it appears.
+            enabled: true,
+            unblock_rfkill: true,
             adapter: BleAdapterYaml::default(),
             quiet_window_s: 30,
         }
@@ -305,10 +308,12 @@ impl RidBleYaml {
             return Err("rid_ble quiet_window_s must be positive".into());
         }
         match (&self.adapter.bd_addr, &self.adapter.usb_id) {
+            (None, None) => Ok(()),
             (Some(addr), None) if valid_hex_identity(addr, 6, 2) => Ok(()),
             (None, Some(id)) if valid_hex_identity(id, 2, 4) => Ok(()),
             _ => Err(
-                "rid_ble needs exactly one adapter identity: BD_ADDR or USB vendor:product".into(),
+                "rid_ble adapter must be auto (empty), BD_ADDR or USB vendor:product, never both"
+                    .into(),
             ),
         }
     }
@@ -350,10 +355,7 @@ impl GpsInitYaml {
         }
         let mut out = Vec::new();
         if let Some(hz) = self.update_rate_hz {
-            out.push(format!(
-                "$PMTK220,{}",
-                (1000 / hz.clamp(1, 10))
-            ));
+            out.push(format!("$PMTK220,{}", (1000 / hz.clamp(1, 10))));
         }
         if let Some(set) = &self.nmea_set {
             let cleaned: String = set
@@ -513,7 +515,10 @@ impl EngineConfig {
         if !crate::silver::valid_coordinates(loc.latitude, loc.longitude) {
             return Err("node.location: (0,0) is declared unknown, not a valid configured installation position".into());
         }
-        cfg.loaded_config_hash = Some(format!("sha256:{}", hex::encode(Sha256::digest(content.as_bytes()))));
+        cfg.loaded_config_hash = Some(format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(content.as_bytes()))
+        ));
         for key in cfg.deprecated_keys() {
             eprintln!("[config] deprecated {key}: accepted for installer compatibility, ignored by engine");
         }
@@ -777,13 +782,20 @@ mod tests {
     }
 
     #[test]
-    fn verify_req_brrd_014_config_refuses_unknown_and_defaults_disabled() {
+    fn verify_req_brrd_014_config_refuses_unknown_and_defaults_auto() {
         let cfg: RidBleYaml = serde_yaml::from_str("{}").unwrap();
-        assert!(!cfg.enabled);
-        assert!(!cfg.unblock_rfkill);
+        assert!(cfg.enabled);
+        assert!(cfg.unblock_rfkill);
         assert!(cfg.validate().is_ok());
+        let sensors: SensorsYaml = serde_yaml::from_str("{}").unwrap();
+        assert!(
+            sensors.rid_ble.enabled,
+            "absent rid_ble must keep enabled intent"
+        );
+        let off: RidBleYaml = serde_yaml::from_str("enabled: false").unwrap();
+        assert!(!off.enabled);
+        assert!(off.validate().is_ok());
         for yaml in [
-            "enabled: true",
             "enabled: true\nadapter: {bd_addr: hci0}",
             "enabled: true\nadapter: {bd_addr: '00:E0:4C:31:5E:C6', usb_id: '0bda:876e'}",
             "enabled: true\nquiet_window_s: 0\nadapter: {usb_id: '0bda:876e'}",
@@ -914,7 +926,10 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
         let loaded = EngineConfig::load(path.to_str().unwrap()).unwrap();
         let hash = loaded.loaded_config_hash.clone().unwrap();
         // Independent sha256sum golden: preserve the wire format across digest API upgrades.
-        assert_eq!(hash, "sha256:93d35e0eb3ffc08474e7beccee891788f641daa5032f1dc3a18abb6e6add81fb");
+        assert_eq!(
+            hash,
+            "sha256:93d35e0eb3ffc08474e7beccee891788f641daa5032f1dc3a18abb6e6add81fb"
+        );
         std::fs::write(&path, yaml("41", "-96")).unwrap();
         assert_eq!(
             loaded.silver_context().config_hash.as_deref(),
@@ -982,8 +997,7 @@ mod gps_init_tests {
     fn init_off_by_default_sends_nothing() {
         let y: GpsYaml = serde_yaml::from_str("").unwrap();
         assert!(y.init.sentences().is_empty());
-        let y2: GpsYaml =
-            serde_yaml::from_str("init: {update_rate_hz: 10}").unwrap();
+        let y2: GpsYaml = serde_yaml::from_str("init: {update_rate_hz: 10}").unwrap();
         // pmtk master gate false => nothing sent even with fields set.
         assert!(y2.init.sentences().is_empty());
     }
@@ -1008,8 +1022,7 @@ mod gps_init_tests {
 
     #[test]
     fn init_update_rate_clamps_to_receiver_limits() {
-        let y: GpsYaml = serde_yaml::from_str("init: {pmtk: true, update_rate_hz: 50}")
-            .unwrap();
+        let y: GpsYaml = serde_yaml::from_str("init: {pmtk: true, update_rate_hz: 50}").unwrap();
         assert_eq!(y.init.sentences(), vec!["$PMTK220,100*2F".to_string()]);
     }
 }

@@ -69,6 +69,10 @@ pub struct BleInventory {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<crate::sensor::SensorState>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub current_rfkill: Option<RfkillSnapshot>,
     #[serde(skip)]
     pub health: Option<Arc<arc_swap::ArcSwap<crate::sensor::SensorHealth>>>,
@@ -78,7 +82,11 @@ pub struct BleInventory {
 
 impl BleInventory {
     pub fn refresh(&mut self) {
-        self.state = self.health.as_ref().map(|h| h.load().state);
+        if let Some(health) = &self.health {
+            let health = health.load();
+            self.state = Some(health.state);
+            self.reason = health.detail.clone();
+        }
         // A missing/unreadable/replaced switch is UNKNOWN, never a retained
         // green or blocked bit. The original preflight remains history only.
         self.current_rfkill = self.rfkill_observer.as_ref().and_then(|o| o.read()).map(
@@ -185,6 +193,8 @@ struct Meaningful {
     capture: Vec<(String, Option<bool>)>,
     rfkill: Option<(bool, bool)>,
     ble_state: Option<crate::sensor::SensorState>,
+    ble_enabled: Option<bool>,
+    ble_reason: Option<String>,
     current_rfkill: Option<(bool, bool)>,
     policy_ack: Option<String>,
     update_blocked_reason: Option<String>,
@@ -222,6 +232,12 @@ impl StatusPayload<'_> {
                 .and_then(|b| b.rfkill.as_ref())
                 .map(|r| (r.soft_blocked, r.hard_blocked)),
             ble_state: self.inventory.rid_ble.as_ref().and_then(|b| b.state),
+            ble_enabled: self.inventory.rid_ble.as_ref().and_then(|b| b.enabled),
+            ble_reason: self
+                .inventory
+                .rid_ble
+                .as_ref()
+                .and_then(|b| b.reason.clone()),
             current_rfkill: self
                 .inventory
                 .rid_ble

@@ -111,3 +111,40 @@ func TestBluetoothFailedWithoutCurrentBlock(t *testing.T) {
 		t.Fatalf("failed BLE misreported: %+v", v)
 	}
 }
+
+func TestBluetoothHotplugReasonAndExplicitOff(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		c, p := testConsole(t)
+		fixture(t, p, time.Second, 30, false)
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc map[string]any
+		if err = json.Unmarshal(b, &doc); err != nil {
+			t.Fatal(err)
+		}
+		ble := doc["inventory"].(map[string]any)["rid_ble"].(map[string]any)
+		ble["state"], ble["enabled"] = "degraded", enabled
+		ble["reason"] = "Waiting: unsupported adapter 1234:5678 <script>alert(1)</script>"
+		b, err = json.Marshal(doc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(p, b, 0644); err != nil {
+			t.Fatal(err)
+		}
+		v := readStatus(p, proofNow)
+		want := "Waiting for Bluetooth"
+		if !enabled {
+			want = "Disabled in configuration"
+		}
+		if v.BLE != want {
+			t.Fatalf("state=%q want=%q", v.BLE, want)
+		}
+		body := render(c, "/").Body.String()
+		if !strings.Contains(body, "1234:5678") || strings.Contains(body, "<script>alert(1)</script>") {
+			t.Fatalf("reason missing or unescaped: %s", body)
+		}
+	}
+}

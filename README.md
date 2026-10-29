@@ -30,6 +30,15 @@ Licensing is described in the root [LICENSE](LICENSE). Release approval and
 publishing a draft release remain maintainer actions; successful CI alone does
 not authorize a release.
 
+## Bluetooth hotplug
+
+With the matching engine and host installer update, an absent `sensors.rid_ble`
+key means automatic reception when one supported Realtek **0bda:876e** or
+**0bda:a728** adapter is plugged in. Explicit `enabled: false` stays off.
+Missing or unplugged adapters are retried about every five seconds; local status
+and the console explain waiting, unsupported hardware, ambiguous selection and
+ownership conflicts. See [behavior, limits and native checks](docs/ble-hotplug.md).
+
 ## Ownership
 
 Copyright © 2026 Macawi LLC, Iowa, USA.

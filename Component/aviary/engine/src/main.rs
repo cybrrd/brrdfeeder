@@ -644,13 +644,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // REQ-BRRD-006: source emits raw AD; the shared host decoder owns ODID.
+    // Start even when explicitly off so local status carries the disabled
+    // intent/reason. The disabled sensor exits before inventory or HCI access.
+    let mut ble_handle = rid_ble::RidBle(
+        cfg.sensors.rid_ble.clone(),
+        ble_inventory,
+        Arc::clone(&liveness.frames),
+    )
+    .start(gps_ctx);
     let ble_keeper = if cfg.sensors.rid_ble.enabled {
-        let mut handle = rid_ble::RidBle(
-            cfg.sensors.rid_ble.clone(),
-            ble_inventory,
-            Arc::clone(&liveness.frames),
-        )
-        .start(gps_ctx);
         let mut pipeline = capture::PostParse::new(
             capture::ForwardContext {
                 tx: tx.clone(),
@@ -671,10 +673,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tokio::select! {
                     _ = cancel.cancelled() => {
                         // Wait for the sensor's bounded scan-disable and socket close.
-                        while handle.readings.recv().await.is_some() {}
+                        while ble_handle.readings.recv().await.is_some() {}
                         break;
                     },
-                    reading = handle.readings.recv() => {
+                    reading = ble_handle.readings.recv() => {
                         let Some(ad) = reading else { break; };
                         let keep_running = decoder.ingest(&ad.ad, ad.addr, ad.rssi, ad.meta)
                             .is_none_or(|data| pipeline.forward(data));
@@ -686,7 +688,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Dropping the receiver also terminates a failed/closed sensor path.
         }))
     } else {
-        println!("[rid_ble] disabled");
         None
     };
 

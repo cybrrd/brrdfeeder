@@ -28,6 +28,8 @@ SUPPORTED = ('0bda:876e', '0bda:a728')  # finite allowlist; no HCI discovery
 UNIT = 'bluetooth.service'
 ENGINE = 'brrdfeeder-engine.service'
 STATUS = Path('/var/lib/brrdfeeder-status/status.json')
+RUNTIME = Path('/run/brrdfeeder-bluetooth')
+CONFLICT = RUNTIME/'conflict'
 STATES = ('enabled', 'enabled-runtime', 'disabled', 'static', 'indirect',
           'masked', 'masked-runtime', 'absent')
 
@@ -204,8 +206,26 @@ def inventory():
         if identity in SUPPORTED:
             found.append(identity)
             say('supported RID.BLE adapter: Realtek USB '+identity)
-    if not found: say('no supported RID.BLE adapter found (automatic selection supports '+', '.join(SUPPORTED)+'); no HCI probe performed')
+    for path in sorted(HCI.glob('hci*')):
+        identity = controller_usb_id(path)
+        if identity and identity not in SUPPORTED:
+            say('unsupported Bluetooth adapter '+identity+'; recommended: '+', '.join(SUPPORTED))
+    if not found:
+        say('Bluetooth will activate automatically when a supported adapter is plugged in ('+', '.join(SUPPORTED)+'); no HCI probe performed')
     return found
+
+
+def prepare_runtime():
+    safe(CONFLICT)
+    RUNTIME.mkdir(mode=0o755, exist_ok=True)
+    safe(CONFLICT)
+
+
+def clear_conflict():
+    safe(CONFLICT)
+    if CONFLICT.exists():
+        CONFLICT.unlink()
+        sync_parent(CONFLICT)
 
 
 def load_config():
@@ -228,32 +248,57 @@ def load_config():
     return doc, sensors, raw
 
 
-def enabled_config(sensors, found):
+def enabled_config(sensors, found, hotplug=False):
     changed = False
-    if 'rid_ble' not in sensors and found:
+    if not hotplug and 'rid_ble' not in sensors and found:
         if len(found) > 1: raise ValueError('multiple supported BLE adapters; configure one explicit BD_ADDR before retrying')
         sensors['rid_ble'] = dict(enabled=True, unblock_rfkill=True, adapter=dict(usb_id=found[0]))
         changed = True
     ble = sensors.get('rid_ble', {})
     if not isinstance(ble, dict) or set(ble)-{'enabled','adapter','unblock_rfkill','quiet_window_s'}:
         raise ValueError('invalid sensors.rid_ble config keys')
-    enabled = ble.get('enabled', False)
+    enabled = ble.get('enabled', True)
     if type(enabled) is not bool or type(ble.get('unblock_rfkill',False)) is not bool:
         raise ValueError('rid_ble switches must be booleans')
     if enabled:
         a = ble.get('adapter', {})
         if not isinstance(a, dict) or set(a)-{'usb_id','bd_addr'}: raise ValueError('invalid BLE adapter identity')
         identities = [(k,v) for k,v in a.items() if v is not None]
-        if len(identities) != 1: raise ValueError('enabled BLE needs exactly one adapter identity')
-        k,v = identities[0]
-        pattern = r'[0-9a-fA-F]{4}:[0-9a-fA-F]{4}' if k == 'usb_id' else r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}'
-        if not isinstance(v,str) or not re.fullmatch(pattern,v): raise ValueError('invalid BLE adapter identity')
+        if len(identities) > 1: raise ValueError('enabled BLE accepts auto or one adapter identity, never both')
+        if identities:
+            k,v = identities[0]
+            pattern = r'[0-9a-fA-F]{4}:[0-9a-fA-F]{4}' if k == 'usb_id' else r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}'
+            if not isinstance(v,str) or not re.fullmatch(pattern,v): raise ValueError('invalid BLE adapter identity')
         quiet = ble.get('quiet_window_s',30)
         if type(quiet) is not int or not 1 <= quiet <= 2**64-1: raise ValueError('invalid BLE quiet window')
-        if 'unblock_rfkill' not in ble:
+        if not hotplug and 'rid_ble' in sensors and 'unblock_rfkill' not in ble:
             ble['unblock_rfkill'] = True
             changed = True
     return enabled, changed
+
+
+def controller_usb_id(path):
+    try:
+        device = (path/'device').resolve(strict=True)
+        for parent in [device, *device.parents]:
+            if not parent.is_relative_to(DEVICES): break
+            if (parent/'idVendor').is_file() and (parent/'idProduct').is_file():
+                identity = (parent/'idVendor').read_text().strip().lower()+':'+(parent/'idProduct').read_text().strip().lower()
+                return identity if re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', identity) else None
+    except OSError: pass
+    return None
+
+
+def controller_address(path, index):
+    # Some test/vendor sysfs trees expose address, upstream Linux does not.
+    try: return (path/'address').read_text().strip().lower()
+    except FileNotFoundError: pass
+    with socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW | socket.SOCK_CLOEXEC, socket.BTPROTO_HCI) as channel:
+        info = bytearray(92)
+        struct.pack_into('@H', info, 0, index)
+        fcntl.ioctl(channel.fileno(), 0x800448d3, info, True)
+        if struct.unpack_from('@H', info)[0] != index: raise ValueError('controller index changed')
+        return ':'.join(f'{b:02x}' for b in reversed(info[10:16]))
 
 
 def selected_controller(adapter):
@@ -266,16 +311,12 @@ def selected_controller(adapter):
         try:
             device = (path/'device').resolve(strict=True)
             if not device.is_relative_to(DEVICES): continue
-            usb = None
-            for parent in [device,*device.parents]:
-                if not parent.is_relative_to(DEVICES): break
-                if (parent/'idVendor').is_file() and (parent/'idProduct').is_file():
-                    usb = (parent/'idVendor').read_text().strip().lower()+':'+(parent/'idProduct').read_text().strip().lower()
-                    break
+            usb = controller_usb_id(path)
             if usb not in SUPPORTED: continue
             if adapter.get('usb_id') is not None:
                 if usb != adapter['usb_id'].lower(): continue
-            elif (path/'address').read_text().strip().lower() != adapter['bd_addr'].lower(): continue
+            elif adapter.get('bd_addr') is not None:
+                if controller_address(path, index) != adapter['bd_addr'].lower(): continue
             matches.append((index, device, path.stat().st_ino))
         except OSError: continue
     if len(matches) != 1:
@@ -283,11 +324,11 @@ def selected_controller(adapter):
     return matches[0]
 
 
-def controller_down(adapter):
+def controller_down(adapter, hotplug=False):
     target = selected_controller(adapter)
     engine = ctl('show', ENGINE, '--property=ActiveState', '--value').strip()
     daemon = service_state()
-    if engine != 'inactive' or daemon['active'] or daemon['enabled'] not in ('masked','masked-runtime'):
+    if (not hotplug and engine != 'inactive') or daemon['active'] or daemon['enabled'] not in ('masked','masked-runtime'):
         raise ValueError('BLE DOWN refused: engine must be inactive and bluetoothd inactive/masked')
     # Linux v6.18 include/net/bluetooth/hci_sock.h ABI: _IOW('H',202,int),
     # _IOR('H',211,int); hci_dev_info is 92 bytes, flags at offset 16 (u32).
@@ -299,6 +340,14 @@ def controller_down(adapter):
                 raise ValueError('BLE DOWN refused: controller changed before ioctl')
             try: fcntl.ioctl(channel.fileno(), 0x400448ca, index)  # HCIDEVDOWN only
             except OSError as error:
+                if hotplug and error.errno == errno.EBUSY:
+                    # Linux hci_dev_close refuses HCI_USER_CHANNEL with EBUSY
+                    # before changing it. Never interrupt an existing user-channel
+                    # owner; the engine's exclusive bind remains authoritative.
+                    if selected_controller(adapter) != target:
+                        raise ValueError('BLE controller changed during hotplug')
+                    say(f'hci{index} already has an exclusive user-channel owner; left untouched (not a health verdict)')
+                    return
                 if error.errno != errno.EALREADY: raise
             info = bytearray(92)
             struct.pack_into('@H',info,0,index)
@@ -323,10 +372,13 @@ def restore(dry=False):
         set_service_state(prior)
         RECEIPT.unlink()
         sync_parent(RECEIPT)
+        clear_conflict()
         say('restored Bluetooth prior state; removed '+str(RECEIPT))
 
 
-def apply(dry=False):
+def apply(dry=False, hotplug=False):
+    if hotplug:
+        return apply_hotplug(dry)
     import yaml
     found = inventory()
     doc, sensors, raw = load_config()
@@ -336,6 +388,9 @@ def apply(dry=False):
     if not enabled:
         if prior: restore(dry)
         else: say('bluetooth.service unchanged: RID.BLE disabled')
+        return
+    if not found and not sensors.get('rid_ble', {}).get('adapter'):
+        say('RID.BLE enabled-auto; waiting for a supported adapter; bluetooth.service unchanged')
         return
     if prior is None: prior = service_state()
     if prior['enabled'] in ('absent','masked','masked-runtime') and prior['active']:
@@ -362,23 +417,91 @@ def apply(dry=False):
         now = service_state()
         if now['active'] or now['enabled'] not in ('masked','masked-runtime'):
             raise ValueError('Bluetooth ownership not established; receipt retained')
-        controller_down(sensors['rid_ble']['adapter'])
+        controller_down(sensors.get('rid_ble', {}).get('adapter', {}))
+        clear_conflict()
         say('RID.BLE owns Bluetooth; bluetoothd stopped/masked and adapter DOWN verified. Engine still checks rfkill and exclusive USER bind.')
+
+
+def apply_hotplug(dry=False):
+    """Claim only a configured supported controller; never rewrite intent.
+
+    A saved receipt plus unmasked/running bluetoothd is operator intervention,
+    not permission to take it back. Explicit apply remains the recovery action.
+    """
+    found = inventory()
+    _doc, sensors, raw = load_config()
+    enabled, changed = enabled_config(sensors, found, hotplug=True)
+    if changed: raise ValueError('hotplug must not change configuration')
+    prior = receipt()
+    if not enabled:
+        if prior:
+            was_active = ctl('show', ENGINE, '--property=ActiveState', '--value').strip() == 'active'
+            restore(dry)
+            # Restore must release the HCI user channel. Reload explicit OFF
+            # afterwards so Wi-Fi/GPS are not stranded by a Bluetooth toggle.
+            if was_active and not dry: ctl('start', ENGINE)
+        else: say('RID.BLE explicitly disabled; Bluetooth service left unchanged')
+        return
+    current = service_state() if prior is not None or found else None
+    if prior is not None and (current['active'] or current['enabled'] not in ('masked','masked-runtime') or CONFLICT.exists()):
+        if not dry:
+            prepare_runtime()
+            atomic(CONFLICT, b'operator-changed-bluetooth.service\n', 0o644)
+        raise ValueError('Bluetooth ownership conflict: prior claim no longer exclusive; no automatic re-mask. Use explicit apply to reclaim or enabled: false to restore')
+    if not found:
+        say('RID.BLE enabled; waiting for a supported adapter; Bluetooth service left unchanged')
+        return
+    adapter = sensors.get('rid_ble', {}).get('adapter', {})
+    target = selected_controller(adapter)  # Refuse absent pins/ambiguity before mutations.
+    if dry:
+        say('WOULD claim the supported controller with a prior-state receipt; preserve config bytes and keep the engine running')
+        return
+    if CONFIG.read_bytes() != raw or selected_controller(adapter) != target:
+        raise ValueError('config or controller changed before hotplug takeover; retry')
+    if prior is None:
+        prior = current
+        atomic(RECEIPT, (json.dumps(prior,sort_keys=True)+'\n').encode(), 0o600)
+        if prior['enabled'] != 'absent': ctl('stop', UNIT)
+        if prior['enabled'] in ('enabled','enabled-runtime'):
+            ctl(*(['--runtime'] if prior['enabled'].endswith('-runtime') else []), 'disable', UNIT)
+        ctl('mask', UNIT)
+    now = service_state()
+    if now['active'] or now['enabled'] not in ('masked','masked-runtime'):
+        raise ValueError('Bluetooth ownership not established; receipt retained')
+    controller_down(adapter, hotplug=True)
+    say('RID.BLE hotplug handover complete; configuration unchanged, engine left running; engine verifies passive reception')
+
+
+def dispatch():
+    if os.geteuid() != 0: raise ValueError('run Bluetooth ownership helper as root')
+    args = sys.argv[1:]
+    if args == ['check']: receipt()
+    elif args in (['apply'], ['apply','--dry-run'], ['apply','--hotplug'], ['apply','--hotplug','--dry-run']):
+        apply('--dry-run' in args, '--hotplug' in args)
+    elif args in (['restore'], ['restore','--dry-run']): restore(len(args)==2)
+    elif args == ['inventory']: inventory()
+    elif args == ['health-summary']: health_summary()
+    elif args == ['prepare']: prepare_runtime()
+    else: raise ValueError('expected apply [--hotplug] [--dry-run], restore [--dry-run], check, inventory, health-summary, or prepare')
 
 
 def main():
     if os.geteuid() != 0: raise ValueError('run Bluetooth ownership helper as root')
-    args = sys.argv[1:]
-    if args == ['check']: receipt()
-    elif args in (['apply'], ['apply','--dry-run']): apply(len(args)==2)
-    elif args in (['restore'], ['restore','--dry-run']): restore(len(args)==2)
-    elif args == ['inventory']: inventory()
-    elif args == ['health-summary']: health_summary()
-    else: raise ValueError('expected apply|restore [--dry-run], check, inventory, or health-summary')
+    if sys.argv[1:] in (['prepare'], ['inventory'], ['health-summary'], ['check']):
+        return dispatch()
+    prepare_runtime()
+    lock = RUNTIME/'lock'
+    safe(lock)
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        dispatch()
+    finally:
+        os.close(fd)
 
 
 def summarize_health(status, journal, now=None):
-    """D17 has rfkill inventory, NOT BLE lifecycle health. Use current-run journal.
+    """Prefer current local BLE state/reason; retain the old-engine journal fallback.
 
     Freshness proves the engine is still reporting; preflight rfkill observations
     cannot prove unblock success or a Healthy radio. Only engine transitions can.
@@ -394,6 +517,13 @@ def summarize_health(status, journal, now=None):
             return 'RID.BLE Unknown: unsupported engine status schema'
     except (KeyError, ValueError, TypeError, AttributeError):
         return 'RID.BLE Unknown: engine status missing or invalid; not verified healthy'
+    ble = status.get('inventory', {}).get('rid_ble')
+    if isinstance(ble, dict) and ble.get('state') in ('initializing','healthy','degraded','failed'):
+        state = 'Disabled' if ble.get('enabled') is False else ble['state'].capitalize()
+        reason = ble.get('reason')
+        if isinstance(reason, str) and reason:
+            return f'RID.BLE {state}: '+json.dumps(reason[:500], ensure_ascii=True)
+        return f'RID.BLE {state}'
     result = 'RID.BLE Unknown: no lifecycle state in current engine invocation; not verified healthy'
     for line in journal.splitlines():
         if line.strip() == '[rid_ble] disabled': result = 'RID.BLE Disabled (engine configuration)'

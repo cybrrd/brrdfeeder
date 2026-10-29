@@ -6,7 +6,7 @@ This is a sanitized record of accepted product decisions, not a test receipt.
 Decision dates identify provenance; claim values live only in
 [claims.yaml](../claims.yaml). Private meeting records, infrastructure details,
 identities and licensed standards text are not reproduced here. The source
-review date is 2026-10-28. The hardware projection was checked against
+review date is 2026-10-29. The hardware projection was checked against
 installation-page template revision `7fb1a3b060e66ef075de9b9496b1faf592946019`
 and settings revision `67fc869f135805eba5d669a94a7f6094c70f9e10`. Future-wire
 policy and sizing were checked against design revision
@@ -116,6 +116,7 @@ Accepted decision, 2026-10-26, verbatim:
 
 The retained guards are slow-client send-buffer ejection, ACTIVE_HEXES outgoing
 frame overflow, and inbound frame size plus per-browser message rate limits.
+The reviewed input token bucket provides the burst and refill values in P08.
 Each must show the user a reason, count the event and alert internal monitoring.
 Metrics are internal only. The registry owns the public guard values.
 
@@ -124,7 +125,7 @@ Source review: viewer implementation revision
 provides the reason and counter paths. Oversized input beyond the library memory
 backstop can show the library's size-limit reason rather than the application's
 reason; it is still counted as oversized input. Source review does not establish
-live deployment or routed alert delivery. B07 acceptance must cover each guard
+live deployment or routed alert delivery. Viewer acceptance must cover each guard
 and the internal monitoring path before any measured claim is made.
 
 ## Enrollment
@@ -159,8 +160,30 @@ Accepted support decision, 2026-10-26, verbatim:
 Issues are to be enabled at launch. This decision promises no response deadline.
 Vulnerabilities follow SECURITY.md's private reporting path and no-deadline policy.
 
+## Stream capacity
+
+The release owner approved the Silver and Red storage increases on 2026-10-27;
+the application record and independent review confirm the configured values
+recorded in D15 and D16. Message counts apply per node subject; byte capacities
+apply to each whole stream. The provisioner source was reviewed at revision
+`57478fb7f539df939b31901bc1ece4f80552f00a`.
+
+Advisory stream-fill rules were reviewed at revision
+`a444aec7eb55fe826a7d98bad6de20a16d447fc8`. P03 records their sustained warning
+and Red thresholds. These alerts do not impose viewer-count or collection caps.
+The physical broker limits remain separate: reaching a per-subject message
+limit can evict older records, while aggregate byte exhaustion can refuse new
+messages. Do not interpret these configured bounds as safe operating targets
+or a guaranteed retention period.
+
+Alert activation requires a full post-change observation hour without growing
+gaps, independent custody review and the remaining delivery/rollout checks.
+This source projection is not a public executed acceptance receipt and does not
+establish that these operational gates have passed. Existing loss remains
+visible; increasing capacity does not recover missing records.
+
 ## Pending
 
-Stream capacity (B05) remains **pending signature**. The release owner must sign
-before values are published. B05 owns implementation and acceptance evidence.
-The beta release tag and public acceptance receipts are also outstanding.
+The beta release tag, hardware power-loss interval and public acceptance
+receipts remain outstanding. Capacity values, enrollment policy and support
+routes have settled sources; they are not unresolved numeric choices.

@@ -3,9 +3,9 @@
 # Known limits
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-28**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-29**.
 
-**Next/unreleased draft; release tag pending.** Source baseline: [6eed7b81](https://github.com/cybrrd/brrdfeeder/tree/6eed7b81a15415a4f9f9564cdb85341b886520cb). Future-v5 rows are separate design targets, not beta features.
+**Next/unreleased draft; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
 
 [Back to the information sheet](README.md). This list distinguishes absent
@@ -48,22 +48,24 @@ See [radio evidence](REQUIREMENTS.md#what-the-radios-can-hear),
 [existing acceptance catalogue](../../ACCEPTANCE.md). Existing source claims
 remain scoped to their evidence. The registry does not close open tests.
 
-## Release placeholders and owners
+## Release acceptance and open values
 
 <!-- BEGIN GENERATED: placeholders -->
 | Claim | Expectation | Scope / status | Source and boundary |
 |---|---|---|---|
-| **P03 — Stream capacity alerts** | Pending (advisory thresholds) | 0.9-beta / **unverified** (source) | [source 1](evidence/design-basis.md#pending) Pending signature. Values remain unpublished until signed approval; implementation and acceptance evidence are also pending. |
+| **P03 — Stream capacity alerts** | Stream bytes: warning at 50%, Red at 80%; per-node message count: Red at 80%; each sustained for 5 minutes | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#stream-capacity) These are advisory monitoring thresholds, not collection or viewer-admission caps. They do not prevent broker storage exhaustion or prove loss-free retention. Alert activation and public acceptance receipts remain pending. |
 
 | Claim | Owner / acceptance still needed |
 |---|---|
-| P03 | B05 stream capacity: B05: obtain release-owner signature before publishing values; measure saturation, custody, refusal visibility and recovery. |
+| P03 | Stream capacity: Verify signed capacity configuration, a full post-change observation hour without growing gaps, archive custody and routed alerts at each sustained threshold; measure saturation, visible refusal and recovery. |
 <!-- END GENERATED: placeholders -->
 
 Viewer thresholds and guards, enrollment policy and the support path are decided;
 see [service expectations](SERVICE-LEVELS.md#capacity-and-future-sizing) and
 [operations](OPERATIONS.md#registration-and-node-capacity). Their public acceptance
-receipts remain pending. Stream capacity is pending signature; no values are
-published here. The release tag and the power-loss vulnerable window (D09, owned
-by B06 outage acceptance) also remain pending. Recheck actual release source,
+receipts remain pending. The approved stream storage capacities and advisory
+alert thresholds are recorded in the service expectations. The release tag and
+the power-loss vulnerable window (D09, owned by outage acceptance) remain open.
+No hardware-independent interval, buffer duration, media lifetime or end-to-end
+archive-retention period has been established. Recheck actual release source,
 deployment and evidence before tagging.

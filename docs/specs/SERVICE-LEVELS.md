@@ -3,9 +3,9 @@
 # Beta service objectives
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-28**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-29**.
 
-**Next/unreleased draft; release tag pending.** Source baseline: [6eed7b81](https://github.com/cybrrd/brrdfeeder/tree/6eed7b81a15415a4f9f9564cdb85341b886520cb). Future-v5 rows are separate design targets, not beta features.
+**Next/unreleased draft; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
 
 [Back to the information sheet](README.md). These objectives describe desired
@@ -47,8 +47,8 @@ separately from node-to-ingest delivery.
 <!-- BEGIN GENERATED: service-methods -->
 | Claim | Measurement scenario | On a miss | Failure signal |
 |---|---|---|---|
-| S01 | B03 first-contact matrix: receiver capture to first network send; separately record ingest acceptance and live display latency, clock error, missing sends and maximum by link/profile. | Publish the failed profile and retain delayed records for archive; do not thin collection. | Capture-to-send timing and missing-send results in the acceptance report; end-to-end live latency display is unverified. |
-| S02 | B03 first-contact matrix: same capture-to-send measurement on each declared narrow-link scenario, including outage and retry; report ingest/display latency separately. | Classify a link that misses the bound as unsuitable for live first contact; delayed records still go to archive. | Late or absent live first contact; acceptance report identifies the unsuitable link. |
+| S01 | First-contact matrix: receiver capture to first network send; separately record ingest acceptance and live display latency, clock error, missing sends and maximum by link/profile. | Publish the failed profile and retain delayed records for archive; do not thin collection. | Capture-to-send timing and missing-send results in the acceptance report; end-to-end live latency display is unverified. |
+| S02 | First-contact matrix: same capture-to-send measurement on each declared narrow-link scenario, including outage and retry; report ingest/display latency separately. | Classify a link that misses the bound as unsuitable for live first contact; delayed records still go to archive. | Late or absent live first contact; acceptance report identifies the unsuitable link. |
 | S03 | Future liveness acceptance: timestamp heartbeat receipts and correlate event traffic and clock state. | Expose missed heartbeat evidence; do not infer missing aircraft from node liveness alone. | Liveness evidence and operational status; integrated beta signal unverified. |
 | S04 | Future liveness acceptance: suppress heartbeats with controlled clocks and measure server classification. | Record late or incorrect classification and investigate heartbeat/event/clock handling. | Node offline status; integrated beta signal unverified. |
 | S05 | Future liveness acceptance: distinguish fixed/mobile node profiles across prolonged disconnect and reconnect. | Record missed or incorrect distress; preserve the outage interval. | Red distress for fixed nodes; mobile offline operational status. Delivery itself needs a working path. |
@@ -75,6 +75,11 @@ are internal only. These remain source-backed targets pending public acceptance,
 including routed alerts. The [owner quota](OPERATIONS.md#registration-and-node-capacity)
 and actual storage exhaustion are separate policies and conditions.
 
+The Silver and Red storage values below are approved broker configuration
+bounds. Message capacity applies per node subject; byte capacity is shared by
+the whole stream. These physical bounds are distinct from advisory alerts and
+do not guarantee a retention duration or loss-free custody.
+
 <!-- BEGIN GENERATED: capacity -->
 | Claim | Expectation | Scope / status | Source and boundary |
 |---|---|---|---|
@@ -82,7 +87,9 @@ and actual storage exhaustion are separate policies and conditions.
 | **P02 — Per-IP viewer advisory threshold** | 32 concurrent viewers per IP | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Shared networks must not hit a fixed count-based wall. Threshold crossing raises an alert. Metrics are internal only. This is an advisory monitoring threshold, not a user limit. |
 | **P06 — Slow-client guard** | 1 MiB queued ACTIVE_HEXES bytes before ejection | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) A stalled browser can be disconnected with a user-facing reason; the event is counted and alerted through internal monitoring. Queue-slot exhaustion can also trigger this guard. This is a protective guard, not a viewer-count limit. |
 | **P07 — ACTIVE_HEXES overflow guard** | 64 KiB outgoing frame bound | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) Overflow closes the connection with a user-facing reason; the event is counted and alerted through internal monitoring. This is a frame-safety guard, not a viewer-count limit. |
-| **P08 — Inbound frame and per-browser rate guard** | 64 KiB inbound frame bound, plus per-browser message rate limits | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) Oversized frames or excessive message rates close the connection with a user-facing reason; each is counted and alerted through internal monitoring. This bounds browser input, not viewer counts. |
+| **P08 — Inbound frame and per-browser rate guard** | 64 KiB inbound frame; client-message token bucket with burst 20 and refill 5/s | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) Oversized frames or excessive message rates close the connection with a user-facing reason; each is counted and alerted through internal monitoring. This bounds browser input, not viewer counts. |
+| **D15 — Silver stream storage capacity** | 32,768 messages per node subject; 8 GiB across the stream | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#stream-capacity) Approved configuration baseline. The byte capacity is shared by the whole stream, not allocated per node. This is not a retention-duration or no-loss guarantee; public custody and saturation acceptance remain pending. |
+| **D16 — Red stream storage capacity** | 16,384 messages per node subject; 4 GiB across the stream | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#stream-capacity) Approved configuration baseline. The byte capacity is shared by the whole stream, not allocated per node. This is not a retention-duration or no-loss guarantee; public custody and saturation acceptance remain pending. |
 <!-- END GENERATED: capacity -->
 
 <!-- BEGIN GENERATED: future -->
@@ -100,19 +107,21 @@ The future buffer, workload and drain figures belong together and are estimates
 pending full-record measurements. They are not the beta buffer, a bandwidth
 purchase recommendation, or a promise of a particular outage duration.
 
-## Decisions still pending
+## Acceptance still pending
 
 <!-- BEGIN GENERATED: placeholders -->
 | Claim | Expectation | Scope / status | Source and boundary |
 |---|---|---|---|
-| **P03 — Stream capacity alerts** | Pending (advisory thresholds) | 0.9-beta / **unverified** (source) | [source 1](evidence/design-basis.md#pending) Pending signature. Values remain unpublished until signed approval; implementation and acceptance evidence are also pending. |
+| **P03 — Stream capacity alerts** | Stream bytes: warning at 50%, Red at 80%; per-node message count: Red at 80%; each sustained for 5 minutes | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#stream-capacity) These are advisory monitoring thresholds, not collection or viewer-admission caps. They do not prevent broker storage exhaustion or prove loss-free retention. Alert activation and public acceptance receipts remain pending. |
 
 | Claim | Owner / acceptance still needed |
 |---|---|
-| P03 | B05 stream capacity: B05: obtain release-owner signature before publishing values; measure saturation, custody, refusal visibility and recovery. |
+| P03 | Stream capacity: Verify signed capacity configuration, a full post-change observation hour without growing gaps, archive custody and routed alerts at each sustained threshold; measure saturation, visible refusal and recovery. |
 <!-- END GENERATED: placeholders -->
 
 Threshold selection is not proof of deployed alert behavior. The viewer values
 have been selected; deployment and public acceptance evidence remain pending.
-Stream values stay unset pending signature. Enrollment and support policies are
-recorded in [operations](OPERATIONS.md). Support has no response-time objective.
+Stream capacity values and advisory alert thresholds have settled sources, but
+activation and public custody/saturation acceptance remain open. Enrollment and
+support policies are recorded in [operations](OPERATIONS.md). Support has no
+response-time objective.

@@ -12,6 +12,9 @@
 - Silver renewal status and Red expiry/recovery signals. Companion server renewal
   routes, identity-pinned owner recovery and a short-TTL canary must precede rollout.
 - Go 1.27.3 across the console, host helper, container builds and CI.
+- Patched Rust TLS dependencies: rustls 0.23.46 and quinn-proto 0.11.15.
+- Durable, bounded telemetry custody during broker outages, with ordered replay
+  of stored records and explicit loss diagnostics when capacity is exhausted.
 - Explicit host helper build 2-or-3-to-4 upgrade through `--upgrade-helper`, preserving
   node identity, configuration and credentials, with transactional recovery and
   an idempotent repeat path. Existing 0.8.31 system-only credential layouts
@@ -32,6 +35,23 @@
 - Existing broad uninstall rules for status files, engine-state `*.tmp` and
   quarantined pending entries remain; external temporary-file cleanup and tighter
   provenance checks are deferred. See `docs/uninstall-state-inventory.md`.
+
+### Known limits
+
+- Reinstalling with the same account and hostname issues a new credential
+  without revoking the old credential. Contact support at admin@cybrrd.com to
+  revoke the old credential; automatic revocation is planned for 0.9.1.
+- Units on older releases need a one-time uninstall and reinstall to get
+  self-update. There is no silent migration.
+- Bluetooth: the adapter must be present at install; hotplug is planned for 0.9.1.
+
+<!-- RELEASE-EDITOR CHOICE: keep exactly one Bluetooth line before publication.
+The line above is for a release without Bluetooth hotplug. If reviewed Bluetooth
+hotplug is included, replace that line with the alternative below.
+BLE-WITH-HOTPLUG:
+- Bluetooth: supported adapters can be connected or reconnected after installation,
+  while preserving explicit disablement and adapter selection.
+-->
 
 ## 0.8.31 — Published 2026-10-25 (build 1045)
 

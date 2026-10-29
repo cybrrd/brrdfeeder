@@ -9,6 +9,6 @@ For authorized maintainers:
 - What tests and negative controls were run?
 - What security, compatibility or release risks need review?
 
-Do not include credentials, private captures, device identifiers or security
+Do not include credentials, tokens, device codes, private keys or security
 vulnerability details. Report vulnerabilities privately as described in
 [SECURITY.md](../SECURITY.md).

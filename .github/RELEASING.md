@@ -24,9 +24,12 @@ manual action. Never run this workflow from the private-history repository.
    Weekly grouped version updates are configured in dependabot.yml; supported
    security updates are event-driven. Never auto-merge dependency PRs. Container
    base updates and manually checksum-pinned tool updates require review.
-4. Keep public Issues and Discussions **disabled**. Keep **private vulnerability
-   reporting enabled**. Use private team coordination for ordinary bugs and
-   ecosystem practice. No CLA agreement is provided until counsel writes one.
+4. Keep public **Issues enabled** for install help and bug reports through the
+   **Install help** and **Bug report** forms. Keep **Discussions disabled** and
+   **private vulnerability reporting enabled**. Security vulnerabilities must go
+   only through private vulnerability reporting. Use **admin@cybrrd.com** as the
+   private fallback for install help and ordinary bugs. No CLA agreement is
+   provided until counsel writes one.
 5. Configure CodeQL advanced setup from the supplied workflow (Go, Python,
    Rust; pinned CLI 2.27.1 supports Rust). Do not also enable a conflicting
    default-setup workflow. Scorecard uploads SARIF without OIDC. Its README

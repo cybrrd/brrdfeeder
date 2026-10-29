@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+blank_issues_enabled: false
+contact_links:
+- name: Report a security vulnerability privately
+  url: https://github.com/cybrrd/brrdfeeder/blob/main/SECURITY.md
+  about: Follow SECURITY.md; never disclose vulnerabilities in public Issues.
+- name: Private install help or bug report
+  url: mailto:admin@cybrrd.com
+  about: Use email when you need private help. Do not send credentials, tokens, device codes or private keys.

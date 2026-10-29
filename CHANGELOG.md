@@ -29,12 +29,20 @@
   two-name pair inside the private updater directory.
 - Hermetic Bluetooth installer fixtures and job-wide Python bytecode suppression
   keep offline CI independent of host adapters and generated cache files.
+- Portable outage tests check correctness independently of machine latency;
+  the 250-ms local-disk acceptance checks remain separate opt-in drills.
 - The v4 wire format is unchanged. Native helper/reboot/rollback qualification,
   deployed-server renewal and broker confirmation remain rollout gates. This
   candidate does not claim those checks passed or that a release was published.
 - Existing broad uninstall rules for status files, engine-state `*.tmp` and
   quarantined pending entries remain; external temporary-file cleanup and tighter
   provenance checks are deferred. See `docs/uninstall-state-inventory.md`.
+
+### Support
+
+- For install help and bug reports, use the [Install help or Bug report form](https://github.com/cybrrd/brrdfeeder/issues/new/choose).
+  For private help, email admin@cybrrd.com. Report security vulnerabilities only
+  through [private vulnerability reporting](https://github.com/cybrrd/brrdfeeder/security/advisories/new).
 
 ### Known limits
 

@@ -460,7 +460,11 @@ supported-ID HCI ADD rules start `brrdfeeder-ble-takeover.service`; its timer re
 every five seconds, covering driver readiness, boot and operator unmask detection.
 Enabled hotplug never stops the engine. `HCIDEVDOWN` returning EBUSY leaves the
 existing exclusive USER owner untouched. The engine alone reports reception.
-Disabling RID.BLE explicitly restores a recorded prior state at the next helper
+An engine-only update preserves omitted `unblock_rfkill: false` in existing
+explicit sections; only an absent section opts into enabled-auto with targeted
+unblock. After saving explicit OFF without a receipt, run
+`sudo systemctl restart brrdfeeder-engine.service` and require Disabled in fresh
+status. Disabling RID.BLE explicitly restores a recorded prior state at the next helper
 run; the engine is stopped for this ownership handback and restarted if it was
 running, so Wi-Fi/GPS continue with BLE off. A prior claim followed by manual
 bluetoothd unmask/start latches a conflict under `/run/brrdfeeder-bluetooth`, mounted

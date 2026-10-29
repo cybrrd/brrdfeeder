@@ -5,7 +5,10 @@
 ## Unreleased — Bluetooth hotplug candidate (release assignment pending)
 
 - Missing RID.BLE configuration now means enabled intent with automatic supported
-  adapter selection; explicit off remains off. Missing/lost adapters retry,
+  adapter selection; explicit off remains off. Existing explicit sections keep
+  their previous enabled/rfkill defaults on engine-only updates. Installer
+  takeover validates selection before ownership changes and cleans up a new
+  receipt after successful rollback. Missing/lost adapters retry,
   with local status reasons and console display instead of terminal failure.
 - Supported-ID HCI ADD rules and a five-second retry/ownership timer invoke the
   receipt-guarded Bluetooth helper without rewriting config or stopping an

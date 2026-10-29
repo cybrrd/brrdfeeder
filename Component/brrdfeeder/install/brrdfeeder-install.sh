@@ -5556,6 +5556,11 @@ def stop_engine():
             try:
                 if service_state() != prior: set_service_state(prior)
                 if saved_receipt is not None and not RECEIPT.exists(): atomic(RECEIPT, saved_receipt, 0o600)
+                elif saved_receipt is None and RECEIPT.exists():
+                    # Ownership was restored successfully; a new claim receipt
+                    # would falsely imply that bluetoothd is still ours.
+                    RECEIPT.unlink()
+                    sync_parent(RECEIPT)
             except Exception:
                 rollback_failed = True
         if attempted and restart:
@@ -5634,7 +5639,7 @@ def enabled_config(sensors, found, hotplug=False):
     ble = sensors.get('rid_ble', {})
     if not isinstance(ble, dict) or set(ble)-{'enabled','adapter','unblock_rfkill','quiet_window_s'}:
         raise ValueError('invalid sensors.rid_ble config keys')
-    enabled = ble.get('enabled', True)
+    enabled = ble.get('enabled', 'rid_ble' not in sensors)
     if type(enabled) is not bool or type(ble.get('unblock_rfkill',False)) is not bool:
         raise ValueError('rid_ble switches must be booleans')
     if enabled:
@@ -5764,11 +5769,13 @@ def apply(dry=False, hotplug=False):
     say('rid_ble enabled='+str(enabled).lower()+' config='+('add-missing-key' if changed else 'preserve-explicit-or-absent'))
     if not enabled:
         if prior: restore(dry)
-        else: say('bluetooth.service unchanged: RID.BLE disabled')
+        else: say('RID.BLE explicitly disabled; Bluetooth service left unchanged; load OFF with: sudo systemctl restart brrdfeeder-engine.service')
         return
     if not found:
         say('RID.BLE enabled; waiting for a supported adapter; bluetooth.service unchanged')
         return
+    adapter = sensors.get('rid_ble', {}).get('adapter', {})
+    target = selected_controller(adapter)  # Validate before stopping any service or writing state.
     if prior is None: prior = service_state()
     if prior['enabled'] in ('absent','masked','masked-runtime') and prior['active']:
         raise ValueError('inconsistent Bluetooth service state; refusing takeover')
@@ -5780,6 +5787,9 @@ def apply(dry=False, hotplug=False):
         doc, sensors, raw = load_config()
         enabled, changed = enabled_config(sensors, found)
         if not enabled: raise ValueError('BLE config changed during takeover; retry')
+        adapter = sensors.get('rid_ble', {}).get('adapter', {})
+        if selected_controller(adapter) != target:
+            raise ValueError('BLE controller changed during takeover; retry')
         if changed:
             if CONFIG.read_bytes() != raw: raise ValueError('config changed during migration; retry')
             atomic(CONFIG, yaml.safe_dump(doc, sort_keys=False).encode(), stat.S_IMODE(CONFIG.stat().st_mode))
@@ -5817,7 +5827,7 @@ def apply_hotplug(dry=False):
             # Restore must release the HCI user channel. Reload explicit OFF
             # afterwards so Wi-Fi/GPS are not stranded by a Bluetooth toggle.
             if was_active and not dry: ctl('start', ENGINE)
-        else: say('RID.BLE explicitly disabled; Bluetooth service left unchanged')
+        else: say('RID.BLE explicitly disabled; Bluetooth service left unchanged; load OFF with: sudo systemctl restart brrdfeeder-engine.service')
         return
     current = service_state() if prior is not None or found else None
     if prior is not None and (current['active'] or current['enabled'] not in ('masked','masked-runtime') or CONFLICT.exists()):

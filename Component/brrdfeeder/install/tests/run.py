@@ -56,6 +56,7 @@ BASELINES = [
 ]
 MUTATIONS = [
     'ble-hotplug/test-mutations.py',
+    'ble-hotplug/test-config-mutations.py',
     'installer-ux/test-mutations.py',
     'lock-on/test-mutations.py',
     'github-scaffold/test-mutations.py',

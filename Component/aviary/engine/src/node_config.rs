@@ -260,13 +260,22 @@ fn default_heartbeat_interval_secs() -> u64 {
 // downstream consumers (globe-backend Reputation Gravity, future
 // Task #81) can refuse to accumulate trust against.
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SensorsYaml {
     #[serde(default)]
     pub gps: GpsYaml,
-    #[serde(default)]
+    #[serde(default = "RidBleYaml::absent")]
     pub rid_ble: RidBleYaml,
+}
+
+impl Default for SensorsYaml {
+    fn default() -> Self {
+        Self {
+            gps: GpsYaml::default(),
+            rid_ble: RidBleYaml::absent(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -281,11 +290,9 @@ pub struct RidBleYaml {
 impl Default for RidBleYaml {
     fn default() -> Self {
         Self {
-            // Absence is enabled intent, not an inventory snapshot. Only an
-            // explicit enabled:false opts out; an empty identity selects the
-            // unique supported USB adapter when it appears.
-            enabled: true,
-            unblock_rfkill: true,
+            // Existing explicit sections keep their pre-hotplug defaults.
+            enabled: false,
+            unblock_rfkill: false,
             adapter: BleAdapterYaml::default(),
             quiet_window_s: 30,
         }
@@ -300,6 +307,15 @@ pub struct BleAdapterYaml {
 }
 
 impl RidBleYaml {
+    /// Only an absent section opts into automatic selection and targeted unblock.
+    pub fn absent() -> Self {
+        Self {
+            enabled: true,
+            unblock_rfkill: true,
+            ..Self::default()
+        }
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         if !self.enabled {
             return Ok(());
@@ -782,8 +798,51 @@ mod tests {
     }
 
     #[test]
+    fn hotplug_absent_section_enables_auto_and_targeted_unblock() {
+        for sensors in [
+            SensorsYaml::default(),
+            serde_yaml::from_str::<SensorsYaml>("{}").unwrap(),
+        ] {
+            assert!(sensors.rid_ble.enabled);
+            assert!(sensors.rid_ble.unblock_rfkill);
+            assert!(sensors.rid_ble.adapter.usb_id.is_none());
+            assert!(sensors.rid_ble.adapter.bd_addr.is_none());
+        }
+        let config: EngineConfig = serde_yaml::from_str("node: {id: fixture, location: {latitude: 0, longitude: 0, elevation_meters: 0}}\ncapture: {interface: wlan1}\nbackhaul: {broker_urls: [], credentials_path: /tmp/fixture}\n").unwrap();
+        assert!(config.sensors.rid_ble.enabled);
+        assert!(config.sensors.rid_ble.unblock_rfkill);
+    }
+
+    #[test]
+    fn hotplug_explicit_section_preserves_legacy_defaults_and_policies() {
+        for body in [
+            "{}",
+            "{enabled: true, adapter: {usb_id: '0bda:876e'}}",
+            "{enabled: false}",
+        ] {
+            let sensors: SensorsYaml = serde_yaml::from_str(&format!("rid_ble: {body}")).unwrap();
+            assert!(
+                !sensors.rid_ble.unblock_rfkill,
+                "explicit section must not opt into unblock"
+            );
+            assert_eq!(sensors.rid_ble.enabled, body.contains("enabled: true"));
+            if sensors.rid_ble.enabled {
+                assert_eq!(sensors.rid_ble.adapter.usb_id.as_deref(), Some("0bda:876e"));
+            }
+        }
+        for unblock in [false, true] {
+            let sensors: SensorsYaml = serde_yaml::from_str(&format!(
+                "rid_ble: {{enabled: true, unblock_rfkill: {unblock}}}"
+            ))
+            .unwrap();
+            assert!(sensors.rid_ble.enabled);
+            assert_eq!(sensors.rid_ble.unblock_rfkill, unblock);
+        }
+    }
+
+    #[test]
     fn verify_req_brrd_014_config_refuses_unknown_and_defaults_auto() {
-        let cfg: RidBleYaml = serde_yaml::from_str("{}").unwrap();
+        let cfg = RidBleYaml::absent();
         assert!(cfg.enabled);
         assert!(cfg.unblock_rfkill);
         assert!(cfg.validate().is_ok());

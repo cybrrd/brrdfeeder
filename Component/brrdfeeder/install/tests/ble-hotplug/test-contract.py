@@ -19,14 +19,13 @@ class Hotplug(unittest.TestCase):
     explicit=prior.BLE.explicit
     def setUp(self):
         prior.BLE.setUp(self)
-        self.hci=self.root/'hci'; self.hci.mkdir()
         self.runtime=self.root/'runtime'
         for p in [patch.object(ble,'HCI',self.hci),patch.object(ble,'DEVICES',self.usb),
                   patch.object(ble,'RUNTIME',self.runtime),patch.object(ble,'CONFLICT',self.runtime/'conflict')]:
             p.start(); self.addCleanup(p.stop)
     def adapter(self,index=0,identity='0bda:876e'):
         prior.BLE.adapter(self,str(index),identity)
-        h=self.hci/f'hci{index}'; h.mkdir(); (h/'device').symlink_to(self.usb/str(index))
+        h=self.hci/f'hci{index}'
         (h/'address').write_text(f'AA:BB:CC:DD:EE:{index:02X}')
     def test_install_with_missing_pin_defers_claim_without_mutation(self):
         self.explicit({'enabled':True,'adapter':{'usb_id':'0bda:876e'}})
@@ -34,6 +33,61 @@ class Hotplug(unittest.TestCase):
         self.assertEqual(self.config.read_bytes(),before)
         self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
         ble.controller_down.assert_not_called()
+    def test_install_missing_pin_with_other_supported_model_never_mutates(self):
+        self.explicit({'enabled':True,'adapter':{'usb_id':'0bda:876e'}})
+        self.adapter(identity='0bda:a728'); before=self.config.read_bytes()
+        # Keep the real selection in DOWN: the old installer fails too late.
+        with patch.object(ble,'controller_down',side_effect=lambda a:ble.selected_controller(a)):
+            with self.assertRaisesRegex(ValueError,'exactly one'): ble.apply()
+        self.assertEqual(self.config.read_bytes(),before)
+        self.assertFalse(self.receipt.exists())
+        self.assertFalse(self.systemd.calls, 'selection must precede even engine stop')
+        with self.assertRaisesRegex(ValueError,'exactly one'): ble.apply(hotplug=True)
+        self.assertFalse(ble.CONFLICT.exists()); self.assertFalse(self.receipt.exists())
+        self.assertEqual((self.systemd.enabled,self.systemd.active),('enabled',True))
+    def test_install_late_failure_removes_new_receipt_after_rollback(self):
+        self.adapter(); before=self.config.read_bytes()
+        with patch.object(ble,'controller_down',side_effect=ValueError('late failure')):
+            with self.assertRaisesRegex(ValueError,'late failure'): ble.apply()
+        self.assertEqual(self.config.read_bytes(),before)
+        self.assertFalse(self.receipt.exists())
+        self.assertEqual((self.systemd.enabled,self.systemd.active),('enabled',True))
+        self.assertEqual(self.systemd.engine,'active')
+        ble.apply(hotplug=True)
+        self.assertFalse(ble.CONFLICT.exists())
+        self.assertEqual((self.systemd.enabled,self.systemd.active),('masked',False))
+    def test_install_selection_revalidated_after_engine_stop(self):
+        self.adapter(); before=self.config.read_bytes(); original=self.systemd
+        def control(*args):
+            result=original(*args)
+            if args==('stop',ble.ENGINE): (self.usb/'0'/'idProduct').write_text('a728')
+            return result
+        with patch.object(ble,'ctl',control):
+            with self.assertRaisesRegex(ValueError,'exactly one|changed'): ble.apply()
+        self.assertEqual(self.config.read_bytes(),before)
+        self.assertFalse(self.receipt.exists()); ble.controller_down.assert_not_called()
+        self.assertTrue(all(c[0]=='show' or c[-1]==ble.ENGINE for c in self.systemd.calls))
+    def test_failed_rollback_retains_new_receipt_for_recovery(self):
+        self.adapter(); self.systemd.fail=('enable',ble.UNIT)
+        with patch.object(ble,'controller_down',side_effect=ValueError('late failure')):
+            with self.assertRaises(ValueError): ble.apply()
+        self.assertTrue(self.receipt.exists())
+    def test_install_late_failure_preserves_existing_receipt(self):
+        self.adapter(); ble.apply(hotplug=True); before=self.receipt.read_bytes()
+        with patch.object(ble,'controller_down',side_effect=ValueError('late failure')):
+            with self.assertRaisesRegex(ValueError,'late failure'): ble.apply()
+        self.assertEqual(self.receipt.read_bytes(),before)
+        self.assertEqual((self.systemd.enabled,self.systemd.active),('masked',False))
+    def test_existing_empty_section_preserves_off(self):
+        self.explicit({}); self.adapter(); before=self.config.read_bytes()
+        for hotplug in (False, True): ble.apply(hotplug=hotplug)
+        self.assertEqual(self.config.read_bytes(),before)
+        self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
+    def test_off_without_receipt_reports_required_restart(self):
+        ble.apply(hotplug=True); self.explicit({'enabled':False})
+        ble.apply(hotplug=True)
+        self.assertIn('sudo systemctl restart brrdfeeder-engine.service',self.log.getvalue())
+        self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
     def test_absent_auto_then_add_preserves_bytes_and_engine(self):
         original=self.config.read_bytes(); ble.apply(hotplug=True)
         self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
@@ -120,6 +174,15 @@ class Hotplug(unittest.TestCase):
         self.adapter(); before=self.config.read_bytes(); ble.apply(dry=True,hotplug=True)
         self.assertEqual(self.config.read_bytes(),before); self.assertFalse(self.receipt.exists())
         self.assertTrue(all(c[0]=='show' for c in self.systemd.calls))
+
+class EmbeddedHotplug(Hotplug):
+    """Run the same state transitions against the installer-delivered helper."""
+    def setUp(self):
+        source=(INSTALL/'bluetooth-state.py').read_text()
+        embedded=(INSTALL/'brrdfeeder-install.sh').read_text().split("<<'BLUETOOTH_EOF'\n",1)[1].split('\nBLUETOOTH_EOF',1)[0]
+        self.addCleanup(lambda:exec(compile(source,'<canonical-helper>','exec'),ble.__dict__))
+        exec(compile(embedded,'<embedded-helper>','exec'),ble.__dict__)
+        super().setUp()
 
 class Ioctl(unittest.TestCase):
     setUp=prior.Controller.setUp

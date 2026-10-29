@@ -122,7 +122,7 @@ async fn hotplug_supervisor_absent_add_unplug_replug_without_config_writes() {
         substrate_audit: audit,
     };
     let sensor = RidBle(
-        RidBleYaml::default(),
+        RidBleYaml::absent(),
         Arc::new(arc_swap::ArcSwapOption::empty()),
         Arc::new(crate::status::FrameActivity::default()),
     );
@@ -206,4 +206,89 @@ fn hotplug_address_from_kernel_snapshot_without_sysfs_address() {
     .unwrap();
     assert_eq!(c.address, "01:02:03:04:05:06");
     assert!(decode_controller_address(8, &info).is_err());
+}
+
+#[tokio::test]
+async fn hotplug_running_auto_to_off_after_documented_restart_without_receipt() {
+    struct AbsentRuntime {
+        selections: Cell<usize>,
+    }
+    impl BleRuntime for AbsentRuntime {
+        fn select(&self, _: &BleAdapterYaml) -> io::Result<Controller> {
+            self.selections.set(self.selections.get() + 1);
+            Err(io::Error::new(io::ErrorKind::NotFound, "no adapter"))
+        }
+        async fn capture(
+            &mut self,
+            _: &RidBle,
+            _: Controller,
+            _: &SensorContext,
+            _: &mpsc::Sender<Advertisement>,
+            _: &Arc<ArcSwap<SensorHealth>>,
+        ) -> io::Result<()> {
+            panic!("absent/off receiver must never capture");
+        }
+    }
+    let tree = Tree::new();
+    let config = tree.0.join("config.yaml");
+    std::fs::write(&config, "{}\n").unwrap();
+    let load = || {
+        serde_yaml::from_str::<crate::node_config::SensorsYaml>(
+            &std::fs::read_to_string(&config).unwrap(),
+        )
+        .unwrap()
+        .rid_ble
+    };
+    let (audit, _events) = mpsc::channel(32);
+    let mut ctx = SensorContext {
+        node_id: Arc::from("fixture"),
+        cancel: tokio_util::sync::CancellationToken::new(),
+        substrate_audit: audit,
+    };
+    let inventory = Arc::new(arc_swap::ArcSwapOption::empty());
+    let sensor = RidBle(
+        load(),
+        inventory.clone(),
+        Arc::new(crate::status::FrameActivity::default()),
+    );
+    let health = Arc::new(ArcSwap::from_pointee(SensorHealth::initializing("rid_ble")));
+    let (tx, _rx) = mpsc::channel(2);
+    let mut runtime = AbsentRuntime {
+        selections: Cell::new(0),
+    };
+    tokio::time::timeout(Duration::from_secs(1), async {
+        tokio::join!(
+            sensor.supervise(&ctx, &tx, &health, &mut runtime, Duration::from_millis(1)),
+            async {
+                while health.load().state != SensorState::Degraded {
+                    tokio::task::yield_now().await;
+                }
+                assert!(sensor.0.enabled);
+                std::fs::write(&config, "rid_ble: {enabled: false}\n").unwrap();
+                // Editing the file cannot update the already-cloned sensor.
+                assert!(sensor.0.enabled);
+                ctx.cancel.cancel(); // systemctl restart first stops the old supervisor.
+            }
+        );
+    })
+    .await
+    .unwrap();
+    assert!(runtime.selections.get() > 0);
+    let selections = runtime.selections.get();
+    ctx.cancel = tokio_util::sync::CancellationToken::new();
+    let restarted = RidBle(
+        load(),
+        inventory.clone(),
+        Arc::new(crate::status::FrameActivity::default()),
+    );
+    restarted
+        .supervise(&ctx, &tx, &health, &mut runtime, Duration::from_millis(1))
+        .await;
+    assert_eq!(runtime.selections.get(), selections);
+    let mut local = (**inventory.load().as_ref().unwrap()).clone();
+    local.refresh();
+    let status = serde_json::to_value(local).unwrap();
+    assert_eq!(status["enabled"], false);
+    assert!(status["reason"].as_str().unwrap().contains("Disabled"));
+    assert!(!tree.0.join(".bluetooth-prior.json").exists());
 }

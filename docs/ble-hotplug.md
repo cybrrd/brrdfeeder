@@ -2,7 +2,12 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Bluetooth hotplug behavior and native acceptance
 
-Absent `sensors.rid_ble` means enabled-auto; `enabled: false` is deliberate off.
+Absent `sensors.rid_ble` means enabled-auto with targeted rfkill unblock.
+Existing explicit sections retain their defaults: omitted `enabled` and omitted
+`unblock_rfkill` are false. Explicit `enabled: false` is deliberate off. An
+engine-only update never opts an existing section into rfkill unblock. A host
+installer rerun retains its existing migration policy of adding missing
+`unblock_rfkill: true` to an enabled section; explicit false remains false.
 A fresh install with one supported adapter still pins its USB ID. An install
 without one leaves intent implicit. Hotplug and the engine never rewrite config.
 The helper records the previous bluetoothd state before claiming it; this host
@@ -21,14 +26,20 @@ observe an operator unmask/start. Helpers serialize apply/restore with a root-on
 runtime lock. A saved receipt plus running/unmasked bluetoothd latches a conflict;
 the engine yields, and automatic helpers never re-mask. Explicit helper `apply`
 reclaims after operator review, or set `enabled: false` for prior-state restoration.
-Failed/incomplete claims retain their receipt and may require explicit recovery.
+Selection is validated before installer ownership changes and revalidated after
+stopping the engine. A failed installer claim restores prior state and removes a
+receipt created by that attempt only after successful Bluetooth restoration.
+Failed rollback and incomplete hotplug claims retain receipts for explicit recovery.
 
 ## Known limits
 
 - Both engine and host installer/Quadlet changes are needed. Engine-only updates
   do not install ownership automation on older hosts. Existing read-only config
-  binds require engine restart after manual pin/config changes; explicit off with
-  a receipt is handled by the helper's stop/restore/restart path.
+  binds require engine restart after manual pin/config changes. Explicit off with
+  a receipt is handled by the helper's stop/restore/restart path. Without a receipt,
+  the helper leaves services unchanged and prints the required restart command:
+  `sudo systemctl restart brrdfeeder-engine.service`. Run it after saving OFF so
+  the running engine reloads the config and status reports Disabled.
 - Five seconds is a polling interval, not a hard activation deadline: driver setup,
   helper execution and incoming advertisers add latency. A healthy idle receiver
   becomes degraded after its configured quiet window. No advertisement is not
@@ -65,7 +76,12 @@ view and `journalctl -u brrdfeeder-ble-takeover -u brrdfeeder-engine` for eviden
    supported replacement and verify recovery.
 5. Set `sensors.rid_ble.enabled: false`. Observe receipt-based restoration and engine
    restart; verify Disabled locally. Unplug/replug twice: no claim/mask and BLE stays
-   off. Check Wi-Fi/GPS still operate. Also test explicit off with no prior receipt.
+   off. Check Wi-Fi/GPS still operate. Also repeat from step 1's running auto-on,
+   no-adapter, no-receipt state: save `sensors.rid_ble.enabled: false`, then run
+   `sudo systemctl restart brrdfeeder-engine.service`. Require a new InvocationID,
+   fresh local status showing Disabled, no receipt, and unchanged bluetoothd.
+   Replug twice and require Disabled with no ownership claim. Merely editing the
+   file while the old engine keeps waiting is not a pass.
 6. Enable auto selection (`adapter: {}`), restart the engine to load it, and plug
    two supported adapters. Require refusal and no guessed receiver. Remove one and
    require recovery. Pin the missing model while the other is present: require

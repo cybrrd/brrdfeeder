@@ -12,7 +12,7 @@ source = Path(__file__).resolve().parents[1]
 cases = [
     ('private-path', '[build-host.sh](build-host.sh)', 'governance/reviews/absent/build-host.sh',
      'test_public_readme_has_no_absent_private_paths', 'public README references absent private proof paths'),
-    ('wrong-compiler', 'Go 1.27.0', 'Go 0.0.0',
+    ('wrong-compiler', 'Go 1.27.3', 'Go 0.0.0',
      'test_standalone_compiler_matches_build_script', 'README does not name the standalone script compiler'),
     ('publisher-boundary', 'low-level signer client', 'complete promotion authority',
      'test_signer_client_is_not_approval_or_deployment', 'publisher boundary is undocumented'),

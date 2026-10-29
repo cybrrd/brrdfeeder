@@ -92,10 +92,13 @@ export needed evidence before an intentional uninstall.
 
 There is no intentional batching delay: each append calls `sync_data()` before
 acceptance, and segment creation also syncs the file and directory. The measured
-append interval includes creation/rotation. The acceptance drill asserts a maximum
-of 250 ms on its local disk; it is not a hardware-independent latency guarantee.
-Power-loss survival depends on the filesystem/device honoring sync. In-flight
-capture and producer queues remain volatile until the disk acceptance boundary.
+append interval includes creation/rotation. The explicit local-disk acceptance
+drills (`local_disk_fsync_acceptance_drill`, `broker_down_local_disk_latency_acceptance_drill`,
+opt-in via `--ignored`) assert a maximum of 250 ms on the machine's real storage; it is
+not a hardware-independent latency guarantee, which is why the portable contract tests
+log the observed maximum but do not assert it. Power-loss survival depends on the
+filesystem/device honoring sync. In-flight capture and producer queues remain volatile
+until the disk acceptance boundary.
 
 The synthetic ASTM fixture is parsed and serialized through the actual v4 model:
 656 payload bytes + 36 subject bytes + 46 record-header bytes = **738 bytes**.

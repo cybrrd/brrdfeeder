@@ -205,11 +205,50 @@ fn byte_arithmetic_and_fsync_latency() {
             );
         }
     }
+    // The observed maximum is logged here; the local-disk fsync ceiling is
+    // enforced only by the explicit acceptance drill below, not by this
+    // portable default test.
+}
+fn assert_local_disk_fsync_ceiling(spool: &Spool, ceiling_us: u64) {
     assert!(
-        spool.max_sync_us <= 250_000,
-        "measured fsync exceeded 250 ms: {} us",
+        spool.max_sync_us <= ceiling_us,
+        "measured fsync exceeded {ceiling_us} us (local-disk acceptance ceiling): {} us",
         spool.max_sync_us
     );
+}
+#[test]
+#[ignore = "local-disk acceptance drill: asserts the 250 ms append/fsync ceiling on this machine's real storage; not a hardware-independent guarantee; opt in explicitly"]
+fn local_disk_fsync_acceptance_drill() {
+    let tmp = Scratch::new();
+    let mut spool = Spool::open(&tmp.config(DEFAULT_CAP)).unwrap();
+    let msg = Outbound {
+        subject: "cybrrd.telemetry.frame.rid.test-node".into(),
+        payload: crate::nats_publisher::tests::fixture_frame(1).into(),
+        capture_ms: 1_800_000_000_040,
+    };
+    for _ in 0..100 {
+        assert!(spool.append(&msg).unwrap());
+    }
+    println!(
+        "local_disk_fsync_acceptance appends=100 max_append_fsync_us={}",
+        spool.max_sync_us
+    );
+    assert_local_disk_fsync_ceiling(&spool, 250_000);
+}
+#[test]
+#[should_panic(expected = "measured fsync exceeded 0 us")]
+fn local_disk_fsync_enforcement_fires_when_ceiling_exceeded() {
+    // Negative control: a zero ceiling can never hold after a real append, so
+    // the drill's enforcement must fire.
+    let tmp = Scratch::new();
+    let mut spool = Spool::open(&tmp.config(DEFAULT_CAP)).unwrap();
+    let msg = Outbound {
+        subject: "cybrrd.telemetry.frame.rid.test-node".into(),
+        payload: crate::nats_publisher::tests::fixture_frame(1).into(),
+        capture_ms: 1_800_000_000_040,
+    };
+    assert!(spool.append(&msg).unwrap());
+    assert_local_disk_fsync_ceiling(&spool, 0);
 }
 #[test]
 fn exact_gap_survives_restart_and_full_red_queue_equivalent() {

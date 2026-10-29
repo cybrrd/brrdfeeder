@@ -100,6 +100,28 @@ pin, then hash that installer and update all three bootstrap installer pins.
 Neither an image update nor an ordinary installer rerun replaces an existing
 valid helper; fleet delivery needs its separately approved host-update path.
 
+**Landing method — linear history (recorded 2026-10-28).** Repository
+enforcement: main requires linear history and disables merge commits; squash
+and rebase-merge are both permitted by the settings. Our policy is stricter:
+land a release as **one squash** of the single combined candidate PR onto an
+unchanged main — never rebase-merge, never an admin bypass, no individually
+merged component PRs, no intermediate landing commits carrying retired pins.
+Immediately verify the resulting main commit M **before any publication
+step**: exactly one parent (the previous main), the exact expected tree, and the
+complete installer → helper-pin → three-bootstrap pin chain (installer SHA, its
+sole `RELEASE_HELPER_SHA256`, every `bootstrap*.sh` installer pin); reproduce the
+helper bytes from M with the pinned Go 1.27.3 official script and require the
+pinned hash. Then wait for M's own hosted gate — `contracts`, all three
+Go/Python/Rust CodeQL `analyze` jobs green, a code-scanning CodeQL analysis per
+language for M's exact SHA with no analysis error, and the main-only Scorecard.
+Retain the job and analysis receipts before final release approval. The `CodeQL`
+aggregate check is PR-only; it is not emitted on pushes to main and is not a
+main gate. A green pre-merge PR head is not a substitute for M's own evidence.
+Record the open code-scanning alert count on main at M and have the release
+approver explicitly review the alerts and disposition before the cut; successful
+analysis does not mean there are no open findings. A later change to installer
+bytes requires a new reviewed pin chain before anything is published.
+
 After approved publication of the complete 0.9.0 hash chain, the explicit path is:
 
 ```sh

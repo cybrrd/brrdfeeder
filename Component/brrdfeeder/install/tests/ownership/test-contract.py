@@ -37,11 +37,11 @@ class Ownership(unittest.TestCase):
             data=tomllib.loads((ROOT/path).read_text())
             package=data[key]['package'] if key=='workspace' else data[key]
             self.assertEqual(package['authors'],['cyBRRD Corporation <admin@cybrrd.com>'])
-        # Repository-owner policy at public base 83fc7b0 is authoritative.
+        # Repository-owner contribution and reporting policies are authoritative.
         # Do not add definitions or headers to those exact bytes; use sidecars.
         for path, digest in {
-            'SECURITY.md': '3c966149f23be875a346373085444ce5c0fec24567a4bd1096f973909fccade4',
-            'CONTRIBUTING.md': '848bcfd0de4eee60b2906e21a0fc29a6701502e58cd70f874a8eb591db1c6eeb',
+            'SECURITY.md': '78b5099ce29efdc9b829200102f7e581e97286079e2bcede03e6fb6aa4aec6de',
+            'CONTRIBUTING.md': '2fb4c4c04700ce09225d7290ab2e5861ea77e9cbb01f8e877125f451cffe8a59',
         }.items():
             self.assertEqual(hashlib.sha256((ROOT/path).read_bytes()).hexdigest(), digest)
             self.assertIn('SPDX-FileCopyrightText: 2026 Macawi LLC', (ROOT/(path+'.license')).read_text())

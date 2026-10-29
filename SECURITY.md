@@ -12,9 +12,8 @@ fork. If another component appears involved, describe the boundary without
 testing infrastructure you do not have permission to access.
 
 Please include the affected release or commit, a description of the impact,
-minimal reproduction steps, relevant environment details and redacted logs.
-Use synthetic data where possible. Do not send credentials, private keys,
-unnecessary personal data or raw device identifiers.
+minimal reproduction steps, relevant environment details and logs.
+Do not send credentials, tokens, device codes or private keys.
 
 This is a small maintainer team. We review reports as capacity permits and
 will use the private advisory thread to request details and coordinate next

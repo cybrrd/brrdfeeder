@@ -7,4 +7,4 @@ contact_links:
   about: Follow SECURITY.md; never disclose vulnerabilities in public Issues.
 - name: Private install help or bug report
   url: mailto:admin@cybrrd.com
-  about: Use email when you need private help. Do not send credentials or exact locations.
+  about: Use email when you need private help. Do not send credentials, tokens, device codes or private keys.

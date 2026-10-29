@@ -16,7 +16,11 @@ BRRDhouse local console, installer and update tooling.
 
 The Scorecard badge reports workflow status, not a numerical security rating.
 Detailed results go to GitHub code scanning. Outside contributions are not
-accepted, and public Issues and Discussions are disabled.
+accepted. [GitHub Issues](https://github.com/cybrrd/brrdfeeder/issues/new/choose)
+are open for install help and bug reports through the **Install help** and
+**Bug report** forms. Discussions remain disabled. Report security vulnerabilities
+only through [private vulnerability reporting](https://github.com/cybrrd/brrdfeeder/security/advisories/new).
+For private install help or bug reports, email **admin@cybrrd.com**.
 
 Licensing is described in the root [LICENSE](LICENSE). Release approval and
 publishing a draft release remain maintainer actions; successful CI alone does

@@ -31,9 +31,10 @@ You are not expected to provide support for Your Contributions, except to the ex
 During the beta, [GitHub Issues](https://github.com/cybrrd/brrdfeeder/issues)
 are open for install help and bug reports. Use the **Install help** or
 **Bug report** form and include your board, OS, release/build, adapters and,
-if available, a redacted support bundle and installer run ID. Review the bundle
-before sharing it; nothing uploads automatically. Never post credentials,
-private keys or exact locations. For private help, email **admin@cybrrd.com**.
+if available, a support bundle and installer run ID. Review the bundle before
+sharing it; nothing uploads automatically. Never post credentials, tokens,
+device codes or private keys. Discussions remain disabled. For private help,
+email **admin@cybrrd.com**.
 This support channel does not open code contributions or implementation proposals.
 
 Report security vulnerabilities through

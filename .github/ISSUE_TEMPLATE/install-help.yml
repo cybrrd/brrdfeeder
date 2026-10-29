@@ -7,8 +7,8 @@ body:
   attributes:
     value: Use this form for ordinary beta install help and bugs. For vulnerabilities, follow
       [SECURITY.md](https://github.com/cybrrd/brrdfeeder/blob/main/SECURITY.md) privately. For
-      private help, email admin@cybrrd.com. Never post credentials, private keys, exact locations
-      or unredacted logs. Nothing uploads automatically.
+      private help, email admin@cybrrd.com. Never post credentials, tokens, device codes
+      or private keys. Nothing uploads automatically.
 - type: input
   id: board
   attributes:
@@ -35,17 +35,16 @@ body:
   id: adapters
   attributes:
     label: Adapters
-    description: Wi-Fi, Bluetooth and GPS model / USB IDs. Do not include serial numbers or exact
-      locations.
+    description: Wi-Fi, Bluetooth and GPS model / USB IDs.
   validations:
     required: true
 - type: textarea
   id: support
   attributes:
-    label: Redacted support bundle / run ID
+    label: Support bundle / run ID
     description: 'Include the installer run ID if available. Generate a bundle with: curl -fsSL
-      https://get.cybrrd.com | bash -s -- support-bundle. Review the redacted bundle before attaching
-      it. Do not upload credentials, private keys, exact locations or unredacted logs. Nothing
+      https://get.cybrrd.com | bash -s -- support-bundle. Review the bundle before attaching
+      it. Do not upload credentials, tokens, device codes or private keys. Nothing
       uploads automatically; use admin@cybrrd.com if you need private help.'
   validations:
     required: false
@@ -53,7 +52,7 @@ body:
   id: problem
   attributes:
     label: Where did setup stop?
-    description: Describe the command you ran, what you expected, and the redacted error. Do not
-      paste tokens or credentials.
+    description: Describe the command you ran, what you expected, and the error. Do not
+      paste credentials, tokens, device codes or private keys.
   validations:
     required: true

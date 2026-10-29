@@ -239,6 +239,27 @@ pub async fn start_capture_loop(
 
     // ── OUTER loop: owns capture-path (re-)establishment ──
     loop {
+        // USB mode selects independently of packet liveness, including startup
+        // with no adapter. No cached name/index is a fallback on refusal.
+        let selected = if let Some(identity) = &liveness.identity {
+            let observer = Arc::clone(identity);
+            let result = tokio::task::spawn_blocking(move || observer.prepare_with(|adapter| {
+                if !nl80211::interface_is_monitor(adapter.ifindex)? {
+                    nl80211::establish_monitor_mode(adapter.ifindex)?;
+                    std::thread::sleep(Duration::from_millis(400));
+                }
+                Ok(())
+            })).await.map_err(|e| format!("USB capture observer failed: {e}")).and_then(|r| r);
+            match result {
+                Ok(adapter) => Some(adapter),
+                Err(reason) => {
+                    liveness.invalidate_identity(reason, &radio);
+                    tokio::time::sleep(crate::capture_identity::RESCAN_INTERVAL).await;
+                    continue;
+                }
+            }
+        } else { None };
+        let interface = selected.as_ref().map(|a| a.interface.as_str()).unwrap_or(&interface).to_string();
         // Re-resolve the ifindex from sysfs every outer iteration —
         // never trust a cached value across a re-open. The 2026-05-13
         // lesson: a USB re-enumeration changes the ifindex (5 → 6), and
@@ -246,7 +267,7 @@ pub async fn start_capture_loop(
         // not wait for the watchdog's next 10s tick. The watchdog also
         // re-resolves on stall; both writing the same atomic is
         // idempotent.
-        match crate::watchdog::iface_to_ifindex(&interface) {
+        match selected.as_ref().map(|a| a.ifindex).map(Ok).unwrap_or_else(|| crate::watchdog::iface_to_ifindex(&interface)) {
             Ok(idx) => liveness.current_ifindex.store(idx, Ordering::Relaxed),
             Err(e) => eprintln!(
                 "[capture] could not resolve ifindex for {}: {} — using last-known {}",
@@ -259,7 +280,7 @@ pub async fn start_capture_loop(
 
         // Auto-establish monitor mode (startup heal + watchdog-triggered
         // re-heal both flow through here).
-        ensure_monitor_mode(&interface, ifindex).await;
+        if selected.is_none() { ensure_monitor_mode(&interface, ifindex).await; }
 
         let radio_init_started = Instant::now();
 
@@ -275,6 +296,9 @@ pub async fn start_capture_loop(
             Err(e) => {
                 eprintln!("[-] open capture on {}: {}", interface, e);
                 radio.set(RadioStatus::Error);
+                if liveness.identity.is_some() {
+                    liveness.invalidate_identity(format!("Cannot open USB Wi-Fi capture on {interface}: {e}"), &radio);
+                }
                 // Backoff before retry; the watchdog re-resolves the
                 // ifindex independently, so a re-enumerated device will
                 // be reachable on the next outer iteration.
@@ -329,7 +353,7 @@ pub async fn start_capture_loop(
         let inner_gps = Arc::clone(&gps_latest);
 
         // ── INNER loop: the hot capture path ──
-        let handle = tokio::task::spawn_blocking(move || -> InnerExit {
+        let mut handle = tokio::task::spawn_blocking(move || -> InnerExit {
             let mut cap = cap;
             let mut pipeline = PostParse::new(
                 ForwardContext {
@@ -405,8 +429,19 @@ pub async fn start_capture_loop(
             }
         });
 
+        // Rescan while capture is busy OR quiet. An added second adapter is a
+        // refusal too; activity on the old handle does not suppress selection.
+        let outcome = if let (Some(identity), Some(expected)) = (&liveness.identity, &selected) {
+            tokio::select! {
+                outcome = &mut handle => outcome,
+                reason = Arc::clone(identity).wait_for_change(expected.clone(), crate::capture_identity::RESCAN_INTERVAL) => {
+                    liveness.invalidate_identity(reason, &radio);
+                    handle.await
+                }
+            }
+        } else { handle.await };
         // Wait for the inner loop to exit and decide what to do next.
-        match handle.await {
+        match outcome {
             Ok(InnerExit::RestartRequested) => {
                 println!("[capture] watchdog requested restart — re-establishing capture path");
                 // Outer loop iterates: re-resolve ifindex, re-establish
@@ -418,6 +453,9 @@ pub async fn start_capture_loop(
                     msg
                 );
                 radio.set(RadioStatus::Error);
+                if liveness.identity.is_some() {
+                    liveness.invalidate_identity(format!("USB Wi-Fi capture lost: {msg}"), &radio);
+                }
                 tokio::time::sleep(Duration::from_secs(2)).await;
             }
             Ok(InnerExit::ChannelClosed) => {

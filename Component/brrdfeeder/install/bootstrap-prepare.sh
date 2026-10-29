@@ -111,13 +111,10 @@ if [ -e "$CONFIG_PATH" ]; then
 fi
 
 # ── Capture interface ───────────────────────────────────────────────────────
-# The installer needs --interface on a fresh install. A customer cannot reasonably
-# be expected to know their adapter is "wlan1". But it IS deterministic: Remote ID
-# capture requires monitor mode, and on a Raspberry Pi exactly one adapter can do
-# it — the external one. The Pi's built-in Wi-Fi (brcmfmac) cannot. So: find the
-# phys that support monitor mode. Exactly one is the answer; zero means the
-# external adapter is not plugged in, which is the single most common way a new
-# install will fail and deserves a plain message rather than a cryptic one later.
+# Fresh automatic installs persist USB selection intent, not an observed name.
+# Explicit --interface and every existing config retain exact-name behavior.
+# Zero or multiple capable USB interfaces is a refusal, never a first match.
+capture_auto_selected=0
 iface_supplied=0; lat_supplied=0; lon_supplied=0
 if [ "$install_mode" = "rerun" ]; then
   # A rerun must not carry first-install flags (installer line 340). If the
@@ -144,28 +141,87 @@ else
       || bootstrap_die "could not install iw. Supply the capture interface explicitly:
          curl -fsSL https://get.cybrrd.com | bash -s -- --interface <iface> ..."
   fi
-  mon_ifaces=""
-  for phy in /sys/class/ieee80211/*; do
-    [ -e "$phy" ] || continue
-    pname="$(basename "$phy")"
-    if iw phy "$pname" info 2>/dev/null | awk '/Supported interface modes/,/Band /' | grep -q '\* monitor'; then
-      dev="$(ls "$phy/device/net" 2>/dev/null | head -1)"
-      [ -n "$dev" ] && mon_ifaces="$mon_ifaces $dev"
-    fi
-  done
-  mon_ifaces="${mon_ifaces# }"
-  case "$(printf '%s' "$mon_ifaces" | wc -w)" in
-    0) bootstrap_die "no Wi-Fi adapter that supports monitor mode was found.
-       Remote ID capture needs one, and the Raspberry Pi's built-in Wi-Fi cannot
-       do it. Is the external adapter (ALFA AWUS036AXM/AXML) plugged in?
-       If it is and this still fails, supply it explicitly:
-         curl -fsSL https://get.cybrrd.com | bash -s -- --interface <iface> ..." ;;
-    1) bootstrap_note "capture iface: $mon_ifaces  (the only monitor-capable adapter)"
-       set -- --interface "$mon_ifaces" "$@" ;;
-    *) bootstrap_die "more than one monitor-capable adapter found ($mon_ifaces).
-       Not guessing which one is the capture radio. Supply it explicitly:
-         curl -fsSL https://get.cybrrd.com | bash -s -- --interface <iface> ..." ;;
-  esac
+  if ! mon_iface=$(python3 - <<'CAPTURE_USB_EOF'
+#!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+"""Read-only fresh-install USB Wi-Fi selection. Existing config bypasses this."""
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+
+def event(path):
+    return dict(line.split('=', 1) for line in path.read_text().splitlines() if '=' in line)
+
+
+def monitor(phy):
+    result = subprocess.run(['iw', 'phy', phy, 'info'], check=True, text=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+    modes = result.stdout.split('Supported interface modes:', 1)
+    if len(modes) != 2:
+        raise ValueError('wireless driver did not report supported interface modes')
+    return bool(re.search(r'^\s*\* monitor\s*$', modes[1].split('Band ', 1)[0], re.M))
+
+
+def choose(root=Path('/sys'), capability=monitor):
+    devices = (root/'devices').resolve(strict=True)
+    candidates, reasons = [], []
+    for net in sorted((root/'class/net').iterdir()):
+        if not (net/'phy80211').exists():
+            continue
+        if not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.:-]{0,14}', net.name):
+            raise ValueError('invalid Wi-Fi interface name')
+        device = (net/'device').resolve(strict=True)
+        if not device.is_relative_to(devices):
+            raise ValueError('Wi-Fi device escapes sysfs devices')
+        usb = next((p for p in (device, *device.parents)
+                    if p.is_relative_to(devices) and ((p/'idVendor').exists() or (p/'idProduct').exists())), None)
+        if usb is None:
+            reasons.append(net.name+': not a USB adapter')
+            continue
+        vid, pid = (usb/'idVendor').read_text().strip(), (usb/'idProduct').read_text().strip()
+        if not re.fullmatch(r'[0-9a-fA-F]{4}:[0-9a-fA-F]{4}', vid+':'+pid):
+            raise ValueError('invalid USB identity')
+        ue = event(usb/'uevent')
+        product = ue.get('PRODUCT', '').split('/')
+        if (ue.get('DEVTYPE') != 'usb_device' or len(product) != 3
+                or [int(x, 16) for x in product[:2]] != [int(vid, 16), int(pid, 16)]):
+            raise ValueError('USB identity and kernel uevent disagree')
+        driver = (device/'driver').resolve(strict=True)
+        if driver.parent != (root/'bus/usb/drivers').resolve(strict=True):
+            raise ValueError('Wi-Fi USB driver is not bound')
+        ue = event(device/'uevent')
+        if ue.get('DEVTYPE') != 'usb_interface' or ue.get('DRIVER') != driver.name:
+            raise ValueError('USB driver and kernel uevent disagree')
+        phy = (net/'phy80211').resolve(strict=True).name
+        if not re.fullmatch(r'phy[0-9]+', phy):
+            raise ValueError('invalid wireless phy name')
+        if capability(phy):
+            candidates.append(net.name)
+        else:
+            reasons.append(net.name+': USB '+vid+':'+pid+' driver '+driver.name+' has no monitor-mode support')
+    if len(candidates) > 1:
+        raise ValueError('more than one monitor-capable USB Wi-Fi interface found ('+', '.join(candidates)+'); refusing to guess. Supply --interface explicitly')
+    if not candidates:
+        raise ValueError('no USB Wi-Fi adapter with a bound driver and monitor-mode support found. Plug in the external capture adapter (ALFA AWUS036AXM/AXML). '+ '; '.join(reasons))
+    return candidates[0]
+
+
+if __name__ == '__main__':
+    try:
+        print(choose())
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        sys.exit('USB Wi-Fi capture selection refused: '+str(error))
+CAPTURE_USB_EOF
+  ); then
+    bootstrap_die "Could not select a dedicated USB capture adapter; see the reason above."
+  fi
+  capture_auto_selected=1
+  bootstrap_note "capture iface: $mon_iface (USB automatic selection; renamed replacements recover automatically)"
+  set -- --interface "$mon_iface" "$@"
+
 fi
 
 # ── Sensor position ─────────────────────────────────────────────────────────

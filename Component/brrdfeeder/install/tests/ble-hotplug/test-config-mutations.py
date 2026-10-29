@@ -52,4 +52,17 @@ with tempfile.TemporaryDirectory(prefix='ble-config-mutants-') as tmp:
         records.append(dict(control=label,killed=killed,exit=code))
         assert killed,label+' survived or failed before assertions: '+text
         print(label+': KILLED',flush=True)
+    # Removing the runtime OFF guard must break the running restart transition.
+    path = root/'Component/aviary/engine/src/rid_ble.rs'
+    original = path.read_text()
+    before = 'if !self.0.enabled {'
+    assert original.count(before) == 1
+    path.write_text(original.replace(before, 'if false && !self.0.enabled {'))
+    command[6] = 'hotplug_running_auto_to_off_after_documented_restart_without_receipt'
+    code,text = run('runtime-off-ignored')
+    path.write_text(original)
+    killed = code == 101 and command[6]+' ... FAILED' in text
+    records.append(dict(control='runtime-off-ignored',killed=killed,exit=code))
+    assert killed,'runtime OFF guard mutant survived: '+text
+    print('runtime-off-ignored: KILLED',flush=True)
     (out/'results.json').write_text(json.dumps(records,indent=2)+'\n')

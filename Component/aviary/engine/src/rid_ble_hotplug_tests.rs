@@ -281,9 +281,12 @@ async fn hotplug_running_auto_to_off_after_documented_restart_without_receipt() 
         inventory.clone(),
         Arc::new(crate::status::FrameActivity::default()),
     );
-    restarted
-        .supervise(&ctx, &tx, &health, &mut runtime, Duration::from_millis(1))
-        .await;
+    tokio::time::timeout(
+        Duration::from_secs(1),
+        restarted.supervise(&ctx, &tx, &health, &mut runtime, Duration::from_millis(1)),
+    )
+    .await
+    .expect("OFF must finish without selecting or capturing");
     assert_eq!(runtime.selections.get(), selections);
     let mut local = (**inventory.load().as_ref().unwrap()).clone();
     local.refresh();

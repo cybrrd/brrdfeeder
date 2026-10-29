@@ -162,3 +162,14 @@ file and are removed with it. `/run/brrdfeeder-bluetooth` contains only root-own
 lock/conflict and atomic temporary files, is validated with `safe_tree`, and is
 removed after service shutdown. The existing prior-state receipt remains the
 only authority for restoration; no receipt means no inferred host state.
+
+## Bluetooth claim rollback follow-up
+
+Installer selection is checked before ownership mutations and checked again after
+stopping the engine. Successful rollback removes a receipt created by that failed
+attempt; pre-existing receipts and receipts needed after failed restoration remain.
+This uses the existing `/etc/brrdfeeder/.bluetooth-prior.json` path and introduces
+no new filesystem destination. The explicit-section config defaults and printed
+restart instruction also introduce no writers. The reviewed census refresh keeps
+all 72 projected paths unchanged; the helper/embedded rollback regressions cover
+new-receipt removal, existing-receipt preservation and failed-restore retention.

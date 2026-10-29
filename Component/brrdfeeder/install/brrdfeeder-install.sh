@@ -5812,7 +5812,7 @@ def apply_hotplug(dry=False):
     prior = receipt()
     if not enabled:
         if prior:
-            was_active = ctl('show', ENGINE, '--property=ActiveState', '--value').strip() == 'active'
+            was_active = ctl('show', ENGINE, '--property=ActiveState', '--value').strip() in ('active','activating')
             restore(dry)
             # Restore must release the HCI user channel. Reload explicit OFF
             # afterwards so Wi-Fi/GPS are not stranded by a Bluetooth toggle.
@@ -5864,7 +5864,8 @@ def dispatch():
 
 def main():
     if os.geteuid() != 0: raise ValueError('run Bluetooth ownership helper as root')
-    if sys.argv[1:] in (['prepare'], ['inventory'], ['health-summary'], ['check']):
+    # Preview operations must not create runtime directories or lock files.
+    if '--dry-run' in sys.argv[1:] or sys.argv[1:] in (['prepare'], ['inventory'], ['health-summary'], ['check']):
         return dispatch()
     prepare_runtime()
     lock = RUNTIME/'lock'

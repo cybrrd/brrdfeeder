@@ -94,6 +94,22 @@ class Hotplug(unittest.TestCase):
         with patch.object(ble,'selected_controller',select):
             with self.assertRaisesRegex(ValueError,'changed before'): ble.apply(hotplug=True)
         self.assertFalse(self.receipt.exists()); self.assertTrue(all(c[0]=='show' for c in self.systemd.calls))
+    def test_main_dry_run_creates_no_runtime_or_receipt(self):
+        self.adapter()
+        for args in (['apply','--hotplug','--dry-run'], ['restore','--dry-run']):
+            with patch.object(ble.os,'geteuid',return_value=0), patch.object(ble.sys,'argv',['helper',*args]):
+                ble.main()
+            self.assertFalse(self.runtime.exists()); self.assertFalse(self.receipt.exists())
+        ble.apply(hotplug=True)
+        before=self.receipt.read_bytes(); self.systemd.calls=[]
+        with patch.object(ble.os,'geteuid',return_value=0),patch.object(ble.sys,'argv',['helper','restore','--dry-run']):
+            ble.main()
+        self.assertFalse(self.runtime.exists()); self.assertEqual(self.receipt.read_bytes(),before)
+        self.assertFalse(self.systemd.calls)
+    def test_off_restores_while_engine_waits_for_gps(self):
+        self.adapter(); ble.apply(hotplug=True); self.explicit({'enabled':False})
+        self.systemd.engine='activating'; ble.apply(hotplug=True)
+        self.assertEqual(self.systemd.engine,'active'); self.assertFalse(self.receipt.exists())
     def test_dry_run_and_reason_summary(self):
         self.adapter(); before=self.config.read_bytes(); ble.apply(dry=True,hotplug=True)
         self.assertEqual(self.config.read_bytes(),before); self.assertFalse(self.receipt.exists())

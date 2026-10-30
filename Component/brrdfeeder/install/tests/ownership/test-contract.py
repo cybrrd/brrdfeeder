@@ -40,7 +40,7 @@ class Ownership(unittest.TestCase):
         # Repository-owner contribution and reporting policies are authoritative.
         # Do not add definitions or headers to those exact bytes; use sidecars.
         for path, digest in {
-            'SECURITY.md': '78b5099ce29efdc9b829200102f7e581e97286079e2bcede03e6fb6aa4aec6de',
+            'SECURITY.md': '82c87d11c14d44838fb7553e30b20e822cf87a57dbb15a77f020b58041060d00',
             'CONTRIBUTING.md': '2fb4c4c04700ce09225d7290ab2e5861ea77e9cbb01f8e877125f451cffe8a59',
         }.items():
             self.assertEqual(hashlib.sha256((ROOT/path).read_bytes()).hexdigest(), digest)

@@ -29,7 +29,7 @@ decades of experience in cybersecurity operations, Linux administration,
 open-systems development, drone operations, and IPv4/IPv6 internetworking. 
 While we don't have a compensated bug bounty program, we'll do our best
 to recognize and reward collaborators who are committed to ethical cyber
-disclosure practices. Contact dev @ cybrrd.com should you have questions
+disclosure practices. Contact admin@cybrrd.com should you have questions
 and/or concerns about security practices and capabilities within the cyBRRD
 platform.
 

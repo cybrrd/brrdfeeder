@@ -41,6 +41,23 @@ class ClaimGate(unittest.TestCase):
                 data["claims"][0][field] = value
                 self.rejects(data, message)
 
+    def test_descriptive_claim_ids(self):
+        evidence = [c for c in self.data["claims"] if c["section"] == "evidence"]
+        specs.validate(self.data)
+        rendered = specs.table(evidence)
+        for c in evidence:
+            self.assertIn(f"| **{c['title']}** |", rendered)
+            self.assertNotIn(c["id"], rendered)
+        self.data["claims"].append(deepcopy(evidence[0]))
+        self.rejects(self.data, "duplicate claim")
+
+    def test_invalid_claim_ids(self):
+        for cid in (None, 1, "", " ", "bad id", "-claim", "claim-", "claim--name", "Claim-name"):
+            with self.subTest(claim=cid):
+                data = deepcopy(self.data)
+                data["claims"][0]["id"] = cid
+                self.rejects(data, "invalid claim ID")
+
     def test_missing_unit_and_owner(self):
         for field in ("unit", "owner"):
             with self.subTest(field=field):

@@ -111,7 +111,8 @@ def validate(data, root=ROOT):
         require(isinstance(c, dict) and required <= set(c)
                 and set(c) <= required | {"on_miss", "failure_signal"}, "invalid claim fields")
         cid = c["id"]
-        require(isinstance(cid, str) and re.fullmatch(r"[A-Z][0-9]{2}", cid), "invalid claim ID")
+        require(isinstance(cid, str) and re.fullmatch(
+            r"(?:[A-Z][0-9]{2}|[a-z]+(?:-[a-z]+)+)", cid), "invalid claim ID")
         require(cid not in seen, f"duplicate claim: {cid}")
         seen.add(cid)
         for key in ("title", "unit", "scope", "status", "evidence_kind", "owner", "note", "sanitization_review"):
@@ -185,12 +186,13 @@ def table(claims):
     lines = ["| Claim | Expectation | Scope / status | Source and boundary |",
              "|---|---|---|---|"]
     for c in claims:
+        label = f"{c['id']} — {c['title']}" if re.fullmatch(r"[A-Z][0-9]{2}", c["id"]) else c["title"]
         refs = " ".join(f"[source {i}]({ref})" for i, ref in enumerate(c["source_ref"], 1))
         receipt = c["verification"]["receipt"]
         if receipt:
             refs += f" [receipt]({receipt['ref']})"
         lines.append("| " + " | ".join(cell(x) for x in (
-            f"**{c['id']} — {c['title']}**", expectation(c),
+            f"**{label}**", expectation(c),
             f"{c['scope']} / **{c['status']}** ({c['evidence_kind']})",
             f"{refs} {c['note']}")) + " |")
     return "\n".join(lines)

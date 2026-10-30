@@ -1094,7 +1094,7 @@
       "semantics": "expectation"
     },
     {
-      "id": "B01",
+      "id": "release-evidence-coverage",
       "section": "evidence",
       "title": "Release evidence coverage",
       "value": "Per-image CycloneDX SBOMs, metadata, digests, provenance, checksums and signed receipt",
@@ -1116,7 +1116,7 @@
       "semantics": "expectation"
     },
     {
-      "id": "B02",
+      "id": "security-analysis",
       "section": "evidence",
       "title": "Security analysis",
       "value": "CodeQL and Scorecard workflow links; no numeric security rating",

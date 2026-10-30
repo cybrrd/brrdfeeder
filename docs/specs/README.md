@@ -3,16 +3,17 @@
 # Product Technical and Operational Specifications
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-29**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-30**.
 
-**Next/unreleased draft; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
+**0.9.0 beta release specifications; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
 
 BRRDfeeder receives broadcast Remote ID on your own hardware. Start with
 [Install](https://get.cybrrd.com) and [hardware requirements](REQUIREMENTS.md).
 This sheet explains what to expect, what is still being tested, and where to
-find evidence for a release. It is a draft for the next beta, not a claim that
-all described changes have shipped.
+find evidence for a release. These specifications are part of the **0.9.0 beta
+release**. The release tag and acceptance receipts remain pending; including
+the specifications does not establish measured behavior for their targets.
 
 ## Evidence legend
 
@@ -26,7 +27,7 @@ Evidence kind is separate: **source**, **synthetic**, **native**, or **field**.
 Source code and design decisions explain a claim; they do not prove performance.
 Synthetic checks do not establish radio reception or power-loss behavior.
 Each table also separates **beta** expectations from **future-v5** design.
-No claim in this draft has been promoted to measured from a private summary.
+No claim in this suite has been promoted to measured from a private summary.
 
 ## At a glance
 
@@ -60,8 +61,10 @@ claim is made.
 
 Viewer counts are **advisory monitoring thresholds that raise alerts**. Crossing
 them does not refuse users. The [retained protective guards](SERVICE-LEVELS.md#capacity-and-future-sizing)
-show a reason, count the event and alert internal monitoring; metrics are internal
-only. [Registration and node capacity](OPERATIONS.md#registration-and-node-capacity)
+are intended to show a reason, count the event and alert internal monitoring;
+metrics are internal only. Overflow reason/counter pairs and live human alert
+receipt remain [unverified beta limits](KNOWN-LIMITS.md#unmeasured-beta-behavior).
+[Registration and node capacity](OPERATIONS.md#registration-and-node-capacity)
 have a separate approved policy. Physical
 storage can still fill; [outage behavior](OPERATIONS.md#outages-and-power-loss)
 describes that separate condition.
@@ -86,20 +89,24 @@ missing observation as proof that no aircraft was present.
 ## Version and evidence maintenance
 
 Use the specification at the exact release tag when judging that release.
-`main` means next/unreleased; this draft's source baseline is identified above.
+`main` means next/unreleased; this suite's source baseline is identified above.
 The beta tag and release evidence remain pending. A source baseline is not
 native acceptance of the beta or proof of the currently deployed platform.
 
 [claims.yaml](claims.yaml) is the source for values, scopes, evidence labels,
 verification scenarios and owners. Its JSON-compatible YAML syntax lets the
-small generator run with the Python standard library. Tables and page metadata
-are generated; edit claims, then run `python3 .github/scripts/specs.py` from the
+small generator run with the Python standard library. The 0.9.0 release source
+must include this registry: the installation-page renderer reads hardware values
+from it and links to the same release's specifications and known limits.
+Tables and page metadata are generated; edit claims, then run
+`python3 .github/scripts/specs.py` from the
 repository root. CI runs the same command with `--check` and exercises rejection
 cases. It checks documentation consistency, not runtime behavior.
 
 Before release, bind the tag and source metadata, inspect release assets, confirm
-time-sensitive update/support statements, and obtain the listed acceptance
-receipts. A measured receipt must report failures and its real denominator.
+time-sensitive update/support statements, and retain the listed unmeasured
+limits wherever acceptance receipts are absent. A measured receipt must report
+failures and its real denominator.
 Change a target's status only when evidence covers its actual scope. Publish
 corrections in a later revision; do not move tags or silently rewrite history.
 Public interoperability standards stay in their own publication; this suite

@@ -4,7 +4,7 @@
   "specification": {
     "product_version": "0.9.0",
     "applies_to": "0.9-beta",
-    "revision": "2026-10-29",
+    "revision": "2026-10-30",
     "source_sha": "d6130a208f92a275db3fe11a52a4f21dcdbeaf63",
     "release_tag": null
   },
@@ -1037,7 +1037,8 @@
       "status": "target",
       "evidence_kind": "source",
       "source_ref": [
-        "evidence/design-basis.md#viewer-guards"
+        "evidence/design-basis.md#viewer-guards",
+        "evidence/acceptance-gaps.md#overflow-close-reasons-and-counters"
       ],
       "public": true,
       "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
@@ -1046,7 +1047,7 @@
         "scenario": "Stall a client and trigger send-buffer exhaustion; verify the browser reason, internal counter and routed alert.",
         "receipt": null
       },
-      "note": "A stalled browser can be disconnected with a user-facing reason; the event is counted and alerted through internal monitoring. Queue-slot exhaustion can also trigger this guard. This is a protective guard, not a viewer-count limit.",
+      "note": "Target behavior: a stalled browser can be disconnected with a user-facing reason; the event is counted and alerted through internal monitoring. Queue-slot exhaustion can also trigger this guard. This is a protective guard, not a viewer-count limit. Direct overflow close-reason and matching-counter assertions remain unverified; live human alert receipt is not yet measured.",
       "semantics": "expectation"
     },
     {
@@ -1059,7 +1060,8 @@
       "status": "target",
       "evidence_kind": "source",
       "source_ref": [
-        "evidence/design-basis.md#viewer-guards"
+        "evidence/design-basis.md#viewer-guards",
+        "evidence/acceptance-gaps.md#overflow-close-reasons-and-counters"
       ],
       "public": true,
       "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
@@ -1068,7 +1070,7 @@
         "scenario": "Trigger an ACTIVE_HEXES marshal overflow; verify the browser reason, internal counter and routed alert.",
         "receipt": null
       },
-      "note": "Overflow closes the connection with a user-facing reason; the event is counted and alerted through internal monitoring. This is a frame-safety guard, not a viewer-count limit.",
+      "note": "Target behavior: overflow closes the connection with a user-facing reason; the event is counted and alerted through internal monitoring. This is a frame-safety guard, not a viewer-count limit. Direct overflow close-reason and matching-counter assertions remain unverified; live human alert receipt is not yet measured.",
       "semantics": "expectation"
     },
     {
@@ -1182,6 +1184,160 @@
       },
       "note": "Approved configuration baseline. The byte capacity is shared by the whole stream, not allocated per node. This is not a retention-duration or no-loss guarantee; public custody and saturation acceptance remain pending.",
       "semantics": "physical-buffer"
+    },
+    {
+      "id": "archived-stream-restore",
+      "section": "beta-limits",
+      "title": "Archived stream restore",
+      "value": "Not yet measured; no reviewed end-to-end stream-restore instrument",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#archived-stream-restore"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Archive maintainers",
+      "verification": {
+        "scenario": "Restore an export into an isolated disposable reader; compare ordered payload bytes, counts and gaps with the original stream, including a corrupted-export control.",
+        "receipt": null
+      },
+      "note": "Archive checksums prove integrity only; they do not establish successful restore or end-to-end custody. A different data store restore is not a substitute.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "live-disk-alert-delivery",
+      "section": "beta-limits",
+      "title": "Live disk alert delivery",
+      "value": "Not yet measured; no reviewed live threshold-to-person instrument",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#live-disk-alert-delivery"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Monitoring maintainers",
+      "verification": {
+        "scenario": "In an authorized controlled environment, cross a live filesystem threshold; record warning, Red, resolution and witnessed human receipt, including a non-firing control.",
+        "receipt": null
+      },
+      "note": "Offline rule fixtures do not prove live metric ingestion, destination delivery or human receipt. No alert delivery deadline is guaranteed.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "public-edge-request-bounds",
+      "section": "beta-limits",
+      "title": "Public edge request bounds",
+      "value": "Request size, rate and timeout behavior not yet measured; no reviewed boundary instrument",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#public-edge-request-bounds"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Public edge maintainers",
+      "verification": {
+        "scenario": "In an authorized controlled environment, exercise each configured request-size, rate and timeout boundary with accepted and rejected cases; record the exact configuration and observed behavior.",
+        "receipt": null
+      },
+      "note": "Route/authentication probes and per-browser WebSocket guards do not establish public-edge bounds. No numeric limit or tested operating envelope is claimed.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "physical-power-loss",
+      "section": "beta-limits",
+      "title": "Physical power loss",
+      "value": "Release-hardware power-cut behavior and vulnerable write interval not yet measured",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#physical-power-loss"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Outage acceptance",
+      "verification": {
+        "scenario": "On disposable release hardware, interrupt physical power at recorded write phases and compare durable records, gaps and recovery; record storage model, power protection and timing.",
+        "receipt": null
+      },
+      "note": "Physical power cuts and native-radio memory qualification are outside the bounded acceptance plan. Restarts, simulated outages and storage-full tests do not establish a zero-loss envelope.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "overflow-close-reasons-and-counters",
+      "section": "beta-limits",
+      "title": "Overflow close reasons and counters",
+      "value": "Unverified; direct overflow close-reason plus matching-counter assertions are missing from reviewed tests",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#overflow-close-reasons-and-counters"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Viewer acceptance",
+      "verification": {
+        "scenario": "Trigger send-buffer and outgoing-frame overflow separately; assert the peer-visible close reason and exact matching counter delta, with a non-overflow control for each.",
+        "receipt": null
+      },
+      "note": "Queue bounds and disconnects do not prove the send_buffer_full or airspace_send_overflow reason/counter pair. The frame_too_large assertion covers a different guard; live alert delivery remains unmeasured.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "viewer-load-beyond-tested-levels",
+      "section": "beta-limits",
+      "title": "Viewer load beyond tested levels",
+      "value": "Not yet measured; the full 4,097-client load run is not executed in the bounded acceptance plan",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#viewer-load-beyond-tested-levels"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Viewer acceptance",
+      "verification": {
+        "scenario": "Run controlled viewer workloads at declared counts, durations and traffic profiles; record latency, delivery, closes and resource use with an executed receipt for each level.",
+        "receipt": null
+      },
+      "note": "Rule-firing fixtures and admission tests do not establish capacity at that load. Proposed harness runs are not measured results. Advisory thresholds are not viewer caps or a supported-capacity guarantee.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "live-alert-human-receipt",
+      "section": "beta-limits",
+      "title": "Live alert human receipt",
+      "value": "Not yet measured; no reviewed executable live destination-canary instrument",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#live-alert-human-receipt"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Monitoring maintainers",
+      "verification": {
+        "scenario": "Send an authorized identifiable live canary through the real destination; retain timestamps and witnessed human receipt, including a missing-receipt control.",
+        "receipt": null
+      },
+      "note": "Offline routing and bridge checks do not establish human receipt or acknowledgement. This includes disk and viewer-guard alerts; no notification or response deadline is guaranteed.",
+      "semantics": "expectation"
     }
   ]
 }

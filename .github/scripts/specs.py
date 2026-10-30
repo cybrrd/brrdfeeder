@@ -23,11 +23,11 @@ PAGES = {
     "REQUIREMENTS.md": ["requirements", "reception"],
     "OPERATIONS.md": ["operations", "enrollment", "outage", "updates", "support"],
     "SERVICE-LEVELS.md": ["service", "service-methods", "capacity", "future", "placeholders"],
-    "KNOWN-LIMITS.md": ["placeholders"],
+    "KNOWN-LIMITS.md": ["beta-limits", "placeholders"],
     "SBOM.md": ["evidence"],
 }
 SECTIONS = {"requirements", "reception", "operations", "outage", "updates",
-            "service", "capacity", "enrollment", "support", "future", "placeholders", "evidence"}
+            "service", "capacity", "enrollment", "support", "future", "placeholders", "evidence", "beta-limits"}
 SUMMARY = {"H07", "D07", "U02", "S01", "S02", "P01", "P02"}
 STATUSES = {"measured", "target", "unverified"}
 KINDS = {"source", "synthetic", "native", "field"}
@@ -202,7 +202,8 @@ def render(data, block):
     claims = data["claims"]
     if block == "metadata":
         m = data["specification"]
-        state = f"Release tag: `{m['release_tag']}`." if m["release_tag"] else "**Next/unreleased draft; release tag pending.**"
+        state = (f"Release tag: `{m['release_tag']}`." if m["release_tag"] else
+                 f"**{m['product_version']} beta release specifications; release tag pending.**")
         return (f"Applies to: **{m['applies_to']}** · Product: **{m['product_version']}** · "
                 f"Specification revision: **{m['revision']}**.\n\n{state} "
                 f"Source baseline: [{m['source_sha'][:8]}](https://github.com/cybrrd/brrdfeeder/tree/{m['source_sha']}). "

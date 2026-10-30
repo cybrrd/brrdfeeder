@@ -150,7 +150,7 @@ class ClaimGate(unittest.TestCase):
             for name in specs.PAGES:
                 path = root / "docs/specs" / name
                 original = path.read_text()
-                path.write_text(original.replace("**Next/unreleased draft", "**Altered draft", 1))
+                path.write_text(original.replace("beta release specifications;", "altered specifications;", 1))
                 with self.assertRaisesRegex(ValueError, "stale generated content"):
                     specs.update_pages(changed, root, check=True)
                 path.write_text(original)

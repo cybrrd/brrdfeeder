@@ -3,9 +3,9 @@
 # Beta service objectives
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-29**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-30**.
 
-**Next/unreleased draft; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
+**0.9.0 beta release specifications; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
 
 [Back to the information sheet](README.md). These objectives describe desired
@@ -69,11 +69,17 @@ receipts for later reconciliation.
 Viewer counts are advisory monitoring thresholds. Crossing them must not refuse
 users, impose a fixed aircraft count, or silently thin collection. Monitoring
 and operational capacity management handle load. The retained guards below can
-close a connection to protect other viewers or handle invalid input. Each shows
-a reason to the user, counts the event and alerts internal monitoring. Metrics
-are internal only. These remain source-backed targets pending public acceptance,
+close a connection to protect other viewers or handle invalid input. Each is
+required to show a reason to the user, count the event and alert internal
+monitoring. Metrics are internal only. These remain source-backed targets pending public acceptance,
 including routed alerts. The [owner quota](OPERATIONS.md#registration-and-node-capacity)
 and actual storage exhaustion are separate policies and conditions.
+
+Queue bounds and disconnect tests do not establish every overflow close reason
+and matching counter. Load beyond measured scenarios, public-edge request bounds,
+live disk-alert delivery and human alert receipt remain
+[unverified beta limits](KNOWN-LIMITS.md#unmeasured-beta-behavior). An alert-rule
+fixture is not a live load measurement or evidence that a person received an alert.
 
 The Silver and Red storage values below are approved broker configuration
 bounds. Message capacity applies per node subject; byte capacity is shared by
@@ -85,8 +91,8 @@ do not guarantee a retention duration or loss-free custody.
 |---|---|---|---|
 | **P01 — Viewer advisory threshold** | 100 concurrent viewers | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Chosen alert level; deployed behavior and public acceptance receipt remain pending. Metrics are internal only. This is an advisory monitoring threshold, not a user limit. |
 | **P02 — Per-IP viewer advisory threshold** | 32 concurrent viewers per IP | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Shared networks must not hit a fixed count-based wall. Threshold crossing raises an alert. Metrics are internal only. This is an advisory monitoring threshold, not a user limit. |
-| **P06 — Slow-client guard** | 1 MiB queued ACTIVE_HEXES bytes before ejection | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) A stalled browser can be disconnected with a user-facing reason; the event is counted and alerted through internal monitoring. Queue-slot exhaustion can also trigger this guard. This is a protective guard, not a viewer-count limit. |
-| **P07 — ACTIVE_HEXES overflow guard** | 64 KiB outgoing frame bound | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) Overflow closes the connection with a user-facing reason; the event is counted and alerted through internal monitoring. This is a frame-safety guard, not a viewer-count limit. |
+| **P06 — Slow-client guard** | 1 MiB queued ACTIVE_HEXES bytes before ejection | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) [source 2](evidence/acceptance-gaps.md#overflow-close-reasons-and-counters) Target behavior: a stalled browser can be disconnected with a user-facing reason; the event is counted and alerted through internal monitoring. Queue-slot exhaustion can also trigger this guard. This is a protective guard, not a viewer-count limit. Direct overflow close-reason and matching-counter assertions remain unverified; live human alert receipt is not yet measured. |
+| **P07 — ACTIVE_HEXES overflow guard** | 64 KiB outgoing frame bound | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) [source 2](evidence/acceptance-gaps.md#overflow-close-reasons-and-counters) Target behavior: overflow closes the connection with a user-facing reason; the event is counted and alerted through internal monitoring. This is a frame-safety guard, not a viewer-count limit. Direct overflow close-reason and matching-counter assertions remain unverified; live human alert receipt is not yet measured. |
 | **P08 — Inbound frame and per-browser rate guard** | 64 KiB inbound frame; client-message token bucket with burst 20 and refill 5/s | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) Oversized frames or excessive message rates close the connection with a user-facing reason; each is counted and alerted through internal monitoring. This bounds browser input, not viewer counts. |
 | **D15 — Silver stream storage capacity** | 32,768 messages per node subject; 8 GiB across the stream | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#stream-capacity) Approved configuration baseline. The byte capacity is shared by the whole stream, not allocated per node. This is not a retention-duration or no-loss guarantee; public custody and saturation acceptance remain pending. |
 | **D16 — Red stream storage capacity** | 16,384 messages per node subject; 4 GiB across the stream | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#stream-capacity) Approved configuration baseline. The byte capacity is shared by the whole stream, not allocated per node. This is not a retention-duration or no-loss guarantee; public custody and saturation acceptance remain pending. |

@@ -3,9 +3,9 @@
 # Operations and data handling
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-29**.
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-30**.
 
-**Next/unreleased draft; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
+**0.9.0 beta release specifications; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
 
 [Back to the information sheet](README.md). Read the scope and status beside
@@ -35,6 +35,11 @@ capture or a measured current archive guarantee. Radio hardware may not expose
 fields, older records may lack fields, and outages can cause explicit gaps.
 The [known limits](KNOWN-LIMITS.md) record those boundaries. Delayed records keep
 their original capture times; their later arrival does not make them live.
+
+True restore of archived streams has not yet been measured. Archive checksums
+establish integrity only; they do not prove that an export can be restored and
+read back in order. Live disk-alert delivery to a person also remains unverified;
+see the [unmeasured beta behavior](KNOWN-LIMITS.md#unmeasured-beta-behavior).
 
 ## Registration and node capacity
 
@@ -72,6 +77,8 @@ time to add capacity; they do not remove that storage failure condition.
 The vulnerable interval before a durable write remains unmeasured. Power-loss
 protection is strongly recommended, but no unconditional zero-loss promise is
 made. Record storage model, power arrangement and failure timing in acceptance.
+Physical power-cut behavior has not yet been measured for the release hardware;
+process restarts, simulated outages and storage-full tests do not establish it.
 
 ## Installation, updates, recovery and removal
 

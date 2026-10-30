@@ -6,12 +6,20 @@ This is a sanitized record of accepted product decisions, not a test receipt.
 Decision dates identify provenance; claim values live only in
 [claims.yaml](../claims.yaml). Private meeting records, infrastructure details,
 identities and licensed standards text are not reproduced here. The source
-review date is 2026-10-29. The hardware projection was checked against
+review date is 2026-10-30. The hardware projection was checked against
 installation-page template revision `7fb1a3b060e66ef075de9b9496b1faf592946019`
 and settings revision `67fc869f135805eba5d669a94a7f6094c70f9e10`. Future-wire
 policy and sizing were checked against design revision
 `27b45e0c5aa691bb2ba3e1d32cc1f19dffdc91c9`. These are source-review identifiers,
 not public release tags or performance receipts. These decisions do not establish deployed behavior.
+
+## Release inclusion
+
+The release decision on 2026-10-30 includes these specifications in 0.9.0.
+The installation-page renderer requires the release's `docs/specs/claims.yaml`
+for its hardware projection. Inclusion of that registry does not close the
+[acceptance gaps](acceptance-gaps.md), bind an unpublished tag or promote targets
+to measurements. The listed unverified limits accompany the beta.
 
 ## Hardware
 
@@ -127,6 +135,12 @@ backstop can show the library's size-limit reason rather than the application's
 reason; it is still counted as oversized input. Source review does not establish
 live deployment or routed alert delivery. Viewer acceptance must cover each guard
 and the internal monitoring path before any measured claim is made.
+
+The 2026-10-30 [acceptance-gap review](acceptance-gaps.md#overflow-close-reasons-and-counters)
+found no direct close-reason plus matching-counter assertions for the send-buffer
+and outgoing-frame overflow guards. Existing queue/disconnect coverage does not
+close that gap. Live human receipt and load beyond tested scenarios also remain
+unmeasured.
 
 ## Enrollment
 

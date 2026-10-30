@@ -31,6 +31,8 @@
   keep offline CI independent of host adapters and generated cache files.
 - Portable outage tests check correctness independently of machine latency;
   the 250-ms local-disk acceptance checks remain separate opt-in drills.
+- Telemetry retains the full decoded Remote ID fields, including hardware serials
+  and operator position when broadcast.
 - The v4 wire format is unchanged. Native helper/reboot/rollback qualification,
   deployed-server renewal and broker confirmation remain rollout gates. This
   candidate does not claim those checks passed or that a release was published.

@@ -135,6 +135,19 @@ class ClaimGate(unittest.TestCase):
         self.data["specification"]["release_tag"] = "v0.8.31"
         self.rejects(self.data, "tag/version mismatch")
 
+    def test_release_tag_binding(self):
+        self.data["specification"]["release_tag"] = "v0.9.0"
+        specs.validate(self.data)
+        with tempfile.TemporaryDirectory(prefix="specs-release-") as tmp:
+            root = Path(tmp)
+            shutil.copytree(specs.ROOT / "docs/specs", root / "docs/specs")
+            specs.update_pages(self.data, root, check=False)
+            specs.update_pages(self.data, root, check=True)
+            for name in specs.PAGES:
+                text = (root / "docs/specs" / name).read_text()
+                self.assertIn("Release tag: `v0.9.0`.", text)
+                self.assertNotIn("release tag pending", text)
+
     def test_stale_views_and_missing_markers(self):
         with tempfile.TemporaryDirectory(prefix="specs-gate-") as tmp:
             root = Path(tmp)
@@ -150,7 +163,7 @@ class ClaimGate(unittest.TestCase):
             for name in specs.PAGES:
                 path = root / "docs/specs" / name
                 original = path.read_text()
-                path.write_text(original.replace("beta release specifications;", "altered specifications;", 1))
+                path.write_text(original.replace("Specification revision:", "Altered revision:", 1))
                 with self.assertRaisesRegex(ValueError, "stale generated content"):
                     specs.update_pages(changed, root, check=True)
                 path.write_text(original)

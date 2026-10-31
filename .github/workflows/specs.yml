@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+name: Product specifications
+on:
+  pull_request:
+  push:
+    branches: [main, docs/specs-0.9]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  claims:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate claims and generated tables
+        run: python3 .github/scripts/specs.py --check
+      - name: Exercise rejection controls
+        run: python3 -B .github/scripts/test_specs.py

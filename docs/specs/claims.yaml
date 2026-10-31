@@ -1,0 +1,1343 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+{
+  "specification": {
+    "product_version": "0.9.0",
+    "applies_to": "0.9-beta",
+    "revision": "2026-10-30",
+    "source_sha": "d6130a208f92a275db3fe11a52a4f21dcdbeaf63",
+    "release_tag": null
+  },
+  "claims": [
+    {
+      "id": "H01",
+      "section": "requirements",
+      "title": "Board and operating system",
+      "value": "Raspberry Pi 4/5 or Compute Module 4/5; ARM64; Raspberry Pi OS Lite 64-bit or Debian 13",
+      "unit": "profile",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#hardware",
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/brrdfeeder/install/README.md"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Hardware acceptance: record exact board, OS, kernel and attached radios; install and capture on each combination.",
+        "receipt": null
+      },
+      "note": "Declared hardware baseline. It is not qualification of every board or firmware combination.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "H02",
+      "section": "requirements",
+      "title": "Power supply class",
+      "value": 27,
+      "unit": "W",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#hardware"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Hardware acceptance: sustain simultaneous capture, storage and update load without undervoltage.",
+        "receipt": null
+      },
+      "note": "Installation guidance, not a measured power draw or universal supply qualification.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "H03",
+      "section": "requirements",
+      "title": "Capture Wi-Fi",
+      "value": "ALFA AWUS036AXML or AWUS036AXM; external monitor-mode adapter",
+      "unit": "profile",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#hardware",
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/capabilities.toml"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "RF acceptance: confirm monitor capture on the selected adapter and declared channel set.",
+        "receipt": null
+      },
+      "note": "Capture radio is separate from the network uplink. Other chipsets need their own evidence.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "H04",
+      "section": "requirements",
+      "title": "Standard Bluetooth receiver",
+      "value": "RTL8761B family; USB 0bda:876e or 0bda:a728; LE Coded PHY for Coded reception",
+      "unit": "profile",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/brrdfeeder/install/README.md",
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/capabilities.toml"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "RF acceptance: record USB identity, firmware, detected PHY and actual legacy/Coded reception.",
+        "receipt": null
+      },
+      "note": "Recognized USB IDs are not proof that every clone or firmware supports the required receive behavior.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "H05",
+      "section": "requirements",
+      "title": "GPS receiver",
+      "value": 1,
+      "unit": "receiver",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/brrdfeeder/install/README.md"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Hardware acceptance: cold start, measured fix, disconnect/reconnect and unsupported receiver cases.",
+        "receipt": null
+      },
+      "note": "Use a supported u-blox receiver. Adafruit Ultimate GPS requires explicit opt-in and passive NMEA confirmation; no blanket PPS qualification.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "H06",
+      "section": "requirements",
+      "title": "Storage planning baseline",
+      "value": 64,
+      "unit": "GB",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#hardware"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Storage acceptance: measure free space, sustained writes and outage-buffer behavior on named media.",
+        "receipt": null
+      },
+      "note": "High-endurance media; USB SSD or high-endurance storage recommended for sustained writes. Guidance, not a signup or observation cap. Media life is unverified.",
+      "semantics": "planning-guidance"
+    },
+    {
+      "id": "H07",
+      "section": "requirements",
+      "title": "Power-loss protection",
+      "value": "Strongly recommended, not required",
+      "unit": "policy",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#power"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Power-loss acceptance: instrument flush boundaries on protected and unprotected storage.",
+        "receipt": null
+      },
+      "note": "An inexpensive UPS or battery/DC supply can help. Protection alone does not establish a tested zero-loss envelope.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "H08",
+      "section": "requirements",
+      "title": "Network",
+      "value": "Internet over Ethernet or Wi-Fi; measure the actual link",
+      "unit": "profile",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#hardware"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Link acceptance: measure first-contact latency, usable uplink and recovery under loss.",
+        "receipt": null
+      },
+      "note": "Capture Wi-Fi and backhaul have different roles. No carrier, coverage, or narrow-link hardware support guarantee.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "R01",
+      "section": "reception",
+      "title": "Wi-Fi Beacon and NAN",
+      "value": "Implemented receive paths; NAN evidence is software/fixture only",
+      "unit": "capability",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/capabilities.toml",
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/tools/NAN-RECEPTION.md"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "RF acceptance: real transmitter, loss, channel and timing matrix for each transport.",
+        "receipt": null
+      },
+      "note": "Existing software evidence does not qualify NAN over the air. See linked source evidence.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "R02",
+      "section": "reception",
+      "title": "Bluetooth reception",
+      "value": "BT4 legacy and BT5 extended/Coded via HCI advertising reports",
+      "unit": "capability",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/capabilities.toml",
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/requirements/REQ-BRRD-014.yaml"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "RF acceptance: controlled passive-air capture, PHY detection, quiet/loss/recovery and shutdown.",
+        "receipt": null
+      },
+      "note": "Field history and software tests do not close the remaining controlled RF cases.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "R03",
+      "section": "reception",
+      "title": "Bluetooth capture tiers",
+      "value": "Standard HCI dongle at base tier; optional full-packet sniffer at higher tier",
+      "unit": "policy",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#radio-tiers"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future capture acceptance: prove the declared boundary and unavailable-field reasons per adapter.",
+        "receipt": null
+      },
+      "note": "HCI reports do not expose complete over-air packets, bad-CRC packets or IQ. Full-packet sniffer integration is future work, not a beta feature.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "R04",
+      "section": "reception",
+      "title": "Passive reception",
+      "value": "Listen without pairing, connecting or advertising to aircraft",
+      "unit": "policy",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/requirements/REQ-BRRD-014.yaml"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "RF acceptance: independent air observation during startup, capture, recovery and shutdown.",
+        "receipt": null
+      },
+      "note": "Software configuration supports this policy; controlled passive-air qualification remains open.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "R05",
+      "section": "reception",
+      "title": "Channel coverage",
+      "value": "Scheduled channel visits; no continuous all-channel reception",
+      "unit": "capability",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/capabilities.toml",
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/tools/CHANNEL-SCHEDULER.md"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "RF acceptance: compare scheduled dwell, measured retunes and loss across the selected channel set.",
+        "receipt": null
+      },
+      "note": "DFS capture is unsupported. A channel schedule or simulator cannot prove continuous coverage.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "D01",
+      "section": "operations",
+      "title": "Serial display",
+      "value": "Complete reported serial numbers are displayed",
+      "unit": "policy",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#display"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Display acceptance: distinct synthetic serials survive backend, browser state, labels, tables and exports.",
+        "receipt": null
+      },
+      "note": "Serials are not masked. A broadcast identifier is a reported claim, not authenticated physical identity.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "D02",
+      "section": "operations",
+      "title": "Operator/station position",
+      "value": "Shown on globe.cybrrd.com as broadcast in Remote ID; telemetry kept in full",
+      "unit": "policy",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#display"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Display acceptance: show synthetic broadcast operator/station position on Globe visual and accessible surfaces; retain full backend/network/state telemetry and verify serials and operator IDs are not hidden.",
+        "receipt": null
+      },
+      "note": "Position is reported by the drone, not independently verified. Serials and operator IDs are not hidden. Display acceptance remains pending; this is not a new claim of complete beta fidelity.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "D03",
+      "section": "operations",
+      "title": "Telemetry generation",
+      "value": "Current v4 is not a full-fidelity v5 record; v5 is design-only",
+      "unit": "generation",
+      "scope": "future-v5",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#generations"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Release acceptance: bind producer, consumer and archive versions; verify field survival and exact round trips.",
+        "receipt": null
+      },
+      "note": "Do not invent missing fields in older records or treat a future design as deployed behavior.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "D04",
+      "section": "operations",
+      "title": "Heartbeat retention",
+      "value": "Heartbeats excluded from permanent lake storage by design",
+      "unit": "policy",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#retention"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Archive acceptance: separate heartbeat handling from observation, operational and distress retention.",
+        "receipt": null
+      },
+      "note": "This does not specify a beta retention duration for observations or settle operational/distress retention.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "D05",
+      "section": "operations",
+      "title": "Delayed observations",
+      "value": "Archive with capture and delivery times; never replay as live Globe positions",
+      "unit": "policy",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#backlog"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Outage acceptance",
+      "verification": {
+        "scenario": "Reconnect after an outage; inspect archive times and live display eligibility.",
+        "receipt": null
+      },
+      "note": "A recent delivery does not make an old capture fresh.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "D07",
+      "section": "outage",
+      "title": "Outage buffer default",
+      "value": 2,
+      "unit": "GiB",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#outage"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Outage acceptance",
+      "verification": {
+        "scenario": "Fill, disconnect, restart, reconnect and reconcile every stored or missing observation.",
+        "receipt": null
+      },
+      "note": "Beta on-disk spool design, not measured endurance. Duration depends on encoded record sizes and traffic.",
+      "semantics": "physical-buffer"
+    },
+    {
+      "id": "D08",
+      "section": "outage",
+      "title": "Full-buffer behavior",
+      "value": "Keep stored records; stop adding; persist the exact gap; mark coverage impaired; raise Red",
+      "unit": "policy",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#outage"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Outage acceptance",
+      "verification": {
+        "scenario": "Fill spool and Red queue; reconcile exact counts, gap times, restart recovery and delayed alarm delivery.",
+        "receipt": null
+      },
+      "note": "Never discard the only stored copy to make room. Physical storage exhaustion is not an advisory user-admission threshold.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "D09",
+      "section": "outage",
+      "title": "Power-loss vulnerable window",
+      "value": null,
+      "unit": "duration",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#power"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Outage acceptance",
+      "verification": {
+        "scenario": "Power-cut tests on named storage with flush and durable-marker timing.",
+        "receipt": null
+      },
+      "note": "Not yet measured. No unconditional zero-loss claim, including before the durable marker.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "D10",
+      "section": "future",
+      "title": "Future outage-buffer sizing",
+      "value": 32,
+      "unit": "GB (approximate)",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#future-outage"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future storage acceptance: complete records, encoded-size distribution, overhead and protected/unprotected power cuts.",
+        "receipt": null
+      },
+      "note": "Future design envelope. It does not replace the beta buffer or promise a fixed duration.",
+      "semantics": "planning-guidance"
+    },
+    {
+      "id": "D11",
+      "section": "future",
+      "title": "Future backlog workload",
+      "value": 24,
+      "unit": "hours at 25 observations/s",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#future-outage"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future storage acceptance: preserve every complete observation throughout the busy-peak scenario.",
+        "receipt": null
+      },
+      "note": "Workload is observations, not a maximum aircraft count. Multiple transports and repeated reports contribute.",
+      "semantics": "planning-guidance"
+    },
+    {
+      "id": "D12",
+      "section": "future",
+      "title": "Future storage reserve",
+      "value": 10,
+      "unit": "%",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#future-outage"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future storage acceptance: measure reserved headroom against actual encoded sizes and filesystem overhead.",
+        "receipt": null
+      },
+      "note": "Planning headroom; adjust the buffer when measurements require, without thinning records.",
+      "semantics": "planning-guidance"
+    },
+    {
+      "id": "D13",
+      "section": "future",
+      "title": "Future occupancy alert levels",
+      "value": [
+        50,
+        80
+      ],
+      "unit": "%",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#capacity"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future alert acceptance: cross each threshold; verify alert and time-to-full while collection continues.",
+        "receipt": null
+      },
+      "note": "Advisory alerts, never count-based refusal or telemetry thinning.",
+      "semantics": "advisory-alert"
+    },
+    {
+      "id": "D14",
+      "section": "future",
+      "title": "Future impaired-coverage warning",
+      "value": 95,
+      "unit": "%",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#capacity"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future alert acceptance: verify impaired-coverage warning and continued collection while storage remains available.",
+        "receipt": null
+      },
+      "note": "Advisory warning. Actual storage exhaustion follows the explicit keep-stored and exact-gap policy.",
+      "semantics": "advisory-alert"
+    },
+    {
+      "id": "U01",
+      "section": "updates",
+      "title": "Engine and console updates",
+      "value": "Signed metadata, exact image digests and configured dev/staging/general ring",
+      "unit": "mechanism",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/release-system/README.md"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Native signed-update, rejection, health, rollback and reconnect acceptance on the released source.",
+        "receipt": null
+      },
+      "note": "Existing source/fixture evidence is linked; complete beta deployment coverage is not established.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "U02",
+      "section": "updates",
+      "title": "Existing-node helper update",
+      "value": 1,
+      "unit": "explicit command per existing node",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#helper",
+        "https://github.com/cybrrd/brrdfeeder/blob/0b6a132180d03812f0bf1e80c23c4f65206c311a/Component/brrdfeeder/install/README.md#explicit-helper-only-upgrade-090"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Helper acceptance",
+      "verification": {
+        "scenario": "Native helper-only upgrade, interruption, repeat, recovery and preserved identity/configuration.",
+        "receipt": null
+      },
+      "note": "Signed helper feed is not published for the beta. Use the documented helper-only command after the approved installer/helper chain is published.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "U03",
+      "section": "updates",
+      "title": "Local update recovery",
+      "value": "Retained images and journal-based health/rollback checks",
+      "unit": "mechanism",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/release-system/README.md"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Native interrupted-switch, failed-health and reboot recovery with retained images.",
+        "receipt": null
+      },
+      "note": "Local health is not proof of downstream ingestion. Broken storage or a missing retained image can prevent recovery.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "U04",
+      "section": "updates",
+      "title": "Removal",
+      "value": "Uninstall removes local package data/configuration/images; server deregistration is separate",
+      "unit": "mechanism",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/brrdfeeder/install/README.md"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Native uninstall of updated and interrupted state; verify retained support evidence.",
+        "receipt": null
+      },
+      "note": "Follow the installer removal guide and its prompts. Do not uninstall to bypass an update or enrollment refusal.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "S01",
+      "section": "service",
+      "title": "First contact on wired/Wi-Fi/LTE",
+      "value": 2,
+      "unit": "seconds maximum target",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#service"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "First-contact acceptance maintainers",
+      "verification": {
+        "scenario": "First-contact matrix: receiver capture to first network send; separately record ingest acceptance and live display latency, clock error, missing sends and maximum by link/profile.",
+        "receipt": null
+      },
+      "note": "Send as soon as possible on every link. This is a beta acceptance objective adopted from the future service design; measurement is outstanding.",
+      "semantics": "expectation",
+      "on_miss": "Publish the failed profile and retain delayed records for archive; do not thin collection.",
+      "failure_signal": "Capture-to-send timing and missing-send results in the acceptance report; end-to-end live latency display is unverified."
+    },
+    {
+      "id": "S02",
+      "section": "service",
+      "title": "First contact on narrow links",
+      "value": 15,
+      "unit": "seconds maximum target",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#service"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "First-contact acceptance maintainers",
+      "verification": {
+        "scenario": "First-contact matrix: same capture-to-send measurement on each declared narrow-link scenario, including outage and retry; report ingest/display latency separately.",
+        "receipt": null
+      },
+      "note": "Best effort as soon as possible. This target does not declare any particular narrow-link radio supported.",
+      "semantics": "expectation",
+      "on_miss": "Classify a link that misses the bound as unsuitable for live first contact; delayed records still go to archive.",
+      "failure_signal": "Late or absent live first contact; acceptance report identifies the unsuitable link."
+    },
+    {
+      "id": "S03",
+      "section": "service",
+      "title": "Heartbeat interval",
+      "value": 60,
+      "unit": "seconds",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#service"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future liveness acceptance: timestamp heartbeat receipts and correlate event traffic and clock state.",
+        "receipt": null
+      },
+      "note": "Future service design, not a measured beta timer.",
+      "semantics": "expectation",
+      "on_miss": "Expose missed heartbeat evidence; do not infer missing aircraft from node liveness alone.",
+      "failure_signal": "Liveness evidence and operational status; integrated beta signal unverified."
+    },
+    {
+      "id": "S04",
+      "section": "service",
+      "title": "Node offline classification",
+      "value": 4,
+      "unit": "minutes (approximately)",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#service"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future liveness acceptance: suppress heartbeats with controlled clocks and measure server classification.",
+        "receipt": null
+      },
+      "note": "Offline classification is separate from aircraft freshness.",
+      "semantics": "expectation",
+      "on_miss": "Record late or incorrect classification and investigate heartbeat/event/clock handling.",
+      "failure_signal": "Node offline status; integrated beta signal unverified."
+    },
+    {
+      "id": "S05",
+      "section": "service",
+      "title": "Fixed-node offline distress",
+      "value": 15,
+      "unit": "minutes exceeded",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#service"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future liveness acceptance: distinguish fixed/mobile node profiles across prolonged disconnect and reconnect.",
+        "receipt": null
+      },
+      "note": "Fixed-node outage raises Red; mobile offline alone is an operational (Silver) event.",
+      "semantics": "expectation",
+      "on_miss": "Record missed or incorrect distress; preserve the outage interval.",
+      "failure_signal": "Red distress for fixed nodes; mobile offline operational status. Delivery itself needs a working path."
+    },
+    {
+      "id": "S06",
+      "section": "service",
+      "title": "Red node-to-ingest on wired/Wi-Fi/LTE",
+      "value": 10,
+      "unit": "seconds maximum target",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#service"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future Red acceptance: event creation to durable ingest receipt under concurrent bulk traffic, loss and retry.",
+        "receipt": null
+      },
+      "note": "Human notification after ingest is a separate, uncommitted service.",
+      "semantics": "expectation",
+      "on_miss": "Retry until stored and report delay; preserve the local event.",
+      "failure_signal": "Event and receipt timestamps; human notification timing is not guaranteed."
+    },
+    {
+      "id": "S07",
+      "section": "service",
+      "title": "Red node-to-ingest on narrow links",
+      "value": 60,
+      "unit": "seconds best-effort target",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#service"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future Red acceptance: same durable-receipt measurement on each declared narrow-link profile.",
+        "receipt": null
+      },
+      "note": "Urgent traffic precedes routine bulk; a disconnected link cannot deliver an alert immediately.",
+      "semantics": "expectation",
+      "on_miss": "Keep retrying and report the delayed event when a path returns.",
+      "failure_signal": "Queued/delayed distress and receipt evidence; local visibility depends on a running node."
+    },
+    {
+      "id": "S08",
+      "section": "service",
+      "title": "Server-side revocation enforcement",
+      "value": 10,
+      "unit": "seconds maximum target",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#service"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future revocation acceptance: policy effective time to broker/ingest refusal, including disconnected and reconnecting nodes.",
+        "receipt": null
+      },
+      "note": "No local shut-off timer: a disconnected node keeps capturing. This is a security control, not a capacity threshold.",
+      "semantics": "expectation",
+      "on_miss": "Record enforcement failure and quarantine/rejection evidence for investigation.",
+      "failure_signal": "Server enforcement audit; end-user revocation status integration unverified."
+    },
+    {
+      "id": "S09",
+      "section": "service",
+      "title": "Future backlog drain",
+      "value": 24,
+      "unit": "hours for the declared backlog workload while capture continues",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#future-outage"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future drain acceptance: fill the declared workload, restore provisioned uplink, measure clearance time and new-capture survival.",
+        "receipt": null
+      },
+      "note": "Effective uplink must cover live capture plus drain and measured overhead.",
+      "semantics": "expectation",
+      "on_miss": "Show remaining backlog and time-to-clear; provision more capacity without dropping fields.",
+      "failure_signal": "Backlog bytes, oldest age and time-to-clear in operational reporting (target)."
+    },
+    {
+      "id": "S10",
+      "section": "future",
+      "title": "Illustrative future drain payload rate",
+      "value": 5.15,
+      "unit": "Mbit/s (approximately, before additional measured overhead)",
+      "scope": "future-v5",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#future-outage"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Future sizing acceptance: benchmark full-record encoding, retries and overhead while draining and capturing.",
+        "receipt": null
+      },
+      "note": "Planning estimate for the declared workload, not a carrier specification or guaranteed bandwidth.",
+      "semantics": "planning-guidance"
+    },
+    {
+      "id": "P01",
+      "section": "capacity",
+      "title": "Viewer advisory threshold",
+      "value": 100,
+      "unit": "concurrent viewers",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#capacity"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Viewer capacity",
+      "verification": {
+        "scenario": "Cross global threshold and verify alerts/metrics without count-based refusal.",
+        "receipt": null
+      },
+      "note": "Chosen alert level; deployed behavior and public acceptance receipt remain pending. Metrics are internal only. This is an advisory monitoring threshold, not a user limit.",
+      "semantics": "advisory-alert"
+    },
+    {
+      "id": "P02",
+      "section": "capacity",
+      "title": "Per-IP viewer advisory threshold",
+      "value": 32,
+      "unit": "concurrent viewers per IP",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#capacity"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Viewer capacity",
+      "verification": {
+        "scenario": "Cross per-IP threshold and verify alerts/metrics without count-based refusal.",
+        "receipt": null
+      },
+      "note": "Shared networks must not hit a fixed count-based wall. Threshold crossing raises an alert. Metrics are internal only. This is an advisory monitoring threshold, not a user limit.",
+      "semantics": "advisory-alert"
+    },
+    {
+      "id": "P03",
+      "section": "placeholders",
+      "title": "Stream capacity alerts",
+      "value": "Stream bytes: warning at 50%, Red at 80%; per-node message count: Red at 80%; each sustained for 5 minutes",
+      "unit": "advisory thresholds",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#stream-capacity"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Stream capacity",
+      "verification": {
+        "scenario": "Verify signed capacity configuration, a full post-change observation hour without growing gaps, archive custody and routed alerts at each sustained threshold; measure saturation, visible refusal and recovery.",
+        "receipt": null
+      },
+      "note": "These are advisory monitoring thresholds, not collection or viewer-admission caps. They do not prevent broker storage exhaustion or prove loss-free retention. Alert activation and public acceptance receipts remain pending.",
+      "semantics": "advisory-alert"
+    },
+    {
+      "id": "P04",
+      "section": "enrollment",
+      "title": "Sign-up and quota posture",
+      "value": 1,
+      "unit": "node per new registrant by default",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#enrollment"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Enrollment and capacity administration",
+      "verification": {
+        "scenario": "Verify automatic registration, default owner quota, audited exception and visible capacity refusal; prove a new node's own drones remain displayed. Post-beta reputation earning is outside this beta acceptance.",
+        "receipt": null
+      },
+      "note": "More nodes require an audited exception during beta. No manual approval of registrants. Capacity earned through reputation is post-beta work. New nodes' own drones are never hidden because the node is new or provisional. Deployment acceptance remains pending.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "P05",
+      "section": "support",
+      "title": "Ordinary beta support path",
+      "value": "GitHub Issues for install help and bugs; admin@cybrrd.com as the private fallback",
+      "unit": "support channel",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#support"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release owner (support policy)",
+      "verification": {
+        "scenario": "Release owner: verify Issues enabled at launch, install/bug forms and private fallback, and redacted-bundle handling.",
+        "receipt": null
+      },
+      "note": "Issues enabled at launch. No response deadline or support period is promised; vulnerability reports remain private under SECURITY.md.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "P06",
+      "section": "capacity",
+      "title": "Slow-client guard",
+      "value": 1,
+      "unit": "MiB queued ACTIVE_HEXES bytes before ejection",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#viewer-guards",
+        "evidence/acceptance-gaps.md#overflow-close-reasons-and-counters"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Viewer capacity",
+      "verification": {
+        "scenario": "Stall a client and trigger send-buffer exhaustion; verify the browser reason, internal counter and routed alert.",
+        "receipt": null
+      },
+      "note": "Target behavior: a stalled browser can be disconnected with a user-facing reason; the event is counted and alerted through internal monitoring. Queue-slot exhaustion can also trigger this guard. This is a protective guard, not a viewer-count limit. Direct overflow close-reason and matching-counter assertions remain unverified; live human alert receipt is not yet measured.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "P07",
+      "section": "capacity",
+      "title": "ACTIVE_HEXES overflow guard",
+      "value": 64,
+      "unit": "KiB outgoing frame bound",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#viewer-guards",
+        "evidence/acceptance-gaps.md#overflow-close-reasons-and-counters"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Viewer capacity",
+      "verification": {
+        "scenario": "Trigger an ACTIVE_HEXES marshal overflow; verify the browser reason, internal counter and routed alert.",
+        "receipt": null
+      },
+      "note": "Target behavior: overflow closes the connection with a user-facing reason; the event is counted and alerted through internal monitoring. This is a frame-safety guard, not a viewer-count limit. Direct overflow close-reason and matching-counter assertions remain unverified; live human alert receipt is not yet measured.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "P08",
+      "section": "capacity",
+      "title": "Inbound frame and per-browser rate guard",
+      "value": "64 KiB inbound frame; client-message token bucket with burst 20 and refill 5/s",
+      "unit": "per-browser input bounds",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#viewer-guards"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Viewer capacity",
+      "verification": {
+        "scenario": "Send oversized frames and exceed the per-browser message rate; verify each browser reason, internal counter and routed alert.",
+        "receipt": null
+      },
+      "note": "Oversized frames or excessive message rates close the connection with a user-facing reason; each is counted and alerted through internal monitoring. This bounds browser input, not viewer counts.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "release-evidence-coverage",
+      "section": "evidence",
+      "title": "Release evidence coverage",
+      "value": "Per-image CycloneDX SBOMs, metadata, digests, provenance, checksums and signed receipt",
+      "unit": "asset classes",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/.github/RELEASING.md"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Release acceptance: inspect exact tagged assets and verify source/image/tag binding, checksum coverage and receipt signature.",
+        "receipt": null
+      },
+      "note": "Existing published baseline assets are linked separately. Beta assets and dependency coverage must be checked for the actual release.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "security-analysis",
+      "section": "evidence",
+      "title": "Security analysis",
+      "value": "CodeQL and Scorecard workflow links; no numeric security rating",
+      "unit": "evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/.github/workflows/codeql.yml",
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/.github/workflows/scorecard.yml",
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/SECURITY.md"
+      ],
+      "public": true,
+      "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
+      "owner": "Release maintainers",
+      "verification": {
+        "scenario": "Release acceptance: inspect actual final-source workflow runs and findings, not badge color alone.",
+        "receipt": null
+      },
+      "note": "A successful workflow is not proof of no vulnerabilities or certification. No remediation deadline is promised.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "D15",
+      "section": "capacity",
+      "title": "Silver stream storage capacity",
+      "value": "32,768 messages per node subject; 8 GiB across the stream",
+      "unit": "configured storage capacity",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#stream-capacity"
+      ],
+      "public": true,
+      "sanitization_review": "Approved public capacity values only; no node identities, raw stream snapshots or private endpoints.",
+      "owner": "Stream capacity maintainers",
+      "verification": {
+        "scenario": "Compare approved per-subject message and aggregate byte configuration with the deployed baseline; reconcile archive custody and gaps through saturation and recovery.",
+        "receipt": null
+      },
+      "note": "Approved configuration baseline. The byte capacity is shared by the whole stream, not allocated per node. This is not a retention-duration or no-loss guarantee; public custody and saturation acceptance remain pending.",
+      "semantics": "physical-buffer"
+    },
+    {
+      "id": "D16",
+      "section": "capacity",
+      "title": "Red stream storage capacity",
+      "value": "16,384 messages per node subject; 4 GiB across the stream",
+      "unit": "configured storage capacity",
+      "scope": "0.9-beta",
+      "status": "target",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/design-basis.md#stream-capacity"
+      ],
+      "public": true,
+      "sanitization_review": "Approved public capacity values only; no node identities, raw stream snapshots or private endpoints.",
+      "owner": "Stream capacity maintainers",
+      "verification": {
+        "scenario": "Compare approved per-subject message and aggregate byte configuration with the deployed baseline; reconcile archive custody and gaps through saturation and recovery.",
+        "receipt": null
+      },
+      "note": "Approved configuration baseline. The byte capacity is shared by the whole stream, not allocated per node. This is not a retention-duration or no-loss guarantee; public custody and saturation acceptance remain pending.",
+      "semantics": "physical-buffer"
+    },
+    {
+      "id": "archived-stream-restore",
+      "section": "beta-limits",
+      "title": "Archived stream restore",
+      "value": "Not yet measured; no reviewed end-to-end stream-restore instrument",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#archived-stream-restore"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Archive maintainers",
+      "verification": {
+        "scenario": "Restore an export into an isolated disposable reader; compare ordered payload bytes, counts and gaps with the original stream, including a corrupted-export control.",
+        "receipt": null
+      },
+      "note": "Archive checksums prove integrity only; they do not establish successful restore or end-to-end custody. A different data store restore is not a substitute.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "live-disk-alert-delivery",
+      "section": "beta-limits",
+      "title": "Live disk alert delivery",
+      "value": "Not yet measured; no reviewed live threshold-to-person instrument",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#live-disk-alert-delivery"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Monitoring maintainers",
+      "verification": {
+        "scenario": "In an authorized controlled environment, cross a live filesystem threshold; record warning, Red, resolution and witnessed human receipt, including a non-firing control.",
+        "receipt": null
+      },
+      "note": "Offline rule fixtures do not prove live metric ingestion, destination delivery or human receipt. No alert delivery deadline is guaranteed.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "public-edge-request-bounds",
+      "section": "beta-limits",
+      "title": "Public edge request bounds",
+      "value": "Request size, rate and timeout behavior not yet measured; no reviewed boundary instrument",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#public-edge-request-bounds"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Public edge maintainers",
+      "verification": {
+        "scenario": "In an authorized controlled environment, exercise each configured request-size, rate and timeout boundary with accepted and rejected cases; record the exact configuration and observed behavior.",
+        "receipt": null
+      },
+      "note": "Route/authentication probes and per-browser WebSocket guards do not establish public-edge bounds. No numeric limit or tested operating envelope is claimed.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "physical-power-loss",
+      "section": "beta-limits",
+      "title": "Physical power loss",
+      "value": "Release-hardware power-cut behavior and vulnerable write interval not yet measured",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#physical-power-loss"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Outage acceptance",
+      "verification": {
+        "scenario": "On disposable release hardware, interrupt physical power at recorded write phases and compare durable records, gaps and recovery; record storage model, power protection and timing.",
+        "receipt": null
+      },
+      "note": "Physical power cuts and native-radio memory qualification are outside the bounded acceptance plan. Restarts, simulated outages and storage-full tests do not establish a zero-loss envelope.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "overflow-close-reasons-and-counters",
+      "section": "beta-limits",
+      "title": "Overflow close reasons and counters",
+      "value": "Unverified; direct overflow close-reason plus matching-counter assertions are missing from reviewed tests",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#overflow-close-reasons-and-counters"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Viewer acceptance",
+      "verification": {
+        "scenario": "Trigger send-buffer and outgoing-frame overflow separately; assert the peer-visible close reason and exact matching counter delta, with a non-overflow control for each.",
+        "receipt": null
+      },
+      "note": "Queue bounds and disconnects do not prove the send_buffer_full or airspace_send_overflow reason/counter pair. The frame_too_large assertion covers a different guard; live alert delivery remains unmeasured.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "viewer-load-beyond-tested-levels",
+      "section": "beta-limits",
+      "title": "Viewer load beyond tested levels",
+      "value": "Not yet measured; the full 4,097-client load run is not executed in the bounded acceptance plan",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#viewer-load-beyond-tested-levels"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Viewer acceptance",
+      "verification": {
+        "scenario": "Run controlled viewer workloads at declared counts, durations and traffic profiles; record latency, delivery, closes and resource use with an executed receipt for each level.",
+        "receipt": null
+      },
+      "note": "Rule-firing fixtures and admission tests do not establish capacity at that load. Proposed harness runs are not measured results. Advisory thresholds are not viewer caps or a supported-capacity guarantee.",
+      "semantics": "expectation"
+    },
+    {
+      "id": "live-alert-human-receipt",
+      "section": "beta-limits",
+      "title": "Live alert human receipt",
+      "value": "Not yet measured; no reviewed executable live destination-canary instrument",
+      "unit": "acceptance evidence boundary",
+      "scope": "0.9-beta",
+      "status": "unverified",
+      "evidence_kind": "source",
+      "source_ref": [
+        "evidence/acceptance-gaps.md#live-alert-human-receipt"
+      ],
+      "public": true,
+      "sanitization_review": "Public acceptance boundaries only; no private hosts, operational paths, identities or board labels.",
+      "owner": "Monitoring maintainers",
+      "verification": {
+        "scenario": "Send an authorized identifiable live canary through the real destination; retain timestamps and witnessed human receipt, including a missing-receipt control.",
+        "receipt": null
+      },
+      "note": "Offline routing and bridge checks do not establish human receipt or acknowledgement. This includes disk and viewer-guard alerts; no notification or response deadline is guaranteed.",
+      "semantics": "expectation"
+    }
+  ]
+}

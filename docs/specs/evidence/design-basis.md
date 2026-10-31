@@ -1,0 +1,203 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
+# Public design basis
+
+This is a sanitized record of accepted product decisions, not a test receipt.
+Decision dates identify provenance; claim values live only in
+[claims.yaml](../claims.yaml). Private meeting records, infrastructure details,
+identities and licensed standards text are not reproduced here. The source
+review date is 2026-10-30. The hardware projection was checked against
+installation-page template revision `7fb1a3b060e66ef075de9b9496b1faf592946019`
+and settings revision `67fc869f135805eba5d669a94a7f6094c70f9e10`. Future-wire
+policy and sizing were checked against design revision
+`27b45e0c5aa691bb2ba3e1d32cc1f19dffdc91c9`. These are source-review identifiers,
+not public release tags or performance receipts. These decisions do not establish deployed behavior.
+
+## Release inclusion
+
+The release decision on 2026-10-30 includes these specifications in 0.9.0.
+The installation-page renderer requires the release's `docs/specs/claims.yaml`
+for its hardware projection. Inclusion of that registry does not close the
+[acceptance gaps](acceptance-gaps.md), bind an unpublished tag or promote targets
+to measurements. The listed unverified limits accompany the beta.
+
+## Hardware
+
+Installation-page source reviewed for this draft declares the board, OS, radio,
+power and high-endurance media baseline recorded in the hardware claims. The
+public installer and capability sources linked in those claims describe checks
+and supported mappings. This is selection guidance, not qualification of every
+listed hardware combination. Network suitability requires measurement.
+
+## Power
+
+Accepted hardware/outage decision (Decision 5b), 2026-10-26: power-loss protection is strongly
+recommended, not mandatory. Measure and disclose the vulnerable write interval.
+A zero-loss claim is permitted only inside a tested protected envelope. Sustained
+writes call for high-endurance storage; media wear remains device-specific.
+
+## Radio tiers
+
+Accepted hardware decision (Decision 5a), 2026-10-26: whole-frame monitor-mode Wi-Fi is the
+capture boundary. Standard HCI Bluetooth is accepted at the base tier; mark
+unexposed packet fields as not exposed. A full-packet Bluetooth sniffer is an
+optional higher tier in the future design, requiring its own implementation and
+acceptance. Do not describe HCI reports as whole over-air packets.
+
+## Display
+
+Accepted display decision, 2026-10-28: globe.cybrrd.com shows the operator/station
+position that the drone broadcasts in Remote ID. Complete reported serials are
+shown, operator IDs are not hidden, and telemetry is kept in full in
+backend/network/state. This policy is not a claim that every complete-record or
+display acceptance case has passed.
+
+## Generations
+
+The adopted future wire design, 2026-10-26, is design-only. The current record
+format has known fidelity gaps. Preserve historical semantics; do not invent
+future fields in older records. Implementation and deployment require their own
+evidence. This suite does not republish the interoperability standards corpus.
+
+## Retention
+
+Accepted heartbeat decision recorded 2026-10-25: heartbeats are excluded from
+permanent lake retention. This is separate from observation retention and from
+operational/distress retention. No measured beta archive duration is supplied.
+
+## Backlog
+
+Accepted outage clarification, 2026-10-26: delayed observations go through ingest
+to the archive, with capture and delivery times preserved. They must not be
+played as live Globe positions. Recent receipt does not change capture age.
+
+## Outage
+
+Accepted beta outage ruling (Ruling 2), 2026-10-26: use a bounded on-disk outage buffer. On physical
+exhaustion, keep stored records, stop adding, persist the exact gap, mark coverage
+impaired and raise Red distress. Do not delete the only stored copy. Native
+acceptance must cover restart, durable markers and a full distress queue.
+
+## Future outage
+
+Accepted future hardware/outage design (Decision 5d–5f) and sizing revision, 2026-10-26: size for
+complete records at the declared busy-peak observation workload, reserve
+headroom, and drain the backlog while capture continues. The illustrative
+payload rate excludes additional overhead that needs measurement. Grow capacity
+if needed; do not shrink fields or thin observations to satisfy the budget.
+These estimates are future design, not the beta buffer or a bandwidth guarantee.
+
+## Service
+
+Accepted service decision (Decision 7, including amended first-contact clause 7c), 2026-10-26: send first contact as soon as possible on
+every link. A measured miss of the narrow-link bound makes that link unsuitable
+for live first contact; archive transfer continues. First-contact bounds are
+included in beta acceptance, with no claim that the rest of the future design
+has shipped. Future liveness, Red delivery and server revocation objectives are
+separately scoped in the registry. Mobile offline alone is operational status;
+prolonged fixed-node offline is distress. Human notification timing is separate.
+Disconnected nodes have no local shut-off timer and keep capturing.
+
+## Helper
+
+Beta update decision, 2026-10-26: signed helper manifests are not published.
+Existing nodes use the explicit helper-only installer path after its approved
+publication. Signed engine/console updates are a separate mechanism. Candidate
+source and native acceptance are not interchangeable.
+
+## Capacity
+
+Accepted viewer decision, 2026-10-26, verbatim:
+
+> This should just be advisory and not a hard fixed limit anywhere.
+
+The viewer and per-IP values in the registry are monitoring thresholds. Crossing
+them raises alerts without count-based refusal. This decision does not remove
+the separately approved enrollment policy or protective viewer guards. Future
+occupancy warnings remain advisory; physical exhaustion retains the outage policy.
+
+## Viewer guards
+
+Accepted decision, 2026-10-26, verbatim:
+
+> keep all three guards, metrics internal only
+
+The retained guards are slow-client send-buffer ejection, ACTIVE_HEXES outgoing
+frame overflow, and inbound frame size plus per-browser message rate limits.
+The reviewed input token bucket provides the burst and refill values in P08.
+Each must show the user a reason, count the event and alert internal monitoring.
+Metrics are internal only. The registry owns the public guard values.
+
+Source review: viewer implementation revision
+`42219ed17c9054578d51f0edfbe6c25ec012c492`, including its read-limit correction,
+provides the reason and counter paths. Oversized input beyond the library memory
+backstop can show the library's size-limit reason rather than the application's
+reason; it is still counted as oversized input. Source review does not establish
+live deployment or routed alert delivery. Viewer acceptance must cover each guard
+and the internal monitoring path before any measured claim is made.
+
+The 2026-10-30 [acceptance-gap review](acceptance-gaps.md#overflow-close-reasons-and-counters)
+found no direct close-reason plus matching-counter assertions for the send-buffer
+and outgoing-frame overflow guards. Existing queue/disconnect coverage does not
+close that gap. Live human receipt and load beyond tested scenarios also remain
+unmeasured.
+
+## Enrollment
+
+The beta policy accepts automatic registration, the default node allowance in
+the registry, and additional nodes by authenticated, audited exception. The
+2026-10-26 approval, verbatim, was:
+
+> I approve a now.
+
+The approved option was stored owner-capacity policy with an authenticated,
+audited exception control. The exception decision later that day was:
+
+> I approve exception granting.
+
+No manual approval of registrants is introduced. Capacity earned through
+reputation is post-beta work; it is not a beta registration requirement. The
+accepted 2026-10-20 reputation decision, verbatim, was:
+
+> Reputational tiers I approve. That is the original design.
+
+New nodes' own drones must never be hidden because a node is new or provisional.
+Source review of capacity administration at revision
+`5ccaefcb0ac8569e7c04e948f7219126a0c15532` does not establish live acceptance.
+
+## Support
+
+Accepted support decision, 2026-10-26, verbatim:
+
+> GitHub issues for install help and bugs with that admin@cybrrd.com as private fallback.
+
+Issues are to be enabled at launch. This decision promises no response deadline.
+Vulnerabilities follow SECURITY.md's private reporting path and no-deadline policy.
+
+## Stream capacity
+
+The release owner approved the Silver and Red storage increases on 2026-10-27;
+the application record and independent review confirm the configured values
+recorded in D15 and D16. Message counts apply per node subject; byte capacities
+apply to each whole stream. The provisioner source was reviewed at revision
+`57478fb7f539df939b31901bc1ece4f80552f00a`.
+
+Advisory stream-fill rules were reviewed at revision
+`a444aec7eb55fe826a7d98bad6de20a16d447fc8`. P03 records their sustained warning
+and Red thresholds. These alerts do not impose viewer-count or collection caps.
+The physical broker limits remain separate: reaching a per-subject message
+limit can evict older records, while aggregate byte exhaustion can refuse new
+messages. Do not interpret these configured bounds as safe operating targets
+or a guaranteed retention period.
+
+Alert activation requires a full post-change observation hour without growing
+gaps, independent custody review and the remaining delivery/rollout checks.
+This source projection is not a public executed acceptance receipt and does not
+establish that these operational gates have passed. Existing loss remains
+visible; increasing capacity does not recover missing records.
+
+## Pending
+
+The beta release tag, hardware power-loss interval and public acceptance
+receipts remain outstanding. Capacity values, enrollment policy and support
+routes have settled sources; they are not unresolved numeric choices.

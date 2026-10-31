@@ -1,0 +1,133 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
+# Beta service objectives
+
+<!-- BEGIN GENERATED: metadata -->
+Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-30**.
+
+**0.9.0 beta release specifications; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
+<!-- END GENERATED: metadata -->
+
+[Back to the information sheet](README.md). These objectives describe desired
+behavior, not a contractual SLA. There is no uptime guarantee, service credit,
+guaranteed compensation, aviation-safety warranty or certification claim.
+Actual results depend on the declared hardware, RF environment, storage, link
+and platform conditions.
+
+## Targets and scope
+
+The first-contact objectives are included for beta acceptance. The remaining
+service-design rows are explicitly future-v5; they are not claims about beta
+timers or deployed server behavior. All remain targets until scoped acceptance
+receipts exist. A link type in a test scenario is not a supported-modem list.
+
+<!-- BEGIN GENERATED: service -->
+| Claim | Expectation | Scope / status | Source and boundary |
+|---|---|---|---|
+| **S01 — First contact on wired/Wi-Fi/LTE** | ≤ 2 seconds (target) | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#service) Send as soon as possible on every link. This is a beta acceptance objective adopted from the future service design; measurement is outstanding. |
+| **S02 — First contact on narrow links** | ≤ 15 seconds (target) | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#service) Best effort as soon as possible. This target does not declare any particular narrow-link radio supported. |
+| **S03 — Heartbeat interval** | 60 seconds | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#service) Future service design, not a measured beta timer. |
+| **S04 — Node offline classification** | 4 minutes (approximately) | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#service) Offline classification is separate from aircraft freshness. |
+| **S05 — Fixed-node offline distress** | > 15 minutes | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#service) Fixed-node outage raises Red; mobile offline alone is an operational (Silver) event. |
+| **S06 — Red node-to-ingest on wired/Wi-Fi/LTE** | ≤ 10 seconds (target) | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#service) Human notification after ingest is a separate, uncommitted service. |
+| **S07 — Red node-to-ingest on narrow links** | 60 seconds best-effort target | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#service) Urgent traffic precedes routine bulk; a disconnected link cannot deliver an alert immediately. |
+| **S08 — Server-side revocation enforcement** | ≤ 10 seconds (target) | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#service) No local shut-off timer: a disconnected node keeps capturing. This is a security control, not a capacity threshold. |
+| **S09 — Future backlog drain** | 24 hours for the declared backlog workload while capture continues | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#future-outage) Effective uplink must cover live capture plus drain and measured overhead. |
+<!-- END GENERATED: service -->
+
+## Measurement, failure and visibility
+
+For each scenario record the exact build, hardware/profile, link conditions,
+clock uncertainty, observation rate and encoded sizes. Report the sample count,
+losses, retries and worst observed latency; missing deliveries are failures,
+not samples to discard. Separate synthetic software checks from physical radio
+and native storage results. Human notification after ingest is measured
+separately from node-to-ingest delivery.
+
+<!-- BEGIN GENERATED: service-methods -->
+| Claim | Measurement scenario | On a miss | Failure signal |
+|---|---|---|---|
+| S01 | First-contact matrix: receiver capture to first network send; separately record ingest acceptance and live display latency, clock error, missing sends and maximum by link/profile. | Publish the failed profile and retain delayed records for archive; do not thin collection. | Capture-to-send timing and missing-send results in the acceptance report; end-to-end live latency display is unverified. |
+| S02 | First-contact matrix: same capture-to-send measurement on each declared narrow-link scenario, including outage and retry; report ingest/display latency separately. | Classify a link that misses the bound as unsuitable for live first contact; delayed records still go to archive. | Late or absent live first contact; acceptance report identifies the unsuitable link. |
+| S03 | Future liveness acceptance: timestamp heartbeat receipts and correlate event traffic and clock state. | Expose missed heartbeat evidence; do not infer missing aircraft from node liveness alone. | Liveness evidence and operational status; integrated beta signal unverified. |
+| S04 | Future liveness acceptance: suppress heartbeats with controlled clocks and measure server classification. | Record late or incorrect classification and investigate heartbeat/event/clock handling. | Node offline status; integrated beta signal unverified. |
+| S05 | Future liveness acceptance: distinguish fixed/mobile node profiles across prolonged disconnect and reconnect. | Record missed or incorrect distress; preserve the outage interval. | Red distress for fixed nodes; mobile offline operational status. Delivery itself needs a working path. |
+| S06 | Future Red acceptance: event creation to durable ingest receipt under concurrent bulk traffic, loss and retry. | Retry until stored and report delay; preserve the local event. | Event and receipt timestamps; human notification timing is not guaranteed. |
+| S07 | Future Red acceptance: same durable-receipt measurement on each declared narrow-link profile. | Keep retrying and report the delayed event when a path returns. | Queued/delayed distress and receipt evidence; local visibility depends on a running node. |
+| S08 | Future revocation acceptance: policy effective time to broker/ingest refusal, including disconnected and reconnecting nodes. | Record enforcement failure and quarantine/rejection evidence for investigation. | Server enforcement audit; end-user revocation status integration unverified. |
+| S09 | Future drain acceptance: fill the declared workload, restore provisioned uplink, measure clearance time and new-capture survival. | Show remaining backlog and time-to-clear; provision more capacity without dropping fields. | Backlog bytes, oldest age and time-to-clear in operational reporting (target). |
+<!-- END GENERATED: service-methods -->
+
+A service miss must lead to a known-limit report, recovery, rollback or a revised
+future target. It must not silently remove collected fields or replay old
+observations as live. Mark unobservable results as such. A dead or disconnected
+node may be unable to send distress immediately; preserve available local
+receipts for later reconciliation.
+
+## Capacity and future sizing
+
+Viewer counts are advisory monitoring thresholds. Crossing them must not refuse
+users, impose a fixed aircraft count, or silently thin collection. Monitoring
+and operational capacity management handle load. The retained guards below can
+close a connection to protect other viewers or handle invalid input. Each is
+required to show a reason to the user, count the event and alert internal
+monitoring. Metrics are internal only. These remain source-backed targets pending public acceptance,
+including routed alerts. The [owner quota](OPERATIONS.md#registration-and-node-capacity)
+and actual storage exhaustion are separate policies and conditions.
+
+Queue bounds and disconnect tests do not establish every overflow close reason
+and matching counter. Load beyond measured scenarios, public-edge request bounds,
+live disk-alert delivery and human alert receipt remain
+[unverified beta limits](KNOWN-LIMITS.md#unmeasured-beta-behavior). An alert-rule
+fixture is not a live load measurement or evidence that a person received an alert.
+
+The Silver and Red storage values below are approved broker configuration
+bounds. Message capacity applies per node subject; byte capacity is shared by
+the whole stream. These physical bounds are distinct from advisory alerts and
+do not guarantee a retention duration or loss-free custody.
+
+<!-- BEGIN GENERATED: capacity -->
+| Claim | Expectation | Scope / status | Source and boundary |
+|---|---|---|---|
+| **P01 — Viewer advisory threshold** | 100 concurrent viewers | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Chosen alert level; deployed behavior and public acceptance receipt remain pending. Metrics are internal only. This is an advisory monitoring threshold, not a user limit. |
+| **P02 — Per-IP viewer advisory threshold** | 32 concurrent viewers per IP | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#capacity) Shared networks must not hit a fixed count-based wall. Threshold crossing raises an alert. Metrics are internal only. This is an advisory monitoring threshold, not a user limit. |
+| **P06 — Slow-client guard** | 1 MiB queued ACTIVE_HEXES bytes before ejection | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) [source 2](evidence/acceptance-gaps.md#overflow-close-reasons-and-counters) Target behavior: a stalled browser can be disconnected with a user-facing reason; the event is counted and alerted through internal monitoring. Queue-slot exhaustion can also trigger this guard. This is a protective guard, not a viewer-count limit. Direct overflow close-reason and matching-counter assertions remain unverified; live human alert receipt is not yet measured. |
+| **P07 — ACTIVE_HEXES overflow guard** | 64 KiB outgoing frame bound | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) [source 2](evidence/acceptance-gaps.md#overflow-close-reasons-and-counters) Target behavior: overflow closes the connection with a user-facing reason; the event is counted and alerted through internal monitoring. This is a frame-safety guard, not a viewer-count limit. Direct overflow close-reason and matching-counter assertions remain unverified; live human alert receipt is not yet measured. |
+| **P08 — Inbound frame and per-browser rate guard** | 64 KiB inbound frame; client-message token bucket with burst 20 and refill 5/s | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#viewer-guards) Oversized frames or excessive message rates close the connection with a user-facing reason; each is counted and alerted through internal monitoring. This bounds browser input, not viewer counts. |
+| **D15 — Silver stream storage capacity** | 32,768 messages per node subject; 8 GiB across the stream | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#stream-capacity) Approved configuration baseline. The byte capacity is shared by the whole stream, not allocated per node. This is not a retention-duration or no-loss guarantee; public custody and saturation acceptance remain pending. |
+| **D16 — Red stream storage capacity** | 16,384 messages per node subject; 4 GiB across the stream | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#stream-capacity) Approved configuration baseline. The byte capacity is shared by the whole stream, not allocated per node. This is not a retention-duration or no-loss guarantee; public custody and saturation acceptance remain pending. |
+<!-- END GENERATED: capacity -->
+
+<!-- BEGIN GENERATED: future -->
+| Claim | Expectation | Scope / status | Source and boundary |
+|---|---|---|---|
+| **D10 — Future outage-buffer sizing** | 32 GB (approximate) | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#future-outage) Future design envelope. It does not replace the beta buffer or promise a fixed duration. |
+| **D11 — Future backlog workload** | 24 hours at 25 observations/s | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#future-outage) Workload is observations, not a maximum aircraft count. Multiple transports and repeated reports contribute. |
+| **D12 — Future storage reserve** | 10 % | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#future-outage) Planning headroom; adjust the buffer when measurements require, without thinning records. |
+| **D13 — Future occupancy alert levels** | 50, 80 % | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#capacity) Advisory alerts, never count-based refusal or telemetry thinning. |
+| **D14 — Future impaired-coverage warning** | 95 % | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#capacity) Advisory warning. Actual storage exhaustion follows the explicit keep-stored and exact-gap policy. |
+| **S10 — Illustrative future drain payload rate** | 5.15 Mbit/s (approximately, before additional measured overhead) | future-v5 / **target** (source) | [source 1](evidence/design-basis.md#future-outage) Planning estimate for the declared workload, not a carrier specification or guaranteed bandwidth. |
+<!-- END GENERATED: future -->
+
+The future buffer, workload and drain figures belong together and are estimates
+pending full-record measurements. They are not the beta buffer, a bandwidth
+purchase recommendation, or a promise of a particular outage duration.
+
+## Acceptance still pending
+
+<!-- BEGIN GENERATED: placeholders -->
+| Claim | Expectation | Scope / status | Source and boundary |
+|---|---|---|---|
+| **P03 — Stream capacity alerts** | Stream bytes: warning at 50%, Red at 80%; per-node message count: Red at 80%; each sustained for 5 minutes | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#stream-capacity) These are advisory monitoring thresholds, not collection or viewer-admission caps. They do not prevent broker storage exhaustion or prove loss-free retention. Alert activation and public acceptance receipts remain pending. |
+
+| Claim | Owner / acceptance still needed |
+|---|---|
+| P03 | Stream capacity: Verify signed capacity configuration, a full post-change observation hour without growing gaps, archive custody and routed alerts at each sustained threshold; measure saturation, visible refusal and recovery. |
+<!-- END GENERATED: placeholders -->
+
+Threshold selection is not proof of deployed alert behavior. The viewer values
+have been selected; deployment and public acceptance evidence remain pending.
+Stream capacity values and advisory alert thresholds have settled sources, but
+activation and public custody/saturation acceptance remain open. Enrollment and
+support policies are recorded in [operations](OPERATIONS.md). Support has no
+response-time objective.

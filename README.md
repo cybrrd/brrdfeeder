@@ -7,6 +7,10 @@
 BRRDfeeder receives Remote ID observations. This repository contains its engine,
 BRRDhouse local console, installer and update tooling.
 
+- [Install](https://get.cybrrd.com)
+- [Specifications](docs/specs/README.md)
+- [Release evidence](docs/specs/SBOM.md)
+
 - [Engine](Component/aviary/README.md)
 - [Installer](Component/brrdfeeder/install/README.md)
 - [Console](Component/brrdhouse/README.md)

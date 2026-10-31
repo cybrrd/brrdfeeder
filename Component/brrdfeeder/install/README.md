@@ -110,6 +110,12 @@ remain visible. The redacted log always captures all output in either mode.
 The code is displayed to you but redacted before any log write. Time estimates
 are approximate, not deadlines for slow storage or downloads.
 
+Open the displayed verification link and enter the code shown on this node.
+Approve ONLY if the code shown in the browser exactly matches the code shown on
+this node. If you did not start this install, do not approve. The installer
+prefers the link without a prefilled code; if the server supplies only a
+prefilled link, the same comparison is required.
+
 ```sh
 curl -fsSL https://get.cybrrd.com | bash -s -- --no-verbose
 curl -fsSL https://get.cybrrd.com | bash -s uninstall --no-verbose

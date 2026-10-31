@@ -53,6 +53,10 @@
   revoke the old credential; automatic revocation is planned for 0.9.1.
 - Units on older releases need a one-time uninstall and reinstall to get
   self-update. There is no silent migration.
+- A Linux kernel TCP flaw (CVE-2026-98432) is fixed upstream; Raspberry Pi OS
+  has not yet shipped a fixed kernel. Keep your OS updated
+  (`sudo apt update && sudo apt full-upgrade`) and do not expose the node web
+  page (port 8080) to the internet.
 - Bluetooth: the adapter must be present at install; hotplug is planned for 0.9.1.
 
 <!-- RELEASE-EDITOR CHOICE: keep exactly one Bluetooth line before publication.

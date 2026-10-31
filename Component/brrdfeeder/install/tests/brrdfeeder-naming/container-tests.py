@@ -242,6 +242,32 @@ sys.exit(0)
         return run(['bash',str(INSTALLER),'--image',PIN,'--console-image',
                     'ghcr.io/cybrrd/brrdhouse@sha256:'+'c'*64,
                     '--console-listen','127.0.0.1:8080'],env=self.env)
+    def test_brrdhouse_mptcp_environment_install_and_uninstall(self):
+        self.seed_installed_node()
+        result=self.rerun(); self.record('brrdhouse-mptcp-install.log',result)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        quadlet=Path('/etc/brrdfeeder/brrdhouse.container')
+        line='Environment=GODEBUG=multipathtcp=0'
+        # Quadlet must pass this into the container, not just to host Podman.
+        container=quadlet.read_text().split('[Container]\n',1)[1].split('\n[Service]',1)[0]
+        self.assertIn(line,container.splitlines())
+        links=list(Path('/etc/containers/systemd/users').glob('*/brrdhouse.container'))
+        self.assertEqual(len(links),1)
+        self.assertEqual(links[0].resolve(),quadlet)
+        self.assertIn(line,links[0].read_text().splitlines())
+        engine=Path('/etc/containers/systemd/brrdfeeder-engine.container')
+        self.assertNotIn('GODEBUG',engine.read_text())
+        # No actual services or containers run in this offline fixture. Switch
+        # the install-readiness stubs to stopped services and empty stores.
+        (self.bin/'systemctl').write_text(SYSTEMCTL_STUB)
+        (self.bin/'podman').write_text("#!/bin/sh\nif [ \"$1 $2\" = 'container exists' ]; then exit 1; fi\nexit 0\n")
+        result=run(['bash',str(INSTALLER),'--uninstall','--yes'],env=self.env)
+        self.record('brrdhouse-mptcp-uninstall.log',result)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertFalse(quadlet.exists(),'brrdhouse environment survived uninstall')
+        self.assertFalse(links[0].is_symlink(),'brrdhouse user-unit link survived uninstall')
+        self.assertFalse(links[0].exists())
+
     def test_rerun_migrates_legacy_dropin(self):
         self.seed_installed_node(); self.seed(LEGACY,LEGACY_CONTENT)
         result=self.rerun(); self.record('installer-rerun-migrate.log',result)

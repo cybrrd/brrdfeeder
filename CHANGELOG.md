@@ -12,7 +12,7 @@
 - Silver renewal status and Red expiry/recovery signals. Companion server renewal
   routes, identity-pinned owner recovery and a short-TTL canary must precede rollout.
 - Go 1.27.3 across the console, host helper, container builds and CI.
-- Patched Rust TLS dependencies: rustls 0.23.46 and quinn-proto 0.11.15.
+- Patched Rust TLS dependencies: rustls 0.23.46 and quinn-proto 0.11.18.
 - Durable, bounded telemetry custody during broker outages, with ordered replay
   of stored records and explicit loss diagnostics when capacity is exhausted.
 - Explicit host helper build 2-or-3-to-4 upgrade through `--upgrade-helper`, preserving
@@ -58,14 +58,6 @@
   (`sudo apt update && sudo apt full-upgrade`) and do not expose the node web
   page (port 8080) to the internet.
 - Bluetooth: the adapter must be present at install; hotplug is planned for 0.9.1.
-
-<!-- RELEASE-EDITOR CHOICE: keep exactly one Bluetooth line before publication.
-The line above is for a release without Bluetooth hotplug. If reviewed Bluetooth
-hotplug is included, replace that line with the alternative below.
-BLE-WITH-HOTPLUG:
-- Bluetooth: supported adapters can be connected or reconnected after installation,
-  while preserving explicit disablement and adapter selection.
--->
 
 ## 0.8.31 — Published 2026-10-25 (build 1045)
 

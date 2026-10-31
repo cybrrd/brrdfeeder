@@ -53,11 +53,11 @@
   revoke the old credential; automatic revocation is planned for 0.9.1.
 - Units on older releases need a one-time uninstall and reinstall to get
   self-update. There is no silent migration.
-- Existing 0.8.31 installations keep their three-starts-in-five-minutes engine
-  limit after helper-only or automatic updates. A successful rerun of the current
-  full installer applies the corrected engine restart policy; verify
-  `StartLimitIntervalUSec=0` afterward. Existing units can otherwise still stop
-  after repeated starts.
+- Existing 0.8.31 installations keep their limit of three engine starts within
+  five minutes (manual starts included) after helper-only or automatic updates.
+  A successful rerun of the current full installer applies the corrected engine
+  restart policy; verify `StartLimitIntervalUSec=0` afterward. Existing units can
+  otherwise still stop after repeated starts.
 - A Linux kernel TCP flaw (CVE-2026-98432) is fixed upstream; Raspberry Pi OS
   has not yet shipped a fixed kernel. Keep your OS updated
   (`sudo apt update && sudo apt full-upgrade`) and do not expose the node web

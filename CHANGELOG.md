@@ -12,6 +12,9 @@
 - Silver renewal status and Red expiry/recovery signals. Companion server renewal
   routes, identity-pinned owner recovery and a short-TTL canary must precede rollout.
 - Go 1.27.3 across the console, host helper, container builds and CI.
+- Patched Rust TLS dependencies: rustls 0.23.46 and quinn-proto 0.11.15.
+- Durable, bounded telemetry custody during broker outages, with ordered replay
+  of stored records and explicit loss diagnostics when capacity is exhausted.
 - Explicit host helper build 2-or-3-to-4 upgrade through `--upgrade-helper`, preserving
   node identity, configuration and credentials, with transactional recovery and
   an idempotent repeat path. Existing 0.8.31 system-only credential layouts
@@ -26,12 +29,43 @@
   two-name pair inside the private updater directory.
 - Hermetic Bluetooth installer fixtures and job-wide Python bytecode suppression
   keep offline CI independent of host adapters and generated cache files.
+- Portable outage tests check correctness independently of machine latency;
+  the 250-ms local-disk acceptance checks remain separate opt-in drills.
+- Telemetry retains the full decoded Remote ID fields, including hardware serials
+  and operator position when broadcast.
 - The v4 wire format is unchanged. Native helper/reboot/rollback qualification,
   deployed-server renewal and broker confirmation remain rollout gates. This
   candidate does not claim those checks passed or that a release was published.
 - Existing broad uninstall rules for status files, engine-state `*.tmp` and
   quarantined pending entries remain; external temporary-file cleanup and tighter
   provenance checks are deferred. See `docs/uninstall-state-inventory.md`.
+
+### Support
+
+- For install help and bug reports, use the [Install help or Bug report form](https://github.com/cybrrd/brrdfeeder/issues/new/choose).
+  For private help, email admin@cybrrd.com. Report security vulnerabilities only
+  through [private vulnerability reporting](https://github.com/cybrrd/brrdfeeder/security/advisories/new).
+
+### Known limits
+
+- Reinstalling with the same account and hostname issues a new credential
+  without revoking the old credential. Contact support at admin@cybrrd.com to
+  revoke the old credential; automatic revocation is planned for 0.9.1.
+- Units on older releases need a one-time uninstall and reinstall to get
+  self-update. There is no silent migration.
+- A Linux kernel TCP flaw (CVE-2026-98432) is fixed upstream; Raspberry Pi OS
+  has not yet shipped a fixed kernel. Keep your OS updated
+  (`sudo apt update && sudo apt full-upgrade`) and do not expose the node web
+  page (port 8080) to the internet.
+- Bluetooth: the adapter must be present at install; hotplug is planned for 0.9.1.
+
+<!-- RELEASE-EDITOR CHOICE: keep exactly one Bluetooth line before publication.
+The line above is for a release without Bluetooth hotplug. If reviewed Bluetooth
+hotplug is included, replace that line with the alternative below.
+BLE-WITH-HOTPLUG:
+- Bluetooth: supported adapters can be connected or reconnected after installation,
+  while preserving explicit disablement and adapter selection.
+-->
 
 ## 0.8.31 — Published 2026-10-25 (build 1045)
 

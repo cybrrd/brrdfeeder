@@ -9,3 +9,7 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="1915", ATTRS{idProduct}=="c00a", SYMLINK+="c
 # Dedicated feeder only: permits the configured opt-in targeted HCI unblock.
 # Alternative: bluetooth group + matching supplemental group in the Quadlet.
 KERNEL=="rfkill", SUBSYSTEM=="misc", GROUP="dialout", MODE="0660"
+
+# BRRDfeeder supported Bluetooth hotplug; never match arbitrary USB adapters.
+ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="876e", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-ble-takeover.service"
+ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="a728", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-ble-takeover.service"

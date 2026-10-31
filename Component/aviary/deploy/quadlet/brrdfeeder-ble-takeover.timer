@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[Unit]
+Description=BRRDfeeder Bluetooth hotplug retry and ownership observation
+[Timer]
+OnBootSec=5s
+OnUnitInactiveSec=5s
+AccuracySec=1s
+Unit=brrdfeeder-ble-takeover.service
+[Install]
+WantedBy=timers.target

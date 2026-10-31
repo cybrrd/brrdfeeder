@@ -1,0 +1,22 @@
+{
+  "design_merge": "27b45e0c5aa691bb2ba3e1d32cc1f19dffdc91c9",
+  "design_head": "975a81bb01f109f4752a4b61fdb230a8037576bd",
+  "inputs": "synthetic declarative fixtures and schemas; no captures or licensed standard text",
+  "sha256": {
+    "authentication-assembly.schema.json": "7b606ed01205ab734cdbd3f0b76308023c213bcfe85cd1a93e44bcb8dcab12be",
+    "capture-association.schema.json": "7d204b9af00c0d66aee1a32b67301a92272feca558bc0cbbdff8ba2bf672efdb",
+    "cbor-keys.json": "d0b876c3574934a3795b060dc59ceef11a488aad680b88ceda4203022704d63d",
+    "design-validation.json": "34ad891d73d621c42da3c887f9dcd7fe93441cfebfccf1da8a826a329f8c7a18",
+    "golden-authentication-assembly.json": "4e586c6c135cabe0cd6465cd4ca11658887c1452e2d3fcd8fb36cbb2471092b4",
+    "golden-capture-association.json": "9503bfd1f3c0ab5535d61cb7aba69d20b4d36bf5ea8f4d3f23f0527357d15d5b",
+    "golden-display.json": "81cecdf72e76aaf606bf211b5e682b4f3467e4742e924bc87179783b3494e4b5",
+    "golden-messages.json": "31e85aeb57b7b35012d01615d0fe87422d8d75d61120b831e0dc542035011daa",
+    "golden-observations.json": "d28b2223da4ef447c229413a6e652ceea4320ba135f1813d1e6a1462b8a30f72",
+    "inventory-map.csv": "b55ca649a84787ca0ee003975a5dd1faef1a6a3d78d725795984f0c58b0a4a82",
+    "network-information.schema.json": "b71aa76f5ee7f58d9052ceac916a56a6bcd811518e5b39137298946df018cfc6",
+    "network-inventory-map.csv": "73d5dfea1315bd763e2ff04c5837ea232ec9f078a1fa6b53b51a3d70911860e3",
+    "observation.schema.json": "0d87b135a60f36ce850d5176c65d1a0ec17d31eefac5a5ca5ff75a81ee78c96b",
+    "parquet-columns.csv": "4c56d67a30deb9ffacc5c9c23f2760ef0fa6ce30ec68d4432bf6a02af6343da4",
+    "semantic-negative-cases.json": "de42d4ad6339c3d97577677f1308e3f16195e734fe740f614e4a545b6a4dba9a"
+  }
+}

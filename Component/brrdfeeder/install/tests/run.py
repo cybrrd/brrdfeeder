@@ -128,6 +128,8 @@ for group in groups:
         for name in BASELINES:
             run(name.replace('/','-').removesuffix('.py'),[sys.executable,HERE/name],timeout=240)
         run('launcher',[sys.executable,'launcher_test.py'],RELEASE,240)
+        for name in ('test_validator.py', 'test_preimages.py'):
+            run('helper5-'+name.removesuffix('.py'), [sys.executable, RELEASE/'qualification/helper5'/name], timeout=60)
         for name in ['test-image-identity.py','test-build-arm64.py']:
             run(name.removesuffix('.py'),[sys.executable,ROOT/'Component/aviary/tools'/name])
         run('bt-dongle-gate',['bash',ROOT/'Component/aviary/tools/test-bt-dongle-gate.sh'])
@@ -150,7 +152,7 @@ for group in groups:
         run('memory-mutations',[sys.executable,ROOT/'Component/aviary/deploy/memory/mutate_memory.py'],timeout=600)
         for name in MUTATIONS:
             run(name.replace('/','-').removesuffix('.py'),[sys.executable,HERE/name])
-        for name in ('run-go-proofs','run-rework-proofs','run-rust-proofs'):
+        for name in ('run-go-proofs','run-rework-proofs','run-helper5-io-proofs','run-rust-proofs'):
             run(name,[sys.executable,RELEASE/'tests'/(name+'.py')],timeout=3600)
     elif group == 'containers':
         run('gps-runtime-start',[sys.executable,HERE/'gps-runtime/test-container.py'])

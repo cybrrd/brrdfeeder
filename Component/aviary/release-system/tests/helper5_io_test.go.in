@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
+package main
+
+import (
+ "bytes"
+ "errors"
+ "fmt"
+ "os"
+ "os/exec"
+ "strings"
+ "testing"
+)
+
+var proofCounter, proofTarget int
+var proofCrash, proofFired bool
+var proofSteps []string
+var proofErr = errors.New("synthetic helper I/O failure")
+func proofPoint(label string) error {
+ proofCounter++; proofSteps=append(proofSteps,label)
+ if proofCounter==proofTarget { proofFired=true; if proofCrash { panic(proofErr) }; return proofErr }
+ return nil
+}
+func proofCall(label string, fn func()error) error {
+ if e:=proofPoint("before/"+label); e!=nil { return e }
+ if e:=fn(); e!=nil { return e }
+ return proofPoint("after/"+label)
+}
+func proofWrite(f *os.File,b []byte)(n int,e error) {
+ e=proofCall("write",func()error { var err error;n,err=f.Write(b);return err });return
+}
+func proofSync(f *os.File)error {
+ st,e:=f.Stat();if e!=nil {return e};kind:="sync-file";if st.IsDir(){kind="sync-directory"}
+ return proofCall(kind,f.Sync)
+}
+func proofRename(from,to string)error{return proofCall("rename",func()error{return os.Rename(from,to)})}
+func proofRemove(path string)error{return proofCall("unlink",func()error{return os.Remove(path)})}
+
+func TestHelper5IOFaults(t *testing.T) {
+ proofCounter=0;proofTarget=0;proofSteps=nil
+ f:=newLocalFixture(t);if e:=f.run(func(string){});e!=nil{t.Fatal(e)}
+ steps:=append([]string(nil),proofSteps...)
+ if len(steps)<50 {t.Fatal("instrumentation did not reach all writes/syncs/renames/unlink")}
+ for _,floorAbsent:=range []bool{false,true} {
+  for _,crash:=range []bool{false,true} {
+   for index,label:=range steps {
+    t.Run(fmt.Sprintf("absent=%v/crash=%v/%02d-%s",floorAbsent,crash,index+1,label),func(t *testing.T){
+     f:=newLocalFixture(t)
+     if floorAbsent {if e:=os.Remove(f.p.private+"/host-state.json");e!=nil{t.Fatal(e)}}
+     before:=treeBytes(t,f.p.boundary)
+     proofCounter=0;proofTarget=index+1;proofCrash=crash;proofFired=false;proofSteps=nil
+     var failure error;panicked:=false
+     func(){defer func(){if r:=recover();r!=nil{if r!=proofErr{panic(r)};panicked=true}}();failure=f.run(func(string){})}()
+     proofTarget=0
+     if !proofFired {t.Fatal("fault not reached")}
+     if crash && !panicked {t.Fatal("interruption not observed")}
+     if !crash && failure==nil {t.Fatal("I/O uncertainty reported success")}
+     if _,e:=os.Lstat(f.p.private+"/host-transaction.json");e==nil {
+      code:=`import importlib.machinery,pathlib,sys
+m=importlib.machinery.SourceFileLoader('recovery',sys.argv[1]).load_module()
+m.recover(pathlib.Path(sys.argv[2]),pathlib.Path(sys.argv[3]),pathlib.Path(sys.argv[4]),read=lambda p,o,limit=m.LIMIT:p.read_bytes())`
+      output,e:=exec.Command("python3","-I","-B","-c",code,f.p.launch,f.p.binary,f.p.private,f.p.receipt).CombinedOutput()
+      if e!=nil{t.Fatalf("launcher recovery: %v %s",e,output)}
+     }
+     assertProtected(t,f,before)
+     binary,e:=os.ReadFile(f.p.binary);if e!=nil{t.Fatal(e)}
+     receipt,e:=os.ReadFile(f.p.receipt);if e!=nil{t.Fatal(e)}
+     if string(receipt)!=contentHash(binary)+"  "+f.p.binary+"\n"{t.Fatal("incoherent receipt")}
+     if bytes.Equal(binary,f.old) {
+      after:=treeBytes(t,f.p.boundary)
+      if before[f.p.private+"/host-state.json"]!=after[f.p.private+"/host-state.json"]{t.Fatal("old floor bytes/absence not restored")}
+     }else if bytes.Equal(binary,f.candidate) {
+      // A synthetic panic after unlink sees the new coherent state in this
+      // filesystem; this is not evidence that an unsynced unlink survives boot.
+      if !crash {t.Fatal("error returned with candidate unexpectedly committed")}
+      floor,e:=os.ReadFile(f.p.private+"/host-state.json");if e!=nil||!strings.Contains(string(floor),`"build_seq":5`){t.Fatal("candidate floor incoherent")}
+     }else{t.Fatal("unknown installed bytes")}
+     if _,e:=os.Lstat(f.p.private+"/host-transaction.json");!os.IsNotExist(e){t.Fatal("journal remains after recovery")}
+    })
+   }
+  }
+ }
+ t.Logf("injected boundaries=%d cases=%d (error/panic × present/absent floor)",len(steps),len(steps)*4)
+}

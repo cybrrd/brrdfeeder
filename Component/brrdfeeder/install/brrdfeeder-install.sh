@@ -1253,9 +1253,9 @@ readonly BLUETOOTH_HELPER="/usr/local/libexec/brrdfeeder-bluetooth"
 # Engine-visible outcome/currency and legacy watermark surface.
 # Signed pending releases live only in root-private /var/lib/brrdfeeder-updater.
 readonly STATE_DIR="/var/lib/brrdfeeder"
-# Standalone ARM64 host executable: independently reproduced on worldport with
+# Standalone ARM64 host executable: reproduced twice by build-host.sh with
 # the pinned Go toolchain. Publication is a separate operator step, never tags.
-readonly RELEASE_HELPER_SHA256="5044fa434cc52ebcdd044cb1eed5f7cd1bcf27a1b225160ea539b666bcf6fb11"
+readonly RELEASE_HELPER_SHA256="d143f1eba7f791686e5c92f8f8317e7fad95e512b16d93defd3143983e902eb2"
 readonly RELEASE_HELPER_URL="https://get.cybrrd.com/releases/v1/updater/${RELEASE_HELPER_SHA256}/linux-arm64/brrdfeeder-release"
 
 # Zitadel OAuth Device Flow (BRRDfeeder-tier enrollment — binds feeder to user account)

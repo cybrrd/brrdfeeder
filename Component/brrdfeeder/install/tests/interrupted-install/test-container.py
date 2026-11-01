@@ -225,6 +225,10 @@ class Upgrade(unittest.TestCase):
         console.write_text('Image=ghcr.io/cybrrd/brrdhouse@sha256:'+'d'*64+'\n')
         adapter=Path('/tmp/upgrade-usb/1-2'); adapter.mkdir(parents=True,exist_ok=True)
         (adapter/'idVendor').write_text('0bda'); (adapter/'idProduct').write_text('a728')
+        # Match the real sysfs relationship used by pre-mutation selection.
+        controller=Path('/tmp/upgrade-hci/hci0'); controller.mkdir(parents=True,exist_ok=True)
+        (controller/'device').symlink_to(adapter)
+        (controller/'address').write_text('AA:BB:CC:DD:EE:FF')
         uname=fixture.bin/'uname'; uname.write_text('#!/bin/sh\necho aarch64\n'); uname.chmod(0o755)
         # No engine container remains after this fixture's simulated stop.
         podman=fixture.bin/'podman'
@@ -242,6 +246,8 @@ def load(name,path):
 m=load('ble_shipped',sys.argv[1])
 f=load('ble_fixture','/repo/Component/brrdfeeder/install/tests/pi-native-p0/test-ble.py')
 m.USB=Path('/tmp/upgrade-usb')
+m.DEVICES=m.USB
+m.HCI=Path('/tmp/upgrade-hci')
 m.ctl=f.Systemd()
 m.ctl.engine='active'; m.ctl.pid='42'; m.ctl.stop_state='failed'
 def down(adapter):

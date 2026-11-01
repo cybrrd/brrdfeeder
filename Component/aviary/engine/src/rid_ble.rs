@@ -3,9 +3,11 @@
 //! Passive HCI user-channel source: raw AD only, never ODID decoding.
 //! ADR 0005: dedicated controller must already be DOWN and unmanaged.
 //! No power-down, advertising, connection, pairing or subprocess commands here.
+use std::future::Future;
 use std::io;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
-use std::path::Path;
+use std::os::unix::fs::MetadataExt;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -17,6 +19,55 @@ use tokio::sync::mpsc;
 use crate::audit::{SubstrateAuditEvent, KITTLER_LINEAGE};
 use crate::node_config::{BleAdapterYaml, RidBleYaml};
 use crate::sensor::{now_unix_ms, Sensor, SensorContext, SensorHandle, SensorHealth, SensorState};
+
+const SUPPORTED_USB: [&str; 2] = ["0bda:876e", "0bda:a728"];
+const RESCAN: Duration = Duration::from_secs(5);
+const HCI_SYSFS: &str = "/sys/class/bluetooth";
+const OWNERSHIP_CONFLICT: &str = "/run/brrdfeeder-bluetooth/conflict";
+const CONFLICT_REASON: &str = "Bluetooth ownership conflict: bluetooth.service was started or unmasked after the RID.BLE claim; leave it under operator control. Set sensors.rid_ble.enabled: false, or explicitly reclaim with sudo /usr/local/libexec/brrdfeeder-bluetooth apply.";
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Controller {
+    index: u16,
+    address: String,
+    usb_id: Option<String>,
+    path: PathBuf,
+    inode: u64,
+}
+
+// The supervisor and its real selection logic also run against synthetic sysfs
+// trees. Only capture is replaced in hardware-free lifecycle tests.
+trait BleRuntime: Send {
+    fn select(&self, identity: &BleAdapterYaml) -> io::Result<Controller>;
+    fn capture(
+        &mut self,
+        sensor: &RidBle,
+        controller: Controller,
+        ctx: &SensorContext,
+        tx: &mpsc::Sender<Advertisement>,
+        health: &Arc<ArcSwap<SensorHealth>>,
+    ) -> impl Future<Output = io::Result<()>> + Send;
+}
+
+struct LinuxBle;
+impl BleRuntime for LinuxBle {
+    fn select(&self, identity: &BleAdapterYaml) -> io::Result<Controller> {
+        check_ownership(Path::new(OWNERSHIP_CONFLICT))?;
+        select_adapter_with(Path::new(HCI_SYSFS), identity, |index, _| {
+            controller_address(index)
+        })
+    }
+    async fn capture(
+        &mut self,
+        sensor: &RidBle,
+        controller: Controller,
+        ctx: &SensorContext,
+        tx: &mpsc::Sender<Advertisement>,
+        health: &Arc<ArcSwap<SensorHealth>>,
+    ) -> io::Result<()> {
+        sensor.run(controller, ctx, tx, health).await
+    }
+}
 
 #[derive(Debug)]
 pub struct Advertisement {
@@ -44,58 +95,141 @@ impl Sensor for RidBle {
         )));
         let task_health = Arc::clone(&health);
         tokio::spawn(async move {
-            if !self.0.enabled {
-                println!("[rid_ble] disabled");
-                return;
-            }
-            let result = self.run(&ctx, &tx, &task_health).await;
-            if let Err(e) = result {
-                transition(
-                    &ctx,
-                    &task_health,
-                    SensorState::Failed,
-                    Some(e.to_string()),
-                    false,
-                );
-            }
+            self.supervise(&ctx, &tx, &task_health, &mut LinuxBle, RESCAN)
+                .await;
         });
         SensorHandle { readings, health }
     }
 }
 
 impl RidBle {
+    fn inventory(&self, controller: Option<&Controller>, health: &Arc<ArcSwap<SensorHealth>>) {
+        self.1.store(Some(Arc::new(crate::status::BleInventory {
+            enabled: Some(self.0.enabled),
+            bd_addr: controller.map(|c| c.address.clone()).unwrap_or_default(),
+            usb_id: controller.and_then(|c| c.usb_id.clone()),
+            observed_at: crate::status::utc_now(),
+            health: Some(Arc::clone(health)),
+            ..Default::default()
+        })));
+    }
+
+    async fn supervise<R: BleRuntime>(
+        &self,
+        ctx: &SensorContext,
+        tx: &mpsc::Sender<Advertisement>,
+        health: &Arc<ArcSwap<SensorHealth>>,
+        runtime: &mut R,
+        retry: Duration,
+    ) {
+        self.inventory(None, health);
+        if !self.0.enabled {
+            transition(
+                ctx,
+                health,
+                SensorState::Initializing,
+                Some("Disabled by sensors.rid_ble.enabled: false".into()),
+                false,
+            );
+            println!("[rid_ble] disabled");
+            return; // Explicit off never inventories or opens HCI.
+        }
+        if let Err(error) = self.0.validate() {
+            transition(ctx, health, SensorState::Failed, Some(error), false);
+            return;
+        }
+        loop {
+            if ctx.cancel.is_cancelled() || tx.is_closed() {
+                return;
+            }
+            let result = match runtime.select(&self.0.adapter) {
+                Ok(controller) => {
+                    self.inventory(Some(&controller), health);
+                    transition(
+                        ctx,
+                        health,
+                        SensorState::Initializing,
+                        Some(
+                            "Binding the supported Bluetooth adapter for passive reception".into(),
+                        ),
+                        false,
+                    );
+                    runtime.capture(self, controller, ctx, tx, health).await
+                }
+                Err(error) => Err(error),
+            };
+            let Err(error) = result else {
+                return;
+            }; // Cancelled/receiver closed.
+            if ctx.cancel.is_cancelled() || tx.is_closed() {
+                return;
+            }
+            // Lost hardware/ownership is impaired coverage, never a terminal
+            // sensor failure. Clear the old controller and rfkill observation.
+            self.inventory(None, health);
+            transition(
+                ctx,
+                health,
+                SensorState::Degraded,
+                Some(format!("Waiting: {error}; rescanning in 5 seconds")),
+                false,
+            );
+            tokio::select! {
+                _ = ctx.cancel.cancelled() => return,
+                _ = tx.closed() => return,
+                _ = tokio::time::sleep(retry) => {},
+            }
+        }
+    }
+
     async fn run(
         &self,
+        controller: Controller,
         ctx: &SensorContext,
         tx: &mpsc::Sender<Advertisement>,
         health: &Arc<ArcSwap<SensorHealth>>,
     ) -> io::Result<()> {
         self.0.validate().map_err(io::Error::other)?;
         let setup = async {
-            let (index, address, usb_id) = resolve_adapter(&self.0.adapter).await?;
+            let index = controller.index;
+            let address = parse_address(&controller.address)?;
+            // Recheck selection immediately before opening; never use a stale
+            // hci index after unplug/re-enumeration.
+            if LinuxBle.select(&self.0.adapter)? != controller {
+                return Err(io::Error::other(
+                    "Bluetooth adapter changed before exclusive bind",
+                ));
+            }
             let mut inventory = crate::status::BleInventory {
+                enabled: Some(true),
                 bd_addr: address
                     .iter()
                     .rev()
                     .map(|b| format!("{b:02X}"))
                     .collect::<Vec<_>>()
                     .join(":"),
-                usb_id,
+                usb_id: controller.usb_id.clone(),
                 observed_at: crate::status::utc_now(),
                 rfkill: None,
                 health: Some(Arc::clone(health)),
-                rfkill_observer: crate::rfkill::RfkillObserver::for_controller(index).ok().flatten(),
+                rfkill_observer: crate::rfkill::RfkillObserver::for_controller(index)
+                    .ok()
+                    .flatten(),
                 ..Default::default()
             };
             self.1.store(Some(Arc::new(inventory.clone())));
-            let prepared = crate::rfkill::prepare_controller(index, self.0.unblock_rfkill, &mut |soft, hard| {
-                inventory.rfkill = Some(crate::status::RfkillSnapshot {
-                    soft_blocked: soft,
-                    hard_blocked: hard,
-                    observed_at: crate::status::utc_now(),
-                });
-                self.1.store(Some(Arc::new(inventory.clone())));
-            });
+            let prepared = crate::rfkill::prepare_controller(
+                index,
+                self.0.unblock_rfkill,
+                &mut |soft, hard| {
+                    inventory.rfkill = Some(crate::status::RfkillSnapshot {
+                        soft_blocked: soft,
+                        hard_blocked: hard,
+                        observed_at: crate::status::utc_now(),
+                    });
+                    self.1.store(Some(Arc::new(inventory.clone())));
+                },
+            );
             // Observe the result, not the fact that an unblock was requested.
             // StatusSource repeats this read on every snapshot/write, even if
             // setup fails or capture is quiet.
@@ -103,7 +237,9 @@ impl RidBle {
             self.1.store(Some(Arc::new(inventory)));
             prepared?;
             // USER bind refuses UP/busy controllers. Never evict bluetoothd.
-            let socket = HciSocket::open(index, 1)?;
+            let socket = HciSocket::open(index, 1).map_err(|error| {
+                io::Error::other(format!("Bluetooth exclusive bind unavailable ({error}); check bluetooth.service ownership and the takeover service; the engine never evicts another owner"))
+            })?;
             socket.command(0x0c03, &[]).await?; // Reset owned controller.
             let actual = socket.command(0x1009, &[]).await?; // Read BD_ADDR.
             if actual.get(1..7) != Some(address.as_slice()) {
@@ -144,9 +280,24 @@ impl RidBle {
         let mut last_ad = Instant::now();
         let quiet = Duration::from_secs(self.0.quiet_window_s);
         let mut ticker = tokio::time::interval(Duration::from_millis(250));
+        let mut rescan = tokio::time::interval(RESCAN);
+        rescan.tick().await;
+        transition(
+            ctx,
+            health,
+            SensorState::Initializing,
+            Some("Passive Bluetooth scan active; waiting for advertisements".into()),
+            false,
+        );
         loop {
             tokio::select! {
                 _ = ctx.cancel.cancelled() => break,
+                _ = tx.closed() => break,
+                _ = rescan.tick() => {
+                    if LinuxBle.select(&self.0.adapter)? != controller {
+                        return Err(io::Error::other("Bluetooth adapter removed or replaced"));
+                    }
+                }
                 _ = ticker.tick() => {
                     if quiet_expired(last_ad.elapsed(), quiet) {
                         transition(ctx, health, SensorState::Degraded, Some("no advertisers".into()), false);
@@ -196,7 +347,7 @@ fn transition(
     received: bool,
 ) {
     let mut h = (**health.load()).clone();
-    let changed = h.state != state;
+    let changed = h.state != state || h.detail != detail;
     h.state = state;
     h.detail = detail.clone();
     if received {
@@ -316,48 +467,179 @@ fn advertising_reports(packet: &[u8]) -> io::Result<(usize, Vec<Advertisement>)>
     Ok((count, out))
 }
 
-async fn resolve_adapter(identity: &BleAdapterYaml) -> io::Result<(u16, [u8; 6], Option<String>)> {
-    let control = HciSocket::open(0xffff, 3)?;
-    let mut matches = Vec::new();
-    for entry in std::fs::read_dir("/sys/class/bluetooth")? {
+fn check_ownership(conflict: &Path) -> io::Result<()> {
+    match std::fs::symlink_metadata(conflict) {
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(io::Error::other(format!(
+            "Bluetooth ownership observation unavailable: {error}"
+        ))),
+        Ok(_) => Err(io::Error::other(CONFLICT_REASON)),
+    }
+}
+
+fn parse_address(text: &str) -> io::Result<[u8; 6]> {
+    let bytes: Result<Vec<_>, _> = text
+        .split(':')
+        .map(|part| u8::from_str_radix(part, 16))
+        .collect();
+    let bytes = bytes.map_err(|_| io::Error::other("Bluetooth controller address is not ready"))?;
+    if bytes.len() != 6 || text.split(':').any(|part| part.len() != 2) {
+        return Err(io::Error::other(
+            "Bluetooth controller address is not ready",
+        ));
+    }
+    let mut address = [0; 6];
+    for (dest, source) in address.iter_mut().zip(bytes.into_iter().rev()) {
+        *dest = source;
+    }
+    Ok(address)
+}
+
+// HCIGETDEVINFO is a read-only kernel snapshot, including while USER owns HCI.
+// Linux does not expose a portable hciN/address sysfs attribute.
+fn controller_address(index: u16) -> io::Result<String> {
+    let fd = unsafe { libc::socket(libc::AF_BLUETOOTH, libc::SOCK_RAW | libc::SOCK_CLOEXEC, 1) };
+    if fd < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let fd = unsafe { OwnedFd::from_raw_fd(fd) };
+    let mut info = [0u8; 92];
+    info[..2].copy_from_slice(&index.to_ne_bytes());
+    if unsafe { libc::ioctl(fd.as_raw_fd(), 0x800448d3, info.as_mut_ptr()) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    decode_controller_address(index, &info)
+}
+fn decode_controller_address(index: u16, info: &[u8; 92]) -> io::Result<String> {
+    if u16::from_ne_bytes([info[0], info[1]]) != index || info[10..16] == [0; 6] {
+        return Err(io::Error::other(
+            "Bluetooth controller address is not ready",
+        ));
+    }
+    Ok(info[10..16]
+        .iter()
+        .rev()
+        .map(|v| format!("{v:02X}"))
+        .collect::<Vec<_>>()
+        .join(":"))
+}
+#[cfg(test)]
+fn select_adapter_at(root: &Path, identity: &BleAdapterYaml) -> io::Result<Controller> {
+    select_adapter_with(root, identity, |_, path| {
+        std::fs::read_to_string(path.join("address"))
+    })
+}
+fn select_adapter_with(
+    root: &Path,
+    identity: &BleAdapterYaml,
+    address_of: impl Fn(u16, &Path) -> io::Result<String>,
+) -> io::Result<Controller> {
+    let entries = match std::fs::read_dir(root) {
+        Ok(entries) => Some(entries),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error),
+    };
+    let mut controllers = Vec::new();
+    for entry in entries.into_iter().flatten() {
         let entry = entry?;
-        let name = entry.file_name();
-        let Some(index) = name
+        let Some(index) = entry
+            .file_name()
             .to_str()
-            .and_then(|n| n.strip_prefix("hci"))
-            .and_then(|n| n.parse::<u16>().ok())
+            .and_then(|name| name.strip_prefix("hci"))
+            .and_then(|name| name.parse::<u16>().ok())
+            .filter(|index| *index != u16::MAX)
         else {
             continue;
         };
-        // Read Controller Information only: no management scan or power writes.
-        let info = control.controller_info(index).await?;
-        let mut addr = [0; 6];
-        addr.copy_from_slice(
-            info.get(..6)
-                .ok_or_else(|| io::Error::other("short controller info"))?,
-        );
-        let text = addr
-            .iter()
-            .rev()
-            .map(|b| format!("{b:02X}"))
-            .collect::<Vec<_>>()
-            .join(":");
-        let usb = usb_identity(&entry.path());
-        if identity_matches(identity, &text, usb.as_deref()) {
-            matches.push((index, addr, usb));
-        }
+        let path = entry.path();
+        let Ok(metadata) = path.metadata() else {
+            continue;
+        }; // Unplug during rescan.
+        let usb_id = usb_identity(&path);
+        let address = if usb_id
+            .as_deref()
+            .is_some_and(|id| SUPPORTED_USB.contains(&id))
+        {
+            address_of(index, &path)?.trim().to_uppercase()
+        } else {
+            String::new()
+        };
+        let Ok(canonical) = path.canonicalize() else {
+            continue;
+        };
+        controllers.push(Controller {
+            index,
+            address,
+            usb_id,
+            path: canonical,
+            inode: metadata.ino(),
+        });
     }
-    unique_adapter(matches)
+    controllers.sort_by_key(|controller| controller.index);
+    let supported: Vec<_> = controllers
+        .iter()
+        .filter(|controller| {
+            controller
+                .usb_id
+                .as_deref()
+                .is_some_and(|usb| SUPPORTED_USB.contains(&usb))
+        })
+        .collect();
+    let matches: Vec<_> = supported
+        .iter()
+        .filter(|controller| {
+            identity_matches(identity, &controller.address, controller.usb_id.as_deref())
+        })
+        .collect();
+    if matches.len() > 1 {
+        return Err(io::Error::other("Multiple supported Bluetooth adapters match; configure one explicit sensors.rid_ble.adapter.bd_addr or unplug extra adapters"));
+    }
+    if let Some(controller) = matches.first() {
+        parse_address(&controller.address)?;
+        return Ok((***controller).clone());
+    }
+    let present: Vec<_> = controllers
+        .iter()
+        .map(|controller| {
+            format!(
+                "hci{} {}",
+                controller.index,
+                controller
+                    .usb_id
+                    .as_deref()
+                    .unwrap_or("unknown USB identity")
+            )
+        })
+        .collect();
+    let pin = identity.usb_id.as_ref().or(identity.bd_addr.as_ref());
+    if let Some(pin) = pin {
+        return Err(io::Error::other(format!(
+            "Pinned Bluetooth adapter {pin} is absent; present: {}. Set sensors.rid_ble.adapter: {{}} for automatic selection or update the pin; recommended: {}",
+            if present.is_empty() { "none".into() } else { present.join(", ") }, SUPPORTED_USB.join(" / "))));
+    }
+    if !controllers.is_empty() {
+        return Err(io::Error::other(format!(
+            "Bluetooth adapter {} is not supported; recommended: {}",
+            present.join(", "),
+            SUPPORTED_USB.join(" / ")
+        )));
+    }
+    Err(io::Error::other(format!(
+        "No supported Bluetooth adapter present; plug in {} to activate automatically",
+        SUPPORTED_USB.join(" / ")
+    )))
 }
 
 fn identity_matches(identity: &BleAdapterYaml, addr: &str, usb: Option<&str>) -> bool {
     match (&identity.bd_addr, &identity.usb_id) {
         (Some(wanted), None) => wanted.eq_ignore_ascii_case(addr),
         (None, Some(wanted)) => usb.is_some_and(|id| wanted.eq_ignore_ascii_case(id)),
+        (None, None) => usb.is_some_and(|id| SUPPORTED_USB.contains(&id)),
         _ => false,
     }
 }
 
+#[cfg(test)]
 fn unique_adapter<T>(matches: Vec<T>) -> io::Result<T> {
     if matches.len() != 1 {
         return Err(io::Error::other(format!(
@@ -372,13 +654,17 @@ fn unique_adapter<T>(matches: Vec<T>) -> io::Result<T> {
 }
 
 fn usb_identity(path: &Path) -> Option<String> {
-    let canonical = path.canonicalize().ok()?;
+    let canonical = path
+        .join("device")
+        .canonicalize()
+        .or_else(|_| path.canonicalize())
+        .ok()?;
     for ancestor in canonical.ancestors() {
         if let (Ok(vendor), Ok(product)) = (
             std::fs::read_to_string(ancestor.join("idVendor")),
             std::fs::read_to_string(ancestor.join("idProduct")),
         ) {
-            return Some(format!("{}:{}", vendor.trim(), product.trim()));
+            return Some(format!("{}:{}", vendor.trim(), product.trim()).to_ascii_lowercase());
         }
     }
     None
@@ -499,26 +785,6 @@ impl HciSocket {
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "HCI command timeout"))?
     }
-    async fn controller_info(&self, index: u16) -> io::Result<Vec<u8>> {
-        tokio::time::timeout(Duration::from_secs(2), async {
-            let [lo, hi] = index.to_le_bytes();
-            self.send(&[4, 0, lo, hi, 0, 0]).await?;
-            loop {
-                let p = self.recv().await?;
-                if p.len() >= 9 && p[2..4] == [lo, hi] && p[6..8] == [4, 0] && p[..2] == [1, 0] {
-                    if p[8] != 0 {
-                        return Err(io::Error::other(format!(
-                            "Read Controller Info status {}",
-                            p[8]
-                        )));
-                    }
-                    return Ok(p[9..].to_vec());
-                }
-            }
-        })
-        .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "controller info timeout"))?
-    }
 }
 
 #[cfg(test)]
@@ -613,7 +879,10 @@ mod tests {
             assert!(events.try_recv().is_ok());
         }
         let mut disabled = RidBle(
-            RidBleYaml::default(),
+            RidBleYaml {
+                enabled: false,
+                ..Default::default()
+            },
             Arc::new(arc_swap::ArcSwapOption::empty()),
             Arc::new(crate::status::FrameActivity::default()),
         )
@@ -622,3 +891,7 @@ mod tests {
         assert_eq!(disabled.health.load().state, SensorState::Initializing);
     }
 }
+
+#[cfg(test)]
+#[path = "rid_ble_hotplug_tests.rs"]
+mod hotplug_tests;

@@ -9,6 +9,22 @@ from fixture import Fixture, S, P, T, E, UID, GID, RENEW, file
 
 
 class Layouts(Fixture):
+    def test_ble_hotplug_units_and_runtime_removed(self):
+        self.seed()
+        runtime=Path('/run/brrdfeeder-bluetooth'); runtime.mkdir(mode=0o755,exist_ok=True)
+        self.addCleanup(lambda: __import__('shutil').rmtree(runtime,ignore_errors=True))
+        file(runtime/'lock'); file(runtime/'conflict',0o644,data='operator changed ownership\n')
+        file(runtime/'.bluetooth-abcd_123',0o600)
+        for ext in ('service','timer'):
+            path=Path('/etc/systemd/system/brrdfeeder-ble-takeover.'+ext)
+            self.addCleanup(lambda p=path:p.unlink(missing_ok=True))
+            source=Path(__file__).resolve().parents[5]/('Component/aviary/deploy/quadlet/brrdfeeder-ble-takeover.'+ext)
+            file(path,0o644,data=source.read_text())
+        self.positive()
+        self.assertFalse(runtime.exists())
+        for ext in ('service','timer'):
+            self.assertFalse(Path('/etc/systemd/system/brrdfeeder-ble-takeover.'+ext).exists())
+
     def test_v0829_used_updater(self):
         self.seed('0.8.29'); self.positive()
 

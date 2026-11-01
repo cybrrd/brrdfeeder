@@ -152,3 +152,10 @@ the existence of already-supported external package files.
 3. Quarantining an invalid pending directory preserves potentially arbitrary
    children. A new structural inventory must distinguish generated records from
    preserved untrusted input; enumerating `entry/**` as trusted would be wrong.
+
+## Device-code confirmation copy
+
+The owner recovery prompt now prefers the bare verification URI and prints the
+node code with explicit comparison and unsolicited-request warnings. Extracting
+the formatter changes the conservative expression census only; no filesystem
+writer, credential path, ownership, permission or cleanup destination changes.

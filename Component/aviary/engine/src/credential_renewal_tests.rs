@@ -545,3 +545,37 @@ async fn flock_lab_transport() {
         assert_eq!(read_private(&path).unwrap().as_str(), old_raw.as_str());
     }
 }
+
+#[test]
+fn device_prompt_prefers_bare_and_requires_comparison() {
+    let auth = json!({"user_code":"TEST-1234", "verification_uri":"https://hospitality.cybrrd.com/device", "verification_uri_complete":"https://hospitality.cybrrd.com/device?user_code=TEST-1234"});
+    let text = owner_device_prompt(&auth, "fixture-node").unwrap();
+    assert!(text.contains("Open https://hospitality.cybrrd.com/device\n"));
+    assert!(!text.contains("?user_code="));
+    check_device_prompt_copy(&text);
+}
+#[test]
+fn device_prompt_bare_only() {
+    let auth = json!({"user_code":"TEST-1234", "verification_uri":"https://hospitality.cybrrd.com/device"});
+    let text = owner_device_prompt(&auth, "fixture-node").unwrap();
+    assert!(text.contains("Open https://hospitality.cybrrd.com/device\n"));
+    check_device_prompt_copy(&text);
+}
+#[test]
+fn device_prompt_complete_only_fallback() {
+    let auth = json!({"user_code":"TEST-1234", "verification_uri_complete":"https://hospitality.cybrrd.com/device?user_code=TEST-1234"});
+    let text = owner_device_prompt(&auth, "fixture-node").unwrap();
+    assert!(text.contains("Open https://hospitality.cybrrd.com/device?user_code=TEST-1234\n"));
+    check_device_prompt_copy(&text);
+}
+fn check_device_prompt_copy(text: &str) {
+    assert!(text.contains("TEST-1234"));
+    assert!(text.contains("Approve ONLY if the code shown in the browser exactly matches the code shown on this node."));
+    assert!(text.contains("If you did not start this recovery, do not approve."));
+}
+#[test]
+fn device_prompt_invalid_response_refused() {
+    for auth in [json!({"user_code":"TEST-1234"}), json!({"verification_uri":"https://hospitality.cybrrd.com/device"}), json!({"user_code":"TEST-1234","verification_uri":"https://example.invalid/device"})] {
+        assert_eq!(owner_device_prompt(&auth, "fixture-node").unwrap_err(), "invalid_device_response");
+    }
+}

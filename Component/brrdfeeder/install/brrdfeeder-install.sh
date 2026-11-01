@@ -3038,12 +3038,12 @@ zitadel_device_flow() {
     --data-urlencode "scope=${OAUTH_SCOPE}") \
     || { warn "device_authorization request failed (network or ${OAUTH_ISSUER} unreachable)"; _restore_xtrace; return 1; }
 
-  local device_code user_code verification_uri_complete expires_in interval
+  local device_code user_code approval_uri expires_in interval
   device_code=$(jq -re '.device_code' <<<"$auth_resp")                         || { warn "bad device_authorization response"; _restore_xtrace; return 1; }
   user_code=$(jq -re '.user_code' <<<"$auth_resp") || { warn 'Account linking returned an incomplete code.'; _restore_xtrace; return 1; }
   log_secret device-code "$device_code"
   log_secret device-code "$user_code"
-  verification_uri_complete=$(jq -re '.verification_uri_complete // .verification_uri' <<<"$auth_resp") || { warn 'Account linking returned no approval link.'; _restore_xtrace; return 1; }
+  approval_uri=$(jq -re '.verification_uri // .verification_uri_complete' <<<"$auth_resp") || { warn 'Account linking returned no approval link.'; _restore_xtrace; return 1; }
   expires_in=$(jq -re '.expires_in // 300' <<<"$auth_resp")
   interval=$(jq -re '.interval // 5' <<<"$auth_resp")
   if [[ ! $expires_in =~ ^[1-9][0-9]{0,4}$ || ! $interval =~ ^(0|[1-9][0-9]{0,3})$ ]]; then
@@ -3058,12 +3058,13 @@ zitadel_device_flow() {
   echo
   echo "     ${B}1.${R} On your phone or computer, open this link:"
   echo
-  echo "        ${Y}${verification_uri_complete}${R}"
+  echo "        ${Y}${approval_uri}${R}"
   echo
-  echo "     ${B}2.${R} Confirm the code shown there matches:   ${Y}${B}${user_code}${R}"
+  echo "     ${B}2.${R} Enter this node's code in the browser:   ${Y}${B}${user_code}${R}"
   echo
-  echo "     ${B}3.${R} Sign in with your cyBRRD account and click Approve."
-  echo "        (This binds the feeder to you + your leaderboard score.)"
+  echo "     ${B}3.${R} Sign in with your cyBRRD account."
+  echo "        Approve ONLY if the code shown in the browser exactly matches the code shown on this node."
+  echo "        If you did not start this install, do not approve."
   echo
   echo "     The install will continue ${G}automatically${R} the moment you approve."
   echo "     Code $attempt of 3: $expires_in seconds remaining. Expired codes refresh here automatically."

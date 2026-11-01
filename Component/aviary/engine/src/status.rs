@@ -39,6 +39,9 @@ pub struct StatusPayload<'a> {
 #[derive(Debug, Serialize)]
 struct Inventory {
     capture: Vec<CaptureInterface>,
+    /// Local explanation only; never added to the heartbeat/wire schema.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    capture_selection: Option<crate::capture_identity::SelectionStatus>,
     #[serde(skip_serializing_if = "Option::is_none")]
     rid_ble: Option<BleInventory>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -183,6 +186,7 @@ struct Meaningful {
     // GPS is currently the only error counter in the serialized schema.
     gps: Option<(crate::sensor::SensorState, Option<u8>, u64)>,
     capture: Vec<(String, Option<bool>)>,
+    capture_selection: Option<crate::capture_identity::SelectionStatus>,
     rfkill: Option<(bool, bool)>,
     ble_state: Option<crate::sensor::SensorState>,
     current_rfkill: Option<(bool, bool)>,
@@ -215,6 +219,7 @@ impl StatusPayload<'_> {
                 .iter()
                 .map(|c| (c.interface.clone(), c.monitor_mode))
                 .collect(),
+            capture_selection: self.inventory.capture_selection.clone(),
             rfkill: self
                 .inventory
                 .rid_ble
@@ -267,6 +272,7 @@ pub struct StatusSource {
     pub ble: Arc<ArcSwapOption<BleInventory>>,
     pub nats: Arc<NatsStatus>,
     pub frames: Arc<FrameActivity>,
+    capture_identity: Option<Arc<crate::capture_identity::Identity>>,
     interval_secs: u64,
     writer: Arc<Mutex<WriterState>>,
 }
@@ -288,9 +294,15 @@ impl StatusSource {
             ble,
             nats,
             frames,
+            capture_identity: None,
             interval_secs: interval_secs.max(1),
             writer: Arc::new(Mutex::new(WriterState::default())),
         }
+    }
+
+    pub fn with_capture_identity(mut self, identity: Option<Arc<crate::capture_identity::Identity>>) -> Self {
+        self.capture_identity = identity;
+        self
     }
 
     pub fn snapshot<'a>(&self, heartbeat: &'a HeartbeatPayload) -> StatusPayload<'a> {
@@ -303,18 +315,29 @@ impl StatusSource {
         let driver = hunter
             .and_then(|h| h.radios.iter().find(|r| r.device_alias == self.interface))
             .and_then(|r| r.driver_name.clone());
+        let selection = self.capture_identity.as_ref().map(|i| (*i.snapshot()).clone());
+        let capture = if let Some(selection) = &selection {
+            selection.adapter.iter().map(|adapter| CaptureInterface {
+                interface: adapter.interface.clone(),
+                driver: Some(adapter.driver.clone()),
+                monitor_mode: (heartbeat.radio_status == RadioStatus::Up).then_some(true),
+                current_channel: hunter.map(|h| h.current_channel).filter(|c| *c != 0),
+            }).collect()
+        } else {
+            vec![CaptureInterface {
+                interface: self.interface.clone(), driver,
+                monitor_mode: (heartbeat.radio_status == RadioStatus::Up).then_some(true),
+                current_channel: hunter.map(|h| h.current_channel).filter(|c| *c != 0),
+            }]
+        };
         StatusPayload {
             schema_version: 1,
             written_at: utc_now(),
             status_interval_secs: self.interval_secs,
             heartbeat,
             inventory: Inventory {
-                capture: vec![CaptureInterface {
-                    interface: self.interface.clone(),
-                    driver,
-                    monitor_mode: (heartbeat.radio_status == RadioStatus::Up).then_some(true),
-                    current_channel: hunter.map(|h| h.current_channel).filter(|c| *c != 0),
-                }],
+                capture,
+                capture_selection: selection,
                 rid_ble: ble,
                 gps: heartbeat.gps.clone().map(|fix| GpsInventory {
                     device: self.gps_device.clone(),
@@ -902,6 +925,29 @@ mod tests {
             v["links"],
             json!({"nats_state":"disconnected", "frames_last_hour":0})
         );
+    }
+
+    #[test]
+    fn wifi_local_selection_reason_does_not_change_heartbeat_or_invent_health() {
+        let tree = crate::capture_identity::tests::Tree::new();
+        let identity = tree.identity(None);
+        let source = source(PathBuf::new()).with_capture_identity(Some(identity.clone()));
+        let mut heartbeat = heartbeat(); heartbeat.radio_status = RadioStatus::Down;
+        let before = serde_json::to_value(&heartbeat).unwrap();
+        let absent = serde_json::to_value(source.snapshot(&heartbeat)).unwrap();
+        assert!(absent["inventory"]["capture"].as_array().unwrap().is_empty());
+        assert!(absent["inventory"]["capture_selection"]["reason"].as_str().unwrap().contains("Waiting"));
+        tree.add("wlxnew","1-1",9,0,"0e8d:7961","mt7921u");
+        identity.prepare_with(|_| Ok(())).unwrap();
+        let selected = serde_json::to_value(source.snapshot(&heartbeat)).unwrap();
+        assert_eq!(selected["inventory"]["capture"][0]["interface"],"wlxnew");
+        assert!(selected["inventory"]["capture"][0].get("monitor_mode").is_none());
+        assert_eq!(selected["heartbeat"],before); assert_eq!(absent["heartbeat"],before);
+        let first = source.snapshot(&heartbeat).meaningful();
+        identity.wait("Ambiguous USB Wi-Fi capture adapters".into());
+        assert_ne!(source.snapshot(&heartbeat).meaningful(),first);
+        let refused = serde_json::to_value(source.snapshot(&heartbeat)).unwrap();
+        assert_eq!(refused["heartbeat"],before);
     }
 
     #[test]

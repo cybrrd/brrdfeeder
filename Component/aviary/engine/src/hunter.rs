@@ -680,6 +680,18 @@ mod tests {
     }
 }
 
+fn reset_parked_on_adapter_change(
+    previous: &mut Option<crate::capture_identity::Adapter>,
+    current: Option<crate::capture_identity::Adapter>,
+    parked_set: &mut bool,
+) {
+    if current != *previous {
+        *parked_set = false;
+        *previous = current;
+    }
+}
+
+
 /// Run the Hunter task. Spawns no children; it is itself the channel
 /// rotation loop that should be passed to `tokio::spawn`. Runs for the
 /// lifetime of the engine.
@@ -706,6 +718,7 @@ mod tests {
 /// direct fix for the 2026-05-13 blind spot where the Hunter kept
 /// issuing set_channel against a stale ifindex 5 (the device had
 /// re-enumerated to 6) and reported success against nothing.
+
 pub async fn run_hunter(
     iface: String,
     cfg: HunterConfig,
@@ -747,11 +760,21 @@ pub async fn run_hunter(
 
     // Parked plans set the channel once; rotation plans re-set every visit.
     let mut parked_set = false;
+    let mut last_usb_binding = None;
     loop {
         // Inc 8: never cache the ifindex. Read it fresh every dwell so
         // a watchdog-driven re-resolution after re-enumeration is
         // picked up on the very next channel set.
         let ifindex = liveness.current_ifindex.load(Ordering::Relaxed);
+        if let Some(identity) = &liveness.identity {
+            let binding = identity.snapshot().adapter.clone();
+            reset_parked_on_adapter_change(&mut last_usb_binding, binding, &mut parked_set);
+            if ifindex == 0 || liveness.authorize_index(ifindex).is_err() {
+                parked_set = false;
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                continue;
+            }
+        }
         let visit = scheduler.next_visit();
         let channel = visit.channel;
         let dwell_ms = visit.dwell_ms;
@@ -760,9 +783,10 @@ pub async fn run_hunter(
             // Primary channel-set attempt, timed for the S2 retune
             // telemetry (cited proxy 8.5 ms; this replaces it with the
             // fleet's own measured value).
+            let authorization = Arc::clone(&liveness);
             let primary = tokio::task::spawn_blocking(move || {
                 let t0 = Instant::now();
-                let r = nl80211::set_channel(ifindex, channel);
+                let r = authorization.authorize_index(ifindex).and_then(|()| nl80211::set_channel(ifindex, channel));
                 (r, t0.elapsed().as_millis() as u64)
             })
             .await;
@@ -786,9 +810,10 @@ pub async fn run_hunter(
                         channel, original_err
                     );
                     let healing_start = Instant::now();
+                    let authorization = Arc::clone(&liveness);
                     let healing = tokio::task::spawn_blocking(move || {
                         let t0 = Instant::now();
-                        let r = nl80211::set_channel(ifindex, channel);
+                        let r = authorization.authorize_index(ifindex).and_then(|()| nl80211::set_channel(ifindex, channel));
                         (r, t0.elapsed().as_millis() as u64)
                     })
                     .await;
@@ -881,7 +906,11 @@ pub async fn run_hunter(
         // "returned at least one entry" alongside attempt count so
         // CoverageClass settles to LogicOnly within the sample
         // window without needing a hard-coded driver blocklist.
-        let survey_result = tokio::task::spawn_blocking(move || nl80211::get_survey(ifindex)).await;
+        let authorization = Arc::clone(&liveness);
+        let survey_result = tokio::task::spawn_blocking(move || {
+            authorization.authorize_index(ifindex)?;
+            nl80211::get_survey(ifindex)
+        }).await;
         match survey_result {
             Ok(Ok(entries)) => {
                 let any_entries = !entries.is_empty();
@@ -911,5 +940,28 @@ pub async fn run_hunter(
                 eprintln!("[hunter] survey spawn_blocking join error: {}", join_err);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod capture_identity_tests {
+    use super::*;
+
+    #[test]
+    fn wifi_parked_schedule_rearms_on_replacement_even_with_reused_ifindex() {
+        let tree = crate::capture_identity::tests::Tree::new();
+        tree.add("wlan1","1-1",5,0,"0e8d:7961","mt7921u");
+        let first = tree.identity(None).resolve().unwrap();
+        let mut previous = Some(first.clone());
+        let mut parked = true;
+        reset_parked_on_adapter_change(&mut previous,Some(first.clone()),&mut parked);
+        assert!(parked);
+        let mut replacement = first; replacement.interface = "wlxnew".into();
+        replacement.usb_path = replacement.usb_path.with_file_name("1-2");
+        reset_parked_on_adapter_change(&mut previous,Some(replacement),&mut parked);
+        assert!(!parked,"a new radio must receive the parked channel even if its index is reused");
+        parked = true;
+        reset_parked_on_adapter_change(&mut previous,None,&mut parked);
+        assert!(!parked);
     }
 }

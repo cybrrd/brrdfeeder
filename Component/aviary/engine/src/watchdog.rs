@@ -64,6 +64,8 @@ pub const RECOVERY_TIMEOUT: Duration = Duration::from_secs(30);
 /// Hunter READ it from `current_ifindex` every time they need it.
 /// This is the direct fix for the 2026-05-13 ifindex-5→6 blind spot.
 pub struct CaptureLiveness {
+    /// Present only for opt-in USB mode; capture alone owns adoption.
+    pub identity: Option<Arc<crate::capture_identity::Identity>>,
     pub frames: Arc<crate::status::FrameActivity>,
     /// Unix ms of the last frame the capture loop saw. Capture loop
     /// writes on every packet; watchdog reads. Zero = no packet yet.
@@ -87,7 +89,12 @@ pub struct CaptureLiveness {
 
 impl CaptureLiveness {
     pub fn new(initial_ifindex: u32) -> Arc<Self> {
+        Self::new_binding(initial_ifindex, None)
+    }
+
+    fn new_binding(initial_ifindex: u32, identity: Option<Arc<crate::capture_identity::Identity>>) -> Arc<Self> {
         Arc::new(CaptureLiveness {
+            identity,
             frames: Arc::new(crate::status::FrameActivity::default()),
             last_packet_unix_ms: AtomicU64::new(0),
             capture_opened_unix_ms: AtomicU64::new(0),
@@ -96,6 +103,24 @@ impl CaptureLiveness {
             stall_events: AtomicU64::new(0),
             recovery_events: AtomicU64::new(0),
         })
+    }
+
+    pub fn with_identity(identity: Arc<crate::capture_identity::Identity>) -> Arc<Self> {
+        Self::new_binding(0, Some(identity))
+    }
+
+    pub fn authorize_index(&self, ifindex: u32) -> Result<(), String> {
+        match &self.identity {
+            Some(identity) => identity.authorize_index(ifindex),
+            None => Ok(()),
+        }
+    }
+
+    pub fn invalidate_identity(&self, reason: String, radio: &RadioState) {
+        self.current_ifindex.store(0, Ordering::Relaxed);
+        self.restart_requested.store(true, Ordering::Relaxed);
+        if let Some(identity) = &self.identity { identity.wait(reason); }
+        radio.set(RadioStatus::Error);
     }
 
     /// Only genuine packets on the currently opened path establish Up. Ignore
@@ -182,9 +207,26 @@ pub async fn run_watchdog(
         radio.set(RadioStatus::Recovering);
         let recovery_start = Instant::now();
 
+        // USB mode never adopts from a cached name/index in the watchdog.
+        // The capture supervisor resolves ambiguity even before a first open.
+        let iface = if let Some(identity) = &liveness.identity {
+            let selected = identity.snapshot();
+            let Some(adapter) = selected.adapter.as_ref() else { continue; };
+            if let Err(e) = identity.authorize_index(adapter.ifindex) {
+                liveness.current_ifindex.store(0, Ordering::Relaxed);
+                liveness.restart_requested.store(true, Ordering::Relaxed);
+                identity.wait(e);
+                radio.set(RadioStatus::Error);
+                continue;
+            }
+            adapter.interface.clone()
+        } else { iface.clone() };
+
         // ── 1. Re-resolve ifindex ──
         let old_ifindex = liveness.current_ifindex.load(Ordering::Relaxed);
-        let ifindex_changed = match iface_to_ifindex(&iface) {
+        let ifindex_changed = match if liveness.identity.is_some() {
+            Ok(old_ifindex)
+        } else { iface_to_ifindex(&iface) } {
             Ok(new_idx) => {
                 if new_idx != old_ifindex {
                     eprintln!(
@@ -232,7 +274,11 @@ pub async fn run_watchdog(
                 "[watchdog] interface not in monitor mode — re-establishing on ifindex {}",
                 ifindex
             );
-            match tokio::task::spawn_blocking(move || nl80211::establish_monitor_mode(ifindex)).await
+            let authorization = Arc::clone(&liveness);
+            match tokio::task::spawn_blocking(move || {
+                authorization.authorize_index(ifindex)?;
+                nl80211::establish_monitor_mode(ifindex)
+            }).await
             {
                 Ok(Ok(())) => {
                     eprintln!("[watchdog] monitor mode re-established on ifindex {}", ifindex)

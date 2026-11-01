@@ -101,7 +101,9 @@ impl NodeYaml {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CaptureYaml {
-    pub interface: String,
+    pub interface: Option<String>,
+    /// Opt-in USB identity selection; old interface configs remain exact-name.
+    pub adapter_usb_id: Option<String>,
     /// Disabled by default. When enabled, a private size/age-bounded pcap ring.
     pub savefile: Option<SavefileYaml>,
     /// Wave 7.1 Hunter (Kittler Substrate Defense) — channel rotation
@@ -489,6 +491,7 @@ impl EngineConfig {
     pub fn load(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let content = std::fs::read_to_string(path)?;
         let mut cfg: EngineConfig = serde_yaml::from_str(&content)?;
+        crate::capture_identity::Selector::parse(cfg.capture.interface.as_deref(), cfg.capture.adapter_usb_id.as_deref())?;
         let heartbeat_secs = cfg.tuning.heartbeat.interval_secs.max(1);
         if cfg.node.status_file.is_some() && cfg.node.status_interval_secs < heartbeat_secs {
             eprintln!("[config] node.status_interval_secs={} is below heartbeat interval {}; using {} seconds", cfg.node.status_interval_secs, heartbeat_secs, heartbeat_secs);

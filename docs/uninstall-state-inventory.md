@@ -152,3 +152,417 @@ the existence of already-supported external package files.
 3. Quarantining an invalid pending directory preserves potentially arbitrary
    children. A new structural inventory must distinguish generated records from
    preserved untrusted input; enumerating `entry/**` as trusted would be wrong.
+
+
+## Wi-Fi USB identity census review (0.9.1)
+
+This block belongs only to Wi-Fi identity and is separate from the Bluetooth
+inventory additions. Clean `d6130a208f92a275db3fe11a52a4f21dcdbeaf63` passes
+`check-writers.py` (70 source units, 3590 expressions, 72 projected paths).
+The implementation before this registration fails. There are **no baseline
+census failures** to exclude. The extractor's global method-name wrapper closure
+also exposes unchanged callers of `parse`, `observe`, `bind`, and related methods;
+these are reviewed below, without changing those callers or weakening extraction.
+
+Every changed expression/count is listed below with its reason. The census JSON
+retains its existing exact-expression/count format; reasons live in this block.
+No new persistent destination is introduced. All 72 projected destinations are
+identical before and after registration and still pass actual uninstall dispatch
+and validator checks. Existing uninstall fixtures cover the config/status families;
+no new deletion rule or shared-directory whitelist is justified.
+
+| Class | Destination, ownership and mode | Lifetime and uninstall disposition |
+|---|---|---|
+| M | No filesystem destination; process memory only, owner/mode N/A | Volatile; engine stop during uninstall releases it. Existing downstream writes are unchanged. |
+| I | Reads `/sys/class/net/<iface>/{device,phy80211,ifindex}`, canonical `/sys/devices/.../{idVendor,idProduct,uevent,driver}`, phy index and `/sys/bus/usb/drivers`; kernel-owned attributes/symlinks, existing kernel modes, no chmod/chown | Kernel device state, not package-owned state; never delete. Selection memory disappears at service stop. Error strings and joins do not create paths. |
+| R | Read-only `/proc/net/{route,ipv6_route}` or existing thermal sysfs input; kernel-owned modes, unchanged | Kernel state survives uninstall; package must not remove it. Parsed values live in memory. |
+| K | Generic-netlink/AF_BLUETOOTH socket and kernel radio state; no filesystem pathname, owner/mode N/A | Socket closes at process stop. Kernel radio state is not a persistent file or new uninstall artifact. |
+| C | I/R/K observation and radio administration, process atomics, journal and S status sinks | Engine service is stopped before state removal (`stop_unit system brrdfeeder-engine.service`). No new capture file; existing optional forensic capture paths remain unchanged. |
+| S | Existing `/var/lib/brrdfeeder-status/status.json` (or supported `/var/lib/brrdfeeder/status.json`) and `status.json.tmp.<pid>.<sequence>`; service UID/GID, temp initially 0600, chmod 0644 before rename, final 0644 | Runtime status on disk; existing four-tree validator/collection and post-stop tree deletion remove these. Arbitrary operator-configured paths are not added as deletion roots. |
+| Diagnostics | Existing stdout/stderr journal sink; journal files and permissions managed by systemd, not a new engine-owned file | Logs intentionally survive uninstall for diagnostics; final uninstall notice explicitly retains logs. No new journal path, mode or ownership. |
+| Fresh-install configuration | Existing `/etc/brrdfeeder/config.yaml`, root:root 0644, existing `.brrdfeeder-atomic-<8 chars>` staging (0600 initially, target mode/owner before publish) | Persistent config; existing E-tree collection and post-stop deletion cover both. Only the fresh automatic selector value changes; reruns preserve config. The Python observer is embedded, not installed to a new path. |
+
+The selection snapshot can contain a sysfs path as **data** in status JSON; that
+does not authorize writing or deleting that sysfs path. The status reason addition
+uses the existing atomic status writer. Identity `bind` changes an ArcSwap;
+`authorize` only rereads identity/routes. Monitor establishment uses netlink,
+not writes to sysfs. Test-only fake sysfs writers are excluded by the existing
+`cfg(test)` filter and are not package-installed state.
+
+### Exact expression attribution
+
+Class references below include the path, owner/mode, lifetime and cleanup reason
+above. Counts are before → after; removed expressions remain documented too.
+
+#### `Component/aviary/engine/src/blue_policy.rs`
+
+Existing JSON parser only; newly visible through global parse wrapper matching; no new policy-state write.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call parse (&amp; raw)</code> | 0 → 1 | M: Existing JSON parser only; newly visible through global parse wrapper matching; no new policy-state write. |
+| <code>call parse (raw)</code> | 0 → 2 | M: Existing JSON parser only; newly visible through global parse wrapper matching; no new policy-state write. |
+
+#### `Component/aviary/engine/src/capture.rs`
+
+Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call ! ("Cannot open USB Wi-Fi capture on {interface}: {e}")</code> | 0 → 1 | C: Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks. |
+| <code>call ! ("USB Wi-Fi capture lost: {msg}")</code> | 0 → 1 | C: Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks. |
+| <code>call ! ("USB capture observer failed: {e}")</code> | 0 → 1 | C: Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks. |
+| <code>call ) . wait_for_change (expected . clone ( ), crate :: capture_identity :: RESCAN_INTERVAL)</code> | 0 → 1 | C: Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks. |
+| <code>call await . map_err (&#124; e &#124; format ! ( "USB capture observer failed: {e}" ))</code> | 0 → 1 | C: Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks. |
+| <code>call liveness . invalidate_identity (format ! ( "Cannot open USB Wi-Fi capture on {interface}: {e}" ), &amp; radio)</code> | 0 → 1 | C: Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks. |
+| <code>call liveness . invalidate_identity (format ! ( "USB Wi-Fi capture lost: {msg}" ), &amp; radio)</code> | 0 → 1 | C: Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks. |
+| <code>call liveness . invalidate_identity (reason, &amp; radio)</code> | 0 → 2 | C: Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks. |
+| <code>call nl80211 :: establish_monitor_mode (adapter . ifindex)</code> | 0 → 1 | C: Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks. |
+| <code>call nl80211 :: interface_is_monitor (adapter . ifindex)</code> | 0 → 1 | C: Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks. |
+| <code>call observer . prepare_with (&#124; adapter &#124; { if ! nl80211 :: interface_is_monitor ( adapter . ifindex ) ? { nl80211 :: establish_monitor_mode ( adapter . ifindex ) ? ; std :: thread :: sleep ( Duration :: from_millis ( 400 ) ) ; } Ok ( ( ) ) })</code> | 0 → 1 | C: Selection/retry, monitor netlink and liveness handling; no file creation; diagnostics use existing journal/status sinks. |
+
+#### `Component/aviary/engine/src/capture_identity.rs`
+
+USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>array [ serde ( skip_serializing_if = "Option::is_none" ) ]</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>binding ! = "."</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>binding ! = ".."</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>binding =&gt; return "USB capture adapter identity changed; rebinding"</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>binding skip_serializing_if = "Option::is_none"</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! (": {}", reasons . join ( "; " ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("Ambiguous USB Wi-Fi capture adapters: {}. Configure capture.interface explicitly; refusing to guess", candidates . iter ( ) . map ( &#124; a &#124; format ! ( "{} ({} / {})" , a . interface , a . usb_id , a . driver ) ) . collect :: &lt; Vec &lt; _ &gt; &gt; ( ) . join ( ", " ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("Cannot inventory USB Wi-Fi adapters: {e}")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("Cannot verify Wi-Fi adapter {name}: {e}; retrying without selecting another adapter")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("Cannot verify Wi-Fi monitor capability: {e}; retrying")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("Incomplete Wi-Fi inventory: {e}")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("USB Wi-Fi driver is not bound: {e}")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("USB capture identity changed for {}; waiting for a fresh binding", expected . interface)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("USB capture rescan failed: {e}")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("USB({})", id . as_deref ( ) . unwrap_or ( "auto" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("Waiting for {}USB Wi-Fi capture adapter with a bound driver and monitor-mode support{}", self . wanted . as_ref ( ) . map ( &#124; id &#124; format ! ( "{id} " ) ) . unwrap_or_default ( ), if reasons . is_empty ( ) { String :: new ( ) } else { format ! ( ": {}" , reasons . join ( "; " ) ) })</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("[capture] selected {}: USB {} driver {} phy {} ifindex {}", adapter . interface, adapter . usb_id, adapter . driver, adapter . phy, adapter . ifindex)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("[capture] {reason}")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("device ancestry unavailable: {e}")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("invalid interface index {text}")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("invalid wiphy index: {e}")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("{id} ")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("{name}: USB {} does not match requested {}", adapter . usb_id, self . wanted . as_deref ( ) . unwrap_or ( "auto" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("{name}: USB {} driver {} does not advertise monitor-mode support", adapter . usb_id, adapter . driver)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("{name}: not a USB Wi-Fi adapter")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("{} ({} / {})", a . interface, a . usb_id, a . driver)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("{}: {e}", path . as_ref ( ) . display ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ! ("{}:{}", attr ( ancestor . join ( "idVendor" ) ) ?, attr ( ancestor . join ( "idProduct" ) ) ?)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . all (&#124; b &#124; b . is_ascii_alphanumeric ( ) &#124; &#124; b "_.:-" . contains ( &amp; b ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . join (", ")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . join ("phy80211")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . join (name)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . map (&#124; a &#124; format ! ( "{} ({} / {})" , a . interface , a . usb_id , a . driver ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . map (&#124; id &#124; format ! ( "{id} " ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . map_err (&#124; e &#124; format ! ( "Cannot inventory USB Wi-Fi adapters: {e}" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . map_err (&#124; e &#124; format ! ( "Cannot verify Wi-Fi monitor capability: {e}; retrying" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . map_err (&#124; e &#124; format ! ( "USB Wi-Fi driver is not bound: {e}" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . map_err (&#124; e &#124; format ! ( "device ancestry unavailable: {e}" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . map_err (&#124; e &#124; format ! ( "invalid wiphy index: {e}" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . map_err (&#124; e &#124; format ! ( "{}: {e}" , path . as_ref ( ) . display ( ) ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . ok_or ("USB PRODUCT uevent missing")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . ok_or ("USB driver name unavailable")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . ok_or_else (&#124; &#124; "USB capture has no current authorized binding" . to_string ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . ok_or_else (&#124; &#124; format ! ( "Waiting for {}USB Wi-Fi capture adapter with a bound driver and monitor-mode support{}" , self . wanted . as_ref ( ) . map ( &#124; id &#124; format ! ( "{id} " ) ) . unwrap_or_default ( ) , if reasons . is_empty ( ) { String :: new ( ) } else { format ! ( ": {}" , reasons . join ( "; " ) ) } ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . ok_or_else (&#124; &#124; format ! ( "invalid interface index {text}" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ) . unwrap_or ("auto")</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call , (None, Some ( "auto" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Arc :: new (SelectionStatus { selector : old . selector . clone ( ) , adapter : None , reason : Some ( reason ) , })</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Arc :: new (SelectionStatus { selector : old . selector . clone ( ) , adapter : Some ( adapter ) , reason : None , })</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Arc :: new (Self :: with_observers ( PathBuf :: from ( "/sys" ) , wanted , Arc :: new ( crate :: nl80211 :: monitor_capable_phys ) , Arc :: new ( crate :: route_guard :: ensure_usb_capture_is_not_default_route ) , ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Arc :: new (crate :: nl80211 :: monitor_capable_phys)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Arc :: new (crate :: route_guard :: ensure_usb_capture_is_not_default_route)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ArcSwap :: from_pointee (SelectionStatus { selector , adapter : None , reason : Some ( "Waiting for a USB Wi-Fi capture adapter with a driver and monitor-mode support" . into ( ) ) })</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err ("USB capture binding was invalidated before radio administration" . into ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err ("USB capture selection changed during monitor establishment; retrying" . into ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err ("USB driver link and kernel uevent disagree" . into ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err ("USB identity and kernel uevent disagree" . into ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err ("capture requires exactly one valid interface name or adapter_usb_id (auto or vvvv:pppp); existing interface selections are never converted" . into ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err ("device ancestry escapes sysfs devices" . into ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err ("driver is not a USB driver" . into ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err ("invalid USB idVendor/idProduct" . into ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err ("invalid interface name" . into ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err (format ! ( "Ambiguous USB Wi-Fi capture adapters: {}. Configure capture.interface explicitly; refusing to guess" , candidates . iter ( ) . map ( &#124; a &#124; format ! ( "{} ({} / {})" , a . interface , a . usb_id , a . driver ) ) . collect :: &lt; Vec &lt; _ &gt; &gt; ( ) . join ( ", " ) ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err (format ! ( "Cannot verify Wi-Fi adapter {name}: {e}; retrying without selecting another adapter" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Err (format ! ( "USB capture identity changed for {}; waiting for a fresh binding" , expected . interface ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call PathBuf :: from ("/sys")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Self :: with_observers (PathBuf :: from ( "/sys" ), wanted, Arc :: new ( crate :: nl80211 :: monitor_capable_phys ), Arc :: new ( crate :: route_guard :: ensure_usb_capture_is_not_default_route ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Some ("Waiting for a USB Wi-Fi capture adapter with a driver and monitor-mode support" . into ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Some ("auto")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Some ("usb_device")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Some ("usb_interface")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call String :: new ()</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call Vec :: new ()</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ancestor . join ("idProduct")</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ancestor . join ("idVendor")</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call ancestor . join ("uevent")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call attr (ancestor . join ( "idProduct" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call attr (ancestor . join ( "idVendor" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call attr (ancestor . join ( "uevent" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call attr (device . join ( "uevent" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call attr (net . join ( "phy80211/index" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call candidates . len ()</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call candidates . push (adapter)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call device . join ("driver")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call device . join ("uevent")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call entry . map_err (&#124; e &#124; format ! ( "Incomplete Wi-Fi inventory: {e}" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call entry . path ()</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call event_value (&amp; event, "DEVTYPE")</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call event_value (&amp; event, "DRIVER")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call event_value (&amp; event, "PRODUCT")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call fs :: canonicalize (device . join ( "driver" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call fs :: canonicalize (net . join ( "device" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call fs :: canonicalize (root . join ( "bus/usb/drivers" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call fs :: canonicalize (root . join ( "devices" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call fs :: read_dir (self . root . join ( "class/net" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call id . len ()</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call name . len ()</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call net . join ("device")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call net . join ("ifindex")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call net . join ("phy80211/index")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call observe (&amp; self . root, &amp; expected . interface)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call observe (&amp; self . root, &amp; name)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call observer . resolve ()</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call parts . len ()</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call positive_index (net . join ( "ifindex" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call reasons . join ("; ")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call reasons . push (format ! ( "{name}: USB {} does not match requested {}" , adapter . usb_id , self . wanted . as_deref ( ) . unwrap_or ( "auto" ) ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call reasons . push (format ! ( "{name}: USB {} driver {} does not advertise monitor-mode support" , adapter . usb_id , adapter . driver ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call reasons . push (format ! ( "{name}: not a USB Wi-Fi adapter" ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call root . join ("bus/usb/drivers")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call root . join ("class/net")</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call root . join ("devices")</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call self . authorize (&amp; adapter)</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call self . authorize (adapter)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call self . bind (adapter . clone ( ))</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call self . resolve ()</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call self . snapshot ()</code> | 0 → 4 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call serde (skip_serializing_if = "Option::is_none")</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call valid_interface (name)</code> | 0 → 2 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call valid_usb_id (&amp; id)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>call valid_usb_id (id)</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>literal "/sys"</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>range 5 .. ]</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+| <code>range [ .. 4</code> | 0 → 1 | I: USB identity observation, selector validation or in-memory selection/reason; sysfs is read-only; diagnostics use existing journal/status sinks. |
+
+#### `Component/aviary/engine/src/clock_discipline.rs`
+
+Existing clock consensus observe updates memory; newly visible through observe wrapper matching; no path write.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call consensus . observe (gps_utc_ms, Instant :: now ( ), policy . consistent_fixes)</code> | 0 → 1 | M: Existing clock consensus observe updates memory; newly visible through observe wrapper matching; no path write. |
+
+#### `Component/aviary/engine/src/heartbeat.rs`
+
+Existing numeric parsing and CPU-temperature read; reads /sys/class/thermal/thermal_zone0/temp; no path write.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call ) . parse ()</code> | 0 → 1 | R: Existing numeric parsing and CPU-temperature read; reads /sys/class/thermal/thermal_zone0/temp; no path write. |
+| <code>call ] . parse ()</code> | 0 → 3 | R: Existing numeric parsing and CPU-temperature read; reads /sys/class/thermal/thermal_zone0/temp; no path write. |
+| <code>call read_cpu_temp_c ()</code> | 0 → 1 | R: Existing numeric parsing and CPU-temperature read; reads /sys/class/thermal/thermal_zone0/temp; no path write. |
+
+#### `Component/aviary/engine/src/hunter.rs`
+
+Checks current binding and authorizes kernel channel administration; no filesystem write.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call authorization . authorize_index (ifindex)</code> | 0 → 3 | C: Checks current binding and authorizes kernel channel administration; no filesystem write. |
+| <code>call identity . snapshot ()</code> | 0 → 1 | C: Checks current binding and authorizes kernel channel administration; no filesystem write. |
+| <code>call liveness . authorize_index (ifindex)</code> | 0 → 1 | C: Checks current binding and authorizes kernel channel administration; no filesystem write. |
+
+#### `Component/aviary/engine/src/main.rs`
+
+Constructs in-memory identity observer and parses configuration; no configuration write.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call CaptureLiveness :: with_identity (capture_identity :: Identity :: new ( wanted ))</code> | 0 → 1 | I: Constructs in-memory identity observer and parses configuration; no configuration write. |
+| <code>call Identity :: new (wanted)</code> | 0 → 1 | I: Constructs in-memory identity observer and parses configuration; no configuration write. |
+| <code>call Selector :: parse (cfg . capture . interface . as_deref ( ), cfg . capture . adapter_usb_id . as_deref ( ))</code> | 0 → 1 | I: Constructs in-memory identity observer and parses configuration; no configuration write. |
+
+#### `Component/aviary/engine/src/memory.rs`
+
+Existing numeric parse only; newly visible through parse wrapper matching; no path write.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call value . parse ()</code> | 0 → 1 | M: Existing numeric parse only; newly visible through parse wrapper matching; no path write. |
+
+#### `Component/aviary/engine/src/nl80211.rs`
+
+Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call ! ("GET_WIPHY receive: {e}")</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call ! ("GET_WIPHY send: {e}")</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call ! ("nl80211 socket connect: {e}")</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call ! ("resolve nl80211 family: {e}")</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call ) . map_err (&#124; e &#124; format ! ( "GET_WIPHY send: {e}" ))</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call ) . map_err (&#124; e &#124; format ! ( "nl80211 socket connect: {e}" ))</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call ) . map_err (&#124; e &#124; format ! ( "resolve nl80211 family: {e}" ))</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call ) . ok_or ("GET_WIPHY capability response has no phy")</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call AttrTypeBuilder :: default ()</code> | 1 → 2 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call BTreeSet :: new ()</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call Buffer :: new ()</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call GenlmsghdrBuilder :: default ()</code> | 1 → 2 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call NlRouter :: connect (NlFamily :: Generic, None, Groups :: empty ( ))</code> | 1 → 2 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call NlattrBuilder :: default ()</code> | 1 → 2 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call response . map_err (&#124; e &#124; format ! ( "GET_WIPHY receive: {e}" ))</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+| <code>call wiphy_request ()</code> | 0 → 1 | K: Builds GET_WIPHY request and reads generic-netlink replies; builders/errors are in memory; no filesystem path. |
+
+#### `Component/aviary/engine/src/node_config.rs`
+
+Validates the already-read capture selector; no configuration write.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call Selector :: parse (cfg . capture . interface . as_deref ( ), cfg . capture . adapter_usb_id . as_deref ( ))</code> | 0 → 1 | M: Validates the already-read capture selector; no configuration write. |
+
+#### `Component/aviary/engine/src/rid_ble.rs`
+
+Existing libc bind attaches an AF_BLUETOOTH socket; newly visible through bind wrapper matching; no Unix-domain pathname or file.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call libc :: bind (fd . as_raw_fd ( ), ( &amp; addr as * const HciAddress ) . cast ( ), std :: mem :: size_of :: &lt; HciAddress &gt; ( ) as libc :: socklen_t)</code> | 0 → 1 | K: Existing libc bind attaches an AF_BLUETOOTH socket; newly visible through bind wrapper matching; no Unix-domain pathname or file. |
+
+#### `Component/aviary/engine/src/route_guard.rs`
+
+Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>binding = = "00"</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+| <code>binding = = "00000000000000000000000000000000"</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+| <code>call ! ("cannot verify IPv6 routes for capture interface {iface}: {e}")</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+| <code>call ! ("capture interface {iface} carries an IPv6 default route; refusing to administer the host uplink")</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+| <code>call ) . any (&#124; line &#124; { let cols : Vec &lt; _ &gt; = line . split_whitespace ( ) . collect ( ) ; cols . len ( ) = = 10 &amp; &amp; cols [ 0 ] = = "00000000000000000000000000000000" &amp; &amp; cols [ 1 ] = = "00" &amp; &amp; cols [ 9 ] = = iface })</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+| <code>call Err (format ! ( "cannot verify IPv6 routes for capture interface {iface}: {e}" ))</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+| <code>call Err (format ! ( "capture interface {iface} carries an IPv6 default route; refusing to administer the host uplink" ))</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+| <code>call cols . len ()</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+| <code>call ensure_capture_interface_is_not_default_route (iface)</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+| <code>call fs :: read_to_string ("/proc/net/ipv6_route")</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+| <code>call ipv6_default_on (&amp; table, iface)</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+| <code>literal "/proc/net/ipv6_route"</code> | 0 → 1 | R: Reads /proc/net/route and /proc/net/ipv6_route and parses/refuses default-route matches; no procfs write. |
+
+#### `Component/aviary/engine/src/sensor_gps.rs`
+
+Existing NMEA parse updates parser memory; newly visible through parse wrapper matching; no file write.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call parse_nmea_line (&amp; mut parser, &amp; line)</code> | 0 → 1 | M: Existing NMEA parse updates parser memory; newly visible through parse wrapper matching; no file write. |
+| <code>call parser . parse (line)</code> | 0 → 1 | M: Existing NMEA parse updates parser memory; newly visible through parse wrapper matching; no file write. |
+
+#### `Component/aviary/engine/src/status.rs`
+
+Adds optional selection data to the existing status serializer; uses existing status.json and atomic sibling family.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>array [ serde ( skip_serializing_if = "Option::is_none" ) ]</code> | 11 → 12 | S: Adds optional selection data to the existing status serializer; uses existing status.json and atomic sibling family. |
+| <code>binding skip_serializing_if = "Option::is_none"</code> | 11 → 12 | S: Adds optional selection data to the existing status serializer; uses existing status.json and atomic sibling family. |
+| <code>call i . snapshot ()</code> | 0 → 1 | S: Adds optional selection data to the existing status serializer; uses existing status.json and atomic sibling family. |
+| <code>call serde (skip_serializing_if = "Option::is_none")</code> | 11 → 12 | S: Adds optional selection data to the existing status serializer; uses existing status.json and atomic sibling family. |
+
+#### `Component/aviary/engine/src/upward.rs`
+
+Existing Health::observe computes health in memory; newly visible through observe wrapper matching; no new spool write.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call Health :: observe (identity . verified_policy_floor ( ) . is_some ( ), radio . get ( ) = = crate :: heartbeat :: RadioStatus :: Up, gps_required, gps . load ( ) . state = = crate :: sensor :: SensorState :: Healthy, time . is_trusted ( ))</code> | 0 → 1 | M: Existing Health::observe computes health in memory; newly visible through observe wrapper matching; no new spool write. |
+
+#### `Component/aviary/engine/src/watchdog.rs`
+
+In-memory binding/liveness atomics and identity checks; reason display uses existing journal/status sinks; no file creation.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call Arc :: new (CaptureLiveness { frames : Arc :: new ( crate :: status :: FrameActivity :: default ( ) ) , last_packet_unix_ms : AtomicU64 :: new ( 0 ) , capture_opened_unix_ms : AtomicU64 :: new ( 0 ) , current_ifindex : AtomicU32 :: new ( initial_ifindex ) , restart_requested : AtomicBool :: new ( false ) , stall_events : AtomicU64 :: new ( 0 ) , recovery_events : AtomicU64 :: new ( 0 ) , })</code> | 1 → 0 | C: In-memory binding/liveness atomics and identity checks; reason display uses existing journal/status sinks; no file creation. |
+| <code>call Arc :: new (CaptureLiveness { identity , frames : Arc :: new ( crate :: status :: FrameActivity :: default ( ) ) , last_packet_unix_ms : AtomicU64 :: new ( 0 ) , capture_opened_unix_ms : AtomicU64 :: new ( 0 ) , current_ifindex : AtomicU32 :: new ( initial_ifindex ) , restart_requested : AtomicBool :: new ( false ) , stall_events : AtomicU64 :: new ( 0 ) , recovery_events : AtomicU64 :: new ( 0 ) , })</code> | 0 → 1 | C: In-memory binding/liveness atomics and identity checks; reason display uses existing journal/status sinks; no file creation. |
+| <code>call Self :: new_binding (0, Some ( identity ))</code> | 0 → 1 | C: In-memory binding/liveness atomics and identity checks; reason display uses existing journal/status sinks; no file creation. |
+| <code>call Self :: new_binding (initial_ifindex, None)</code> | 0 → 1 | C: In-memory binding/liveness atomics and identity checks; reason display uses existing journal/status sinks; no file creation. |
+| <code>call authorization . authorize_index (ifindex)</code> | 0 → 1 | C: In-memory binding/liveness atomics and identity checks; reason display uses existing journal/status sinks; no file creation. |
+| <code>call identity . authorize_index (adapter . ifindex)</code> | 0 → 1 | C: In-memory binding/liveness atomics and identity checks; reason display uses existing journal/status sinks; no file creation. |
+| <code>call identity . authorize_index (ifindex)</code> | 0 → 1 | C: In-memory binding/liveness atomics and identity checks; reason display uses existing journal/status sinks; no file creation. |
+| <code>call identity . snapshot ()</code> | 0 → 1 | C: In-memory binding/liveness atomics and identity checks; reason display uses existing journal/status sinks; no file creation. |
+| <code>call identity . wait (e)</code> | 0 → 1 | C: In-memory binding/liveness atomics and identity checks; reason display uses existing journal/status sinks; no file creation. |
+| <code>call identity . wait (reason)</code> | 0 → 1 | C: In-memory binding/liveness atomics and identity checks; reason display uses existing journal/status sinks; no file creation. |
+
+#### `Component/brrdfeeder/install/capture-usb.py`
+
+Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call ', '.join (candidates)</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call '; '.join (reasons)</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call Path ('/sys')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ValueError ('USB driver and kernel uevent disagree')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ValueError ('USB identity and kernel uevent disagree')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ValueError ('Wi-Fi USB driver is not bound')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ValueError ('Wi-Fi device escapes sysfs devices')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ValueError ('invalid USB identity')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ValueError ('invalid Wi-Fi interface name')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ValueError ('invalid wireless phy name')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ValueError ('more than one monitor-capable USB Wi-Fi interface found (' + ', '.join(candidates) + '); refusing to guess. Supply --interface explicitly')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ValueError ('no USB Wi-Fi adapter with a bound driver and monitor-mode support found. Plug in the external capture adapter (ALFA AWUS036AXM/AXML). ' + '; '.join(reasons))</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ValueError ('wireless driver did not report supported interface modes')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call bool (re.search('^\\s*\\* monitor\\s*$', modes[1].split('Band ', 1)[0], re.M))</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call dict ((line.split('=', 1) for line in path.read_text().splitlines() if '=' in line))</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call event (device / 'uevent')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call event (usb / 'uevent')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call line.split ('=', 1)</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call modes[1].split ('Band ', 1)</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call next ((p for p in (device, *device.parents) if p.is_relative_to(devices) and ((p / 'idVendor').exists() or (p / 'idProduct').exists())), None)</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call re.fullmatch ('[0-9a-fA-F]{4}:[0-9a-fA-F]{4}', vid + ':' + pid)</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call re.fullmatch ('[A-Za-z0-9_][A-Za-z0-9_.:-]{0,14}', net.name)</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call re.fullmatch ('phy[0-9]+', phy)</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call re.search ('^\\s*\\* monitor\\s*$', modes[1].split('Band ', 1)[0], re.M)</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call reasons.append (net.name + ': USB ' + vid + ':' + pid + ' driver ' + driver.name + ' has no monitor-mode support')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call reasons.append (net.name + ': not a USB adapter')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call result.stdout.split ('Supported interface modes:', 1)</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call sorted ((root / 'class/net').iterdir())</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call subprocess.run (['iw', 'phy', phy, 'info'], check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call sys.exit ('USB Wi-Fi capture selection refused: ' + str(error))</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ue.get ('DEVTYPE')</code> | 0 → 2 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ue.get ('DRIVER')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ue.get ('PRODUCT', '')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>call ue.get('PRODUCT', '').split ('/')</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>literal '/'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>literal '/sys'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div device / 'driver'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div device / 'uevent'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div net / 'device'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div net / 'phy80211'</code> | 0 → 2 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div p / 'idProduct'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div p / 'idVendor'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div root / 'bus/usb/drivers'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div root / 'class/net'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div root / 'devices'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div usb / 'idProduct'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div usb / 'idVendor'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+| <code>path/div usb / 'uevent'</code> | 0 → 1 | I: Read-only sysfs and iw phy info observation, validation and stdout/stderr; embedded helper creates no installed helper file. |
+
+#### `Component/brrdfeeder/install/install-log.py`
+
+Reads selection reason from existing status JSON into the diagnostic result; no new log/status destination.
+
+| Expression | Count | Reason |
+|---|---|---|
+| <code>call isinstance (status.get('inventory', {}).get('capture_selection', {}).get('reason'), str)</code> | 0 → 1 | S: Reads selection reason from existing status JSON into the diagnostic result; no new log/status destination. |
+| <code>call status.get ('inventory', {})</code> | 1 → 2 | S: Reads selection reason from existing status JSON into the diagnostic result; no new log/status destination. |
+| <code>call status.get('inventory', {}).get ('capture_selection', {})</code> | 0 → 1 | S: Reads selection reason from existing status JSON into the diagnostic result; no new log/status destination. |
+| <code>call status.get('inventory', {}).get('capture_selection', {}).get ('reason')</code> | 0 → 1 | S: Reads selection reason from existing status JSON into the diagnostic result; no new log/status destination. |

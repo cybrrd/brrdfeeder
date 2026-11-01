@@ -22,6 +22,7 @@ ROOT = HERE.parents[3]
 INSTALL = ROOT/'Component/brrdfeeder/install'
 RELEASE = ROOT/'Component/aviary/release-system'
 BASELINES = [
+    'wifi-capture-identity/test-contract.py',
     'credential-renewal/test-contract.py',
     'gps-runtime/test-contract.py',
     'gps-usb-id/test-contract.py',
@@ -54,6 +55,7 @@ BASELINES = [
     'self-update-2026-09-29/test-integration.py',
 ]
 MUTATIONS = [
+    'wifi-capture-identity/test-mutations.py',
     'installer-ux/test-mutations.py',
     'lock-on/test-mutations.py',
     'github-scaffold/test-mutations.py',

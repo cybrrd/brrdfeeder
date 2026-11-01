@@ -559,6 +559,8 @@ def engine_snapshot(context, deadline):
             if heartbeat.get('radio_status') == 'up' and any(
                     item.get('monitor_mode') is True for item in status.get('inventory', {}).get('capture', [])):
                 result['states']['Wi-Fi capture'] = 'OK'
+            elif isinstance(status.get('inventory', {}).get('capture_selection', {}).get('reason'), str):
+                result['states']['Wi-Fi capture'] = status['inventory']['capture_selection']['reason']
             # Main's status schema has only historical rfkill, not BLE health.
             # Never use that pre-unblock snapshot as a current health verdict.
             ble = None

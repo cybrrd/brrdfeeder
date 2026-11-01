@@ -43,6 +43,50 @@ use nl80211_ng::ntsocket::NtSocket;
 use nl80211_ng::rtsocket::RtSocket;
 use nl80211_ng::{NL_80211_GENL_NAME, NL_80211_GENL_VERSION};
 
+/// Read-only capability inventory. Use the checked neli router rather than the
+/// older wrapper's panic/flatten-based wiphy reader. Split dumps may repeat a
+/// phy; only an explicit supported-iftypes monitor entry establishes support.
+pub fn monitor_capable_phys() -> Result<std::collections::BTreeSet<u32>, String> {
+    let (sock, _) = NlRouter::connect(NlFamily::Generic, None, Groups::empty())
+        .map_err(|e| format!("nl80211 socket connect: {e}"))?;
+    let family = sock.resolve_genl_family(NL_80211_GENL_NAME)
+        .map_err(|e| format!("resolve nl80211 family: {e}"))?;
+    let responses = sock.send::<_, _, u16, Genlmsghdr<u8, u16>>(
+        family, NlmF::DUMP, NlPayload::Payload(wiphy_request()?),
+    ).map_err(|e| format!("GET_WIPHY send: {e}"))?;
+    let mut capable = std::collections::BTreeSet::new();
+    for response in responses {
+        let response = response.map_err(|e| format!("GET_WIPHY receive: {e}"))?;
+        if let NlPayload::Payload(payload) = response.nl_payload() {
+            if let Some((phy, true)) = monitor_support(payload)? { capable.insert(phy); }
+        }
+    }
+    Ok(capable)
+}
+
+fn wiphy_request() -> Result<Genlmsghdr<u8, u16>, String> {
+    let attr_type = AttrTypeBuilder::default()
+        .nla_type(u16::from(Nl80211Attr::AttrSplitWiphyDump)).build().map_err(|e| e.to_string())?;
+    let attr = NlattrBuilder::default().nla_type(attr_type)
+        .nla_payload(neli::types::Buffer::new()).build().map_err(|e| e.to_string())?;
+    GenlmsghdrBuilder::default().cmd(u8::from(Nl80211Cmd::CmdGetWiphy))
+        .version(NL_80211_GENL_VERSION)
+        .attrs(std::iter::once(attr).collect::<GenlBuffer<_, _>>())
+        .build().map_err(|e| e.to_string())
+}
+
+fn monitor_support(payload: &Genlmsghdr<u8, u16>) -> Result<Option<(u32, bool)>, String> {
+    if *payload.cmd() != u8::from(Nl80211Cmd::CmdNewWiphy) { return Ok(None); }
+    let attrs = payload.attrs().get_attr_handle();
+    let Some(iftypes) = attrs.get_attribute(u16::from(Nl80211Attr::AttrSupportedIftypes)) else { return Ok(None); };
+    let phy = attrs.get_attribute(u16::from(Nl80211Attr::AttrWiphy))
+        .ok_or("GET_WIPHY capability response has no phy")?
+        .get_payload_as::<u32>().map_err(|e| e.to_string())?;
+    let nested = iftypes.get_attr_handle::<u16>().map_err(|e| e.to_string())?;
+    Ok(Some((phy, nested.get_attrs().iter().any(|a|
+        *a.nla_type().nla_type() == u16::from(Nl80211Iftype::IftypeMonitor)))))
+}
+
 /// Convert a Wi-Fi channel number to its center frequency in MHz.
 ///
 /// Returns Err for channels that are not part of the US/EU regulatory
@@ -427,6 +471,23 @@ mod tests {
 
     fn survey_fields(fields: &[Vec<u8>]) -> Genlmsghdr<u8, u16> {
         wire_survey(51, &wire_attr(84 | 0x8000, &fields.concat()))
+    }
+
+    #[test]
+    fn wifi_wiphy_request_is_read_only_split_dump_and_monitor_is_explicit() {
+        let mut wire = Cursor::new(Vec::new());
+        wiphy_request().unwrap().to_bytes(&mut wire).unwrap();
+        let mut expected = vec![1,1,0,0]; expected.extend(wire_attr(174,&[]));
+        assert_eq!(wire.into_inner(),expected);
+        let attrs = [wire_attr(1,&7_u32.to_ne_bytes()),wire_attr(32|0x8000,&wire_attr(6,&[]))].concat();
+        assert_eq!(monitor_support(&wire_survey(3,&attrs)).unwrap(),Some((7,true)));
+        let attrs = [wire_attr(1,&7_u32.to_ne_bytes()),wire_attr(32|0x8000,&wire_attr(2,&[]))].concat();
+        assert_eq!(monitor_support(&wire_survey(3,&attrs)).unwrap(),Some((7,false)));
+        assert_eq!(monitor_support(&wire_survey(1,&attrs)).unwrap(),None);
+        assert_eq!(monitor_support(&wire_survey(3,&[])).unwrap(),None);
+        assert!(monitor_support(&wire_survey(3,&wire_attr(32|0x8000,&wire_attr(6,&[])))).is_err());
+        let bad = [wire_attr(1,&7_u32.to_ne_bytes()),wire_attr(32|0x8000,&[8,0,6])].concat();
+        assert!(monitor_support(&wire_survey(3,&bad)).is_err());
     }
 
     #[test]

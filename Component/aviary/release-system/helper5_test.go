@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"syscall"
 	"testing"
@@ -26,6 +27,13 @@ func TestHelper5Identity(t *testing.T) {
 	}
 	if !strings.Contains(string(b), "-X main.updaterBuild=5'") {
 		t.Fatal("official artifact must link build 5")
+	}
+	b, e = os.ReadFile("local_upgrade.go")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if regexp.MustCompile("json\\.RawMessage\\(\\s*[`\"]4[`\"]\\s*\\)").Match(b) {
+		t.Fatal("stale literal build-4 floor write in local upgrade source")
 	}
 }
 

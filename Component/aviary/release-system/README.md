@@ -14,6 +14,8 @@ as bootstrap and active trust. Present runtime state still requires the strict
 service-owned 0600 layout; unsafe or dangling-symlink state is refused. No
 credential is created or migrated by this operation.
 Ordinary installer reruns still preserve the existing valid helper.
+The [baseline comparison](HELPER5-BASELINE.md) freezes the planning citations
+against released 0.9.0.
 Fresh released-0.9.0 helper 4 → 5 native qualification remains pending; see the
 [new qualification kit](qualification/helper5/README.md). Historical 0.8.31
 layout support remains a separate regression gate. This change does not migrate

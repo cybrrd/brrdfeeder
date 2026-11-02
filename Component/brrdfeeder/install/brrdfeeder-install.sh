@@ -3134,7 +3134,35 @@ zitadel_device_flow() {
 
   if [[ "$creds_code" != "200" ]]; then
     poll_outcome exchange-failed
-    warn "Account approval succeeded, but the feeder could not finish linking. Please retry."
+    # Only use one typed header from the final response (not a proxy/100 block).
+    # Never echo server diagnostics: they may contain private material.
+    local refusal refusal_body slot_summary='' LC_ALL=C
+    refusal=$(awk '
+      { sub(/\r$/, "") }
+      /^HTTP\/[0-9.]+[ \t]+[0-9][0-9][0-9]([ \t\r]|$)/ { status=$2; count=0; value="" }
+      {
+        colon=index($0, ":")
+        if (colon && tolower(substr($0, 1, colon-1)) == "x-cybrrd-enrollment-refusal") {
+          count++
+          value=substr($0, colon+1)
+          sub(/^[ \t]+/, "", value); sub(/[ \t]+$/, "", value)
+        }
+      }
+      END { if (status == "403" && count == 1 && length(value) <= 64) print value }
+    ' "$hdrs")
+    if [[ "$creds_code" == "403" && "$refusal" == "owner-capacity" ]]; then
+      # Inspect at most 4096 bytes; only bounded decimal slot counts may leave
+      # the response body. The rest of the customer message is fixed text.
+      refusal_body=${creds_body:0:4096}
+      if [[ $refusal_body =~ ^Owner\ capacity\ reached:\ this\ account\ has\ ([0-9]{1,10})\ of\ ([0-9]{1,10})\ node\ slots\. ]]; then
+        slot_summary=" (${BASH_REMATCH[1]} of ${BASH_REMATCH[2]} node slots used)"
+      fi
+      warn "This account has reached its node limit${slot_summary}. No new node was enrolled."
+      warn "For install help, use GitHub Issues: https://github.com/cybrrd/brrdfeeder/issues/new?template=install-help.yml"
+      warn "For a capacity exception or private help, email admin@cybrrd.com. Never include tokens, device codes or credentials in a report."
+    else
+      warn "Account approval succeeded, but the feeder could not finish linking. Please retry."
+    fi
     run rm -f "$hdrs"; _restore_xtrace; return 1
   fi
 

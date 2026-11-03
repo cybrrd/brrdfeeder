@@ -98,19 +98,36 @@ Third-party rules are reported and left untouched.
 
 ## Addition after installation
 
-Runtime recovery watches the configured device path; it does not discover or
-qualify new USB serial receivers. A CP2102N first plugged in after an install
-that did not confirm it has no product mapping: rerun the installer with the
-receiver attached and free. Once its rule exists, matching devices can recreate
-`/dev/cybrrd_gps` on hotplug, and the existing first-fix wait, serial retry and
-bounded container restart paths apply. The current rule matches VID:PID, not an
-individual serial number, so it cannot requalify a different device sharing the
-same bridge ID. Wider replacement/enrollment support remains future work.
+The GPS runtime service discovers a lone CP2102N `10c4:ea60` tty when the
+configured `/dev/cybrrd_gps` mapping is absent. An ADD-only udev activation and
+the five-second timer use the same oneshot service, so missed events, boot-time
+devices and ports released by another owner converge through one serialized
+path. A custom configured GPS path is an explicit binding and is never replaced
+by this discovery.
+
+The bridge ID is only a candidate. Before using it, runtime applies the same
+receive-only NMEA, process-ownership and checked termios-restoration contract as
+installation. Multiple candidates refuse without opening either port. A busy
+port is never opened; incomplete process visibility also fails closed. Silent
+receivers retry at most once per minute. `restore-failed` blocks that exact tty
+identity until it is unplugged/re-enumerated so repeated probes cannot compound
+an uncertain serial state.
+
+Successful qualification is cached only for the exact tty identity under
+`/run/brrdfeeder-gps`; it does not add a broad CP210x udev mapping or rewrite
+configuration. The existing exact-device transport supplies that character
+device at `/dev/cybrrd_gps` inside the container. If the engine is already
+active, the existing bounded restart policy attaches it; a deliberately stopped
+engine is never started. Replacement/re-enumerated bridges require fresh NMEA
+confirmation. Native u-blox and previously installer-confirmed mappings still
+win without entering this probe.
 
 ## Verification boundaries
 
 Offline tests cover actual Podman start using the helper's absent transport,
-real pseudo-terminal first-fix/unplug/replug, bounded restart decisions, truthful
-heartbeat fields and local status rendering. Device-node creation for a present
-receiver is unit-tested; physical USB re-enumeration and downstream map display
-still need the field acceptance check. No test contacts a deployed node.
+real pseudo-terminal first-fix/unplug/replug, bounded restart decisions, late
+CP2102N sysfs discovery, receive-only qualification, busy/unknown ownership,
+restore-failed refusal, replacement requalification, truthful heartbeat fields
+and local status rendering. Device-node creation for a present receiver is
+unit-tested; physical USB re-enumeration and downstream map display still need
+the field acceptance check. No test contacts a deployed node.

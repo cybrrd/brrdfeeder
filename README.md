@@ -35,3 +35,9 @@ not authorize a release.
 Copyright © 2026 Macawi LLC, Iowa, USA.
 BRRDfeeder and BRRDhouse are licensed under the GNU Affero General Public License v3.0 or later (see LICENSE).
 cyBRRD, BRRDfeeder and BRRDhouse are developed and operated by cyBRRD Corporation, Iowa, USA, under license from Macawi LLC.
+
+When account linking is refused because the owner has reached the node limit,
+the installer exits with status **77**. Re-run after a node slot frees, or ask
+**admin@cybrrd.com** for a capacity exception. No new node or credentials were
+created by that refused enrollment. Other incomplete enrollment flows retain
+the existing retry/manual-provisioning guidance.

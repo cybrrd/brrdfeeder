@@ -34,11 +34,11 @@ class Policy(unittest.TestCase):
                     before=json.dumps(sensors)
                     self.assertEqual(ble.enabled_config(sensors,[usb]),(enabled,False))
                     self.assertEqual(json.dumps(sensors),before)
-        sensors={};self.assertEqual(ble.enabled_config(sensors,[]),(False,False));self.assertEqual(sensors,{})
+        sensors={};self.assertEqual(ble.enabled_config(sensors,[]),(True,False));self.assertEqual(sensors,{})
     def test_engine_source_targets_and_reruns_each_start(self):
-        source=(ROOT/'Component/aviary/engine/src/rid_ble.rs').read_text()
-        self.assertLess(source.index('resolve_adapter(&self.0.adapter)'),source.index('crate::rfkill::prepare_controller(index, self.0.unblock_rfkill'))
-        self.assertLess(source.index('crate::rfkill::prepare_controller'),source.index('HciSocket::open(index, 1)'))
+        source=''.join((ROOT/'Component/aviary/engine/src/rid_ble.rs').read_text().split())
+        self.assertLess(source.index('LinuxBle.select(&self.0.adapter)'),source.index('crate::rfkill::prepare_controller(index,self.0.unblock_rfkill'))
+        self.assertLess(source.index('crate::rfkill::prepare_controller'),source.index('HciSocket::open(index,1)'))
 
 class Summary(unittest.TestCase):
     def status(self,age=0,interval=30):

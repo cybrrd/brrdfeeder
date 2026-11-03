@@ -415,7 +415,10 @@ and reruns, **only a missing `sensors.rid_ble` key** is added when exactly one
 supported receiver is present, as `enabled: true`, `unblock_rfkill: true` with
 `adapter.usb_id` set to the detected receiver's actual USB ID. Reruns also add only an absent `unblock_rfkill` field
 to an already-enabled, validated RID.BLE configuration. Explicit true/false wins.
-No supported receiver means no automatic enablement (including `0bda:8771`). Multiple supported receivers, including one of each ID, require
+No supported receiver leaves the key absent: this means enabled-auto intent,
+not disabled. The installer prints “Bluetooth will activate automatically when a
+supported adapter is plugged in” and names unsupported HCI adapters (including
+`0bda:8771`). Multiple supported receivers, including one of each ID, require
 an explicit BD_ADDR selection. Explicit existing config (including `enabled:
 false`) is preserved, not silently changed; config migration may reformat YAML
 comments but preserves existing values. The engine, not the installer, performs
@@ -424,7 +427,7 @@ stock Pi OS/systemd-rfkill restoring a blocked state after reboot. Hard blocks
 still require physical/operator attention. No CHANGE_ALL or installer rfkill
 write is used. This is not a claim every Bluetooth USB adapter supports RID.
 
-When RID.BLE is enabled the installer stops the engine/waiter, records the prior
+When a supported receiver is claimed the installer stops the engine/waiter, records the prior
 `bluetooth.service` enablement and active state in root-only
 `/etc/brrdfeeder/.bluetooth-prior.json`, then stops/disables/masks bluetoothd before
 restarting the engine. Bluetooth keyboards/audio on that host will not be served
@@ -452,11 +455,25 @@ also requires its existing login-history/process audit. Nonempty mismatched
 receipts, nonempty foreign commands and human accounts still refuse; ambiguous
 nonempty truncations require operator review. Atomic-write temporary files are
 removed by uninstall only from the finite package directories after validation.
-Disabling RID.BLE explicitly and rerunning also restores a recorded prior state.
+The hotplug helper leaves absent intent implicit and never writes config. Exact
+supported-ID HCI ADD rules start `brrdfeeder-ble-takeover.service`; its timer retries
+every five seconds, covering driver readiness, boot and operator unmask detection.
+Enabled hotplug never stops the engine. `HCIDEVDOWN` returning EBUSY leaves the
+existing exclusive USER owner untouched. The engine alone reports reception.
+An engine-only update preserves omitted `unblock_rfkill: false` in existing
+explicit sections; only an absent section opts into enabled-auto with targeted
+unblock. After saving explicit OFF without a receipt, run
+`sudo systemctl restart brrdfeeder-engine.service` and require Disabled in fresh
+status. Disabling RID.BLE explicitly restores a recorded prior state at the next helper
+run; the engine is stopped for this ownership handback and restarted if it was
+running, so Wi-Fi/GPS continue with BLE off. A prior claim followed by manual
+bluetoothd unmask/start latches a conflict under `/run/brrdfeeder-bluetooth`, mounted
+read-only into the engine. Only explicit helper `apply` clears/reclaims it.
+See [hotplug limits and native checks](../../../docs/ble-hotplug.md).
 Dry-run only describes these actions. After engine stop and bluetoothd stop/mask,
 the helper identifies the configured **supported USB** controller through sysfs
 (`hciN/device` ancestry to `idVendor`/`idProduct`; optional configured BD_ADDR is
-matched against sysfs too). It sends only **HCIDEVDOWN** to that index, reads
+matched against a read-only HCIGETDEVINFO snapshot when sysfs lacks address). It sends only **HCIDEVDOWN** to that index, reads
 **HCIGETDEVINFO** flags, and refuses if it remains UP or its identity changes.
 Zero/multiple matches refuse; no guessed hci0, discovery tools, inquiry, reset,
 device-UP or global rfkill writes. Uninstall restores bluetoothd; it need not

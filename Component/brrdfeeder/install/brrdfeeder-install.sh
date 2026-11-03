@@ -1475,6 +1475,11 @@ ADOPT_LEGACY_ACCOUNTS=0
 AUDIT_LOG=""
 REQUESTED_IMAGE=""
 REQUESTED_CONSOLE_IMAGE=""
+# Every bootstrap prepends exactly one default for each image before user argv.
+# A repeated option is therefore an explicit user pin, even if it repeats the
+# default value. Keep last-wins parsing, but never discard that choice on rerun.
+USER_IMAGE_OVERRIDE=0
+USER_CONSOLE_IMAGE_OVERRIDE=0
 CONSOLE_LISTEN=""
 INSTALL_INTERFACE=""
 INSTALL_LATITUDE=""
@@ -1502,7 +1507,9 @@ while [[ $# -gt 0 ]]; do
         echo "FATAL: $arg requires a value" >&2; exit 2;
       }
       case "$arg" in
-        --console-image) REQUESTED_CONSOLE_IMAGE=$2 ;;
+        --console-image)
+          [[ -z "$REQUESTED_CONSOLE_IMAGE" ]] || USER_CONSOLE_IMAGE_OVERRIDE=1
+          REQUESTED_CONSOLE_IMAGE=$2 ;;
         --console-listen) CONSOLE_LISTEN=$2 ;;
         --interface) INSTALL_INTERFACE=$2 ;;
         --latitude) INSTALL_LATITUDE=$2 ;;
@@ -1521,6 +1528,7 @@ while [[ $# -gt 0 ]]; do
         echo 'FATAL: --image requires ghcr.io/cybrrd/brrdfeeder@sha256:<approved-release-digest>' >&2
         exit 2
       }
+      [[ -z "$REQUESTED_IMAGE" ]] || USER_IMAGE_OVERRIDE=1
       REQUESTED_IMAGE=$2
       shift
       ;;
@@ -2771,9 +2779,9 @@ CONTAINER_IMAGE=$REQUESTED_IMAGE
 if [[ -f "$QUADLET_FILE" ]]; then
   INSTALLED_IMAGE=$(sed -n 's/^Image=//p' "$QUADLET_FILE")
   valid_image_pin "$INSTALLED_IMAGE" || fatal "Existing Quadlet has no unique approved digest pin; explicit operator migration required (no tag resolution)."
-  # A newer one-liner repairs host setup with the installed workload pins.
-  # Explicit direct-installer digest changes still belong to the signed updater.
-  [[ -z "$REQUESTED_IMAGE" || "$REQUESTED_IMAGE" == "$INSTALLED_IMAGE" || $BOOT_PREPARE -eq 1 ]] || fatal "Refusing to replace the installed digest: updates belong to the signed release poller. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
+  # A default-only one-liner repairs host setup with installed workload pins.
+  # Explicit user pins, including bootstrap overrides, must match or fail.
+  [[ -z "$REQUESTED_IMAGE" || "$REQUESTED_IMAGE" == "$INSTALLED_IMAGE" || ( $BOOT_PREPARE -eq 1 && $USER_IMAGE_OVERRIDE -eq 0 ) ]] || fatal "Refusing to replace the installed digest: explicit --image conflicts with the installed pin; updates belong to the signed release poller. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
   if [[ ${VERIFY_ONLY:-0} -eq 0 ]]; then
     RETAINED_ENGINE_VERSION=$(retained_engine_version "$INSTALLED_IMAGE")
     if [[ -n "$RETAINED_ENGINE_VERSION" ]]; then
@@ -2791,8 +2799,8 @@ CONSOLE_IMAGE=$REQUESTED_CONSOLE_IMAGE
 if [[ -f "$CONSOLE_QUADLET_FILE" ]]; then
   INSTALLED_CONSOLE_IMAGE=$(sed -n 's/^Image=//p' "$CONSOLE_QUADLET_FILE")
   valid_image_pin "$INSTALLED_CONSOLE_IMAGE" "$CONSOLE_REPOSITORY" || fatal "Existing console Quadlet has no unique approved digest pin; no tag resolution."
-  [[ -z "$REQUESTED_CONSOLE_IMAGE" || "$REQUESTED_CONSOLE_IMAGE" == "$INSTALLED_CONSOLE_IMAGE" || $BOOT_PREPARE -eq 1 ]] \
-    || fatal "Refusing to replace the installed console digest; reinstall is not an update channel. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
+  [[ -z "$REQUESTED_CONSOLE_IMAGE" || "$REQUESTED_CONSOLE_IMAGE" == "$INSTALLED_CONSOLE_IMAGE" || ( $BOOT_PREPARE -eq 1 && $USER_CONSOLE_IMAGE_OVERRIDE -eq 0 ) ]] \
+    || fatal "Refusing to replace the installed console digest: explicit --console-image conflicts with the installed pin; reinstall is not an update channel. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
   CONSOLE_IMAGE=$INSTALLED_CONSOLE_IMAGE
   if [[ -z "$CONSOLE_LISTEN" ]]; then
     CONSOLE_LISTEN=$(sed -n 's/^Exec=--listen=\([^ ]*\) .*/\1/p' "$CONSOLE_QUADLET_FILE")

@@ -41,7 +41,7 @@ CONSOLE_IMAGE="ghcr.io/cybrrd/brrdhouse@sha256:f5bbda8de38497c06722a2390d9a07e64
 
 # The installer this bootstrap fetches, and the hash it must have.
 INSTALLER_URL="${BRRDFEEDER_INSTALLER_URL:-https://get.cybrrd.com/brrdfeeder-install.sh}"
-INSTALLER_SHA256="6d0355d8cc58f1ff1ab7ccb58b43d085a317bce28d4763623cc60b84533fe670"
+INSTALLER_SHA256="6cc7622209aa437d8f038dfa67b6f7fe378fa118b7576e8e70877a2a5bd7501a"
 
 # ── RELEASE CHECKLIST — do these IN THIS ORDER when cutting a release ───────
 #  1. Publish both images to ghcr and verify each resolves BY DIGEST anonymously,

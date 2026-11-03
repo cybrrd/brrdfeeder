@@ -15,6 +15,14 @@
   enabled engine. Manual bluetoothd unmask/start is reported, never reclaimed
   automatically. Uninstall removes the service, timer, rules and runtime state.
 - Native hardware acceptance remains required before release inclusion.
+- A CP2102N GPS first attached after installation can be receive-only
+  NMEA-qualified and passed through the existing exact-device transport without
+  a prompt or reinstall. Busy/uncertain ports stay unopened, restore failure
+  refuses adoption, replacement identities require fresh confirmation, and
+  native u-blox behavior remains preferred.
+- GPS hotplug uses an ADD-only systemd trigger plus the existing five-second
+  reconciliation timer. It never rewrites `gps.required`, never starts a
+  deliberately stopped engine and retains the bounded restart budget.
 
 ## 0.9.0 — Unreleased public beta candidate
 

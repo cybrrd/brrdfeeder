@@ -97,6 +97,147 @@ HELPER_UPGRADE_PY
 )" "$0" "$@"
 fi
 
+# BEGIN GENERATED DEVICE SCAN
+if [[ ${1:-} == devices ]]; then
+  set +x
+  shift
+  exec python3 -c "$(cat <<'DEVICE_SCAN_PY'
+REGISTRY_BYTES = b'{\n  "schema_version": 1,\n  "catalog_version": "0.9.1-draft-1",\n  "profiles": [\n    {\n      "id": "ublox-usb",\n      "role": "gps",\n      "usb_ids": [\n        "1546:01a5",\n        "1546:01a6",\n        "1546:01a7",\n        "1546:01a8",\n        "1546:01a9"\n      ],\n      "drivers": [\n        "cdc_acm"\n      ],\n      "label": "u-blox USB GPS family",\n      "qualification_path": "gps-runtime",\n      "capability": "existing-native-mapping",\n      "qualification": "candidate",\n      "ownership": "existing-runtime-policy-only",\n      "compatibility": {\n        "qualified_platforms": []\n      },\n      "evidence": "See devices README; native qualification pending"\n    },\n    {\n      "id": "cp210x-nmea",\n      "role": "gps",\n      "usb_ids": [\n        "10c4:ea60"\n      ],\n      "drivers": [\n        "cp210x"\n      ],\n      "label": "CP210x bridge \\u2014 GPS capability unverified",\n      "qualification_path": "gps-runtime",\n      "capability": "owned-receive-only-nmea",\n      "qualification": "candidate",\n      "ownership": "existing-runtime-policy-only",\n      "compatibility": {\n        "qualified_platforms": []\n      },\n      "evidence": "See devices README; native qualification pending"\n    },\n    {\n      "id": "realtek-hci",\n      "role": "rid-ble",\n      "usb_ids": [\n        "0bda:876e",\n        "0bda:a728"\n      ],\n      "drivers": [\n        "btusb"\n      ],\n      "label": "Realtek HCI candidate",\n      "qualification_path": "bluetooth-hotplug",\n      "capability": "exclusive-user-channel",\n      "qualification": "candidate",\n      "ownership": "existing-runtime-policy-only",\n      "compatibility": {\n        "qualified_platforms": []\n      },\n      "evidence": "See devices README; native qualification pending"\n    },\n    {\n      "id": "nordic-legacy",\n      "role": "legacy-serial",\n      "usb_ids": [\n        "1915:c00a"\n      ],\n      "drivers": [\n        "cdc_acm"\n      ],\n      "label": "Nordic legacy serial \\u2014 not raw-HCI RID.BLE",\n      "qualification_path": "legacy-unqualified",\n      "capability": "unqualified-legacy",\n      "qualification": "candidate",\n      "ownership": "existing-runtime-policy-only",\n      "compatibility": {\n        "qualified_platforms": []\n      },\n      "evidence": "See devices README; native qualification pending"\n    },\n    {\n      "id": "mt7921-usb",\n      "role": "wifi-capture",\n      "usb_ids": [\n        "0e8d:7961"\n      ],\n      "drivers": [\n        "mt7921u"\n      ],\n      "label": "MT7921 USB family \\u2014 retail revision unverified",\n      "qualification_path": "capture-watchdog",\n      "capability": "monitor-mode-and-management-isolation",\n      "qualification": "candidate",\n      "ownership": "existing-runtime-policy-only",\n      "compatibility": {\n        "qualified_platforms": []\n      },\n      "evidence": "See devices README; native qualification pending"\n    }\n  ]\n}\n'
+#!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+"""Metadata-only USB inventory; never invoke a runtime qualification/claim path."""
+import argparse
+import datetime
+import hashlib
+import json
+from pathlib import Path
+import re
+import sys
+
+ROLES = {'gps', 'rid-ble', 'wifi-capture', 'legacy-serial'}
+PATHS = {'gps-runtime', 'bluetooth-hotplug', 'capture-watchdog', 'legacy-unqualified'}
+
+def catalog(raw):
+    if len(raw) > 65536:
+        raise ValueError('registry too large')
+    doc = json.loads(raw)
+    if type(doc.get('schema_version')) is not int or doc.get('schema_version') != 1 or not isinstance(doc.get('catalog_version'), str):
+        raise ValueError('unsupported registry schema')
+    entries = doc.get('profiles')
+    if not isinstance(entries, list) or not 1 <= len(entries) <= 128:
+        raise ValueError('invalid registry profiles')
+    seen = set()
+    for entry in entries:
+        key = entry['id']
+        if not isinstance(key, str) or not re.fullmatch(r'[a-z0-9-]{1,64}', key) or key in seen:
+            raise ValueError('invalid/duplicate profile')
+        seen.add(key)
+        if entry['role'] not in ROLES or entry['qualification_path'] not in PATHS:
+            raise ValueError('invalid registry role/path')
+        if entry['qualification'] not in ('candidate', 'tested', 'recommended', 'deprecated', 'blocked'):
+            raise ValueError('invalid qualification')
+        if not isinstance(entry['label'], str) or not 1 <= len(entry['label']) <= 160:
+            raise ValueError('invalid label')
+        if not entry['usb_ids'] or not all(isinstance(s,str) and re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', s) for s in entry['usb_ids']):
+            raise ValueError('invalid USB identity')
+        if not entry['drivers'] or not all(isinstance(s,str) and re.fullmatch(r'[a-z0-9_]{1,40}', s) for s in entry['drivers']):
+            raise ValueError('invalid driver')
+    return doc
+
+
+def text(path):
+    # Only fixed sysfs attributes; no device nodes, status/config or process FDs.
+    try:
+        return path.read_text()[:64].strip()
+    except OSError:
+        return ''
+
+
+def scan(sysfs, raw):
+    doc = catalog(raw)
+    devices = sysfs/'devices'
+    usb = sysfs/'bus/usb/devices'
+    if not usb.is_dir():
+        raise ValueError('USB inventory unavailable')
+    rows = []
+    partial = False
+    links = sorted(usb.iterdir())
+    partial = len(links) > 512
+    for link in links[:512]:
+        try:
+            node = link.resolve(strict=True)
+            if not node.is_relative_to(devices.resolve()) or not re.fullmatch(r'[0-9a-f]{4}', text(node/'idVendor')):
+                continue
+            vidpid = text(node/'idVendor')+':'+text(node/'idProduct')
+            if not re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', vidpid):
+                partial = True
+                continue
+            drivers = set()
+            endpoints = set()
+            for interface in sorted(node.glob('*:*')):
+                for group in ('tty','net','bluetooth'):
+                    parent = interface/group
+                    if parent.is_dir():
+                        endpoints.update(p.name for p in sorted(parent.iterdir())[:128])
+                endpoints.update(p.name for p in interface.glob('ttyUSB*'))
+                endpoints.update(p.name for p in interface.glob('ttyACM*'))
+                driver = interface/'driver'
+                if driver.is_symlink():
+                    drivers.add(driver.resolve().name)
+            matches = [e for e in doc['profiles'] if vidpid in e['usb_ids']]
+            profiles = []
+            for e in matches:
+                state = 'candidate' if drivers.intersection(e['drivers']) else ('driver-mismatch' if drivers else 'driver-missing')
+                if e['qualification'] in ('blocked','deprecated'):
+                    state = e['qualification']
+                profiles.append(dict(id=e['id'],role=e['role'],label=e['label'],state=state,
+                                     qualification=e['qualification'],qualification_path=e['qualification_path']))
+            rows.append(dict(instance=link.name,usb_id=vidpid,drivers=sorted(drivers),endpoints=sorted(endpoints),profiles=profiles,
+                             state='recognized' if profiles else 'unsupported',
+                             capability='unverified',ownership='unverified',health='unverified'))
+        except OSError:
+            partial = True
+    counts = {}
+    for row in rows:
+        for p in row['profiles']:
+            if p['state'] == 'candidate': counts[p['role']] = counts.get(p['role'],0)+1
+    return dict(schema_version=1,catalog_version=doc['catalog_version'],catalog_sha256=hashlib.sha256(raw).hexdigest(),
+                observed_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),partial=partial,
+                snapshot_only=True,ambiguous_roles=sorted(k for k,v in counts.items() if v>1),devices=rows)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__,prog='brrdfeeder devices')
+    parser.add_argument('command',choices=('scan','add','remove','replace'))
+    parser.add_argument('--json',action='store_true')
+    args = parser.parse_args(argv)
+    if args.command != 'scan':
+        parser.error('device changes are not implemented; scan is read-only')
+    try:
+        raw = globals().get('REGISTRY_BYTES')
+        if raw is None: raw = Path(__file__).with_name('supported-devices.json').read_bytes()
+        result = scan(Path('/sys'), raw)
+    except (OSError,ValueError,KeyError,TypeError):
+        print('Device scan refused: registry or USB metadata unavailable/invalid.',file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result,sort_keys=True))
+    else:
+        print('Metadata snapshot only: capability, ownership and health are unverified.')
+        for row in result['devices']:
+            descriptions = ', '.join(p['role']+':'+p['state'] for p in row['profiles']) or 'unsupported'
+            print(row['instance']+' '+row['usb_id']+' '+descriptions)
+        if result['ambiguous_roles']: print('Ambiguous roles: '+', '.join(result['ambiguous_roles'])+'; no device selected.')
+        if result['partial']: print('Inventory changed or incomplete; scan again before planning any action.')
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())
+DEVICE_SCAN_PY
+)" "$@"
+fi
+# END GENERATED DEVICE SCAN
 # BRRDfeeder local product command — self-contained recovery, no download.
 # Normalize before the logging supervisor so modes and headers remain accurate.
 # Recovery executes in the authenticated image. No credentials in argv/logs.
@@ -118,7 +259,7 @@ esac
 if [[ ${0##*/} == brrdfeeder && $# -eq 0 ]]; then set -- --status; fi
 if [[ ${1:-} == --help || ${1:-} == -h ]]; then
   printf '%s\n' \
-    'Usage: brrdfeeder [status|renew|uninstall|support-bundle] [options]' \
+    'Usage: brrdfeeder [status|renew|uninstall|support-bundle|devices scan] [options]' \
     'Installer: brrdfeeder-install.sh [--image DIGEST --console-image DIGEST --console-listen IP:PORT --interface IFACE]' \
     '                           [--gps-usb-id VID:PID]   Explicit non-u-blox GPS opt-in (headless)' \
     '  --verify / --status       Check installed state' \
@@ -3930,6 +4071,8 @@ NEW_UDEV_CONTENT=$(cat <<EOF
 
 # Supported u-blox USB family; one connected GPS, no wildcard clone probing.
 ${GPS_UDEV_RULES}
+# CP2102N is only a candidate: trigger receive-only qualification, never map by ID.
+ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-gps-runtime.service"
 # Operator-declared, NMEA-confirmed non-u-blox GPS (sensors.gps.usb_id).
 ${GPS_DECLARED_RULE}
 
@@ -4965,11 +5108,12 @@ if [[ $DRY_RUN -eq 0 ]]; then
 #!/usr/bin/python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
-"""BRRDfeeder GPS runtime transport: exact device grant, bounded hotplug recovery.
+"""BRRDfeeder GPS runtime: safe discovery, exact grant, bounded recovery.
 
-Never opens a serial port or discovers/claims adapters. A stable character inode
-survives USB removal between ExecStartPre and Podman's device stat. /dev/null is
-the absent transport: termios rejects it, so it cannot masquerade as live GPS.
+Native/previously confirmed mappings win. When they are absent, one CP2102N tty
+may be receive-only NMEA-qualified with the install-time ownership and restore
+contract. The exact character device is then passed through the existing stable
+transport; no broad CP210x udev mapping or configuration rewrite is needed.
 """
 import fcntl
 import datetime
@@ -4977,10 +5121,12 @@ import grp
 import json
 import os
 import re
+import select
 from pathlib import Path
 import stat
 import subprocess
 import sys
+import termios
 import time
 import yaml
 
@@ -4989,6 +5135,13 @@ DEVICE = Path('/dev/cybrrd_gps')
 CONFIG = Path('/etc/brrdfeeder/config.yaml')
 UNIT = 'brrdfeeder-engine.service'
 STATUS = Path('/var/lib/brrdfeeder-status')
+SYS_TTY = Path('/sys/class/tty')
+DEV_ROOT = Path('/dev')
+PROC = Path('/proc')
+HOTPLUG_ID = '10c4:ea60'
+UBLOX_IDS = {'1546:'+product for product in ('01a5', '01a6', '01a7', '01a8', '01a9')}
+PROBE_SECONDS = 5.0
+PROBE_RETRY_SECONDS = 60.0
 
 
 def status():
@@ -5032,14 +5185,202 @@ def status():
         print('GPS status is invalid; current GPS state unknown.')
 
 
-def identity():
+def device_identity(path):
     try:
-        value = DEVICE.stat()
+        value = path.stat()
         if stat.S_ISCHR(value.st_mode):
             return [value.st_dev, value.st_ino, value.st_rdev, value.st_ctime_ns]
     except OSError:
         pass
     return None
+
+
+def identity():
+    return device_identity(DEVICE)
+
+
+def tty_inventory():
+    """Return [(usb_id, tty_path)] from tty sysfs metadata without opening ttys."""
+    found = []
+    try:
+        entries = sorted(SYS_TTY.iterdir())
+    except OSError:
+        return found
+    for entry in entries:
+        try:
+            parent = (entry/'device').resolve(strict=True)
+        except OSError:
+            continue
+        while parent != parent.parent:
+            try:
+                vendor = (parent/'idVendor').read_text().strip().lower()
+                product = (parent/'idProduct').read_text().strip().lower()
+            except (FileNotFoundError, NotADirectoryError):
+                parent = parent.parent
+                continue
+            except OSError:
+                break
+            usb_id = vendor+':'+product
+            if re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', usb_id):
+                found.append((usb_id, DEV_ROOT/entry.name))
+            break
+    return found
+
+
+def held_elsewhere(rdev):
+    """Fail closed if another visible process holds any alias of this tty."""
+    try:
+        for process in PROC.iterdir():
+            if not process.name.isdigit() or int(process.name) == os.getpid():
+                continue
+            try:
+                for entry in (process/'fd').iterdir():
+                    try:
+                        info = entry.stat()
+                    except FileNotFoundError:
+                        continue
+                    if stat.S_ISCHR(info.st_mode) and info.st_rdev == rdev:
+                        return 'busy'
+            except FileNotFoundError:
+                continue
+    except OSError:
+        return 'ownership-unknown'
+    return ''
+
+
+def valid_nmea(sentence):
+    if not sentence.startswith(('$GP', '$GN')):
+        return False
+    body, separator, checksum = sentence.strip().rpartition('*')
+    if not separator or len(checksum) != 2:
+        return False
+    value = 0
+    for char in body[1:]:
+        value ^= ord(char)
+    return ('%02X' % value) == checksum.upper()
+
+
+def confirm(device):
+    """Receive-only NMEA confirmation; restore failure overrides all outcomes."""
+    fd, original = None, None
+    try:
+        info = os.stat(device)
+        if not stat.S_ISCHR(info.st_mode):
+            return 'no-nmea'
+        ownership = held_elsewhere(info.st_rdev)
+        if ownership:
+            return ownership
+        fd = os.open(device, os.O_RDONLY | os.O_NOCTTY | os.O_NONBLOCK)
+        if os.fstat(fd).st_rdev != info.st_rdev:
+            return 'no-nmea'
+        ownership = held_elsewhere(info.st_rdev)
+        if ownership:
+            return ownership
+        original = termios.tcgetattr(fd)
+        attrs = termios.tcgetattr(fd)
+        attrs[0] = attrs[1] = attrs[3] = 0
+        attrs[2] = termios.CS8 | termios.CREAD | termios.CLOCAL
+        attrs[4] = attrs[5] = termios.B9600
+        attrs[6][termios.VMIN], attrs[6][termios.VTIME] = 0, 0
+        termios.tcsetattr(fd, termios.TCSANOW, attrs)
+        buffer, seen, deadline = '', 0, time.monotonic()+PROBE_SECONDS
+        while time.monotonic() < deadline and seen < 2:
+            ready, _, _ = select.select([fd], [], [], max(0.0, deadline-time.monotonic()))
+            if not ready:
+                continue
+            try:
+                chunk = os.read(fd, 256)
+            except BlockingIOError:
+                continue
+            if not chunk:
+                break
+            for char in chunk.decode('ascii', 'replace'):
+                if char == '$':
+                    if valid_nmea(buffer):
+                        seen += 1
+                    buffer = '$'
+                elif char in '\r\n':
+                    if valid_nmea(buffer):
+                        seen += 1
+                    buffer = ''
+                elif buffer:
+                    buffer += char
+                    if len(buffer) > 128:
+                        buffer = ''
+        return 'ok' if seen >= 2 else 'no-nmea'
+    except (OSError, termios.error, KeyboardInterrupt):
+        return 'no-nmea'
+    finally:
+        if fd is not None:
+            restore_failed = False
+            try:
+                if original is not None:
+                    termios.tcsetattr(fd, termios.TCSANOW, original)
+                    restore_failed = termios.tcgetattr(fd) != original
+            except (OSError, termios.error):
+                restore_failed = True
+            finally:
+                os.close(fd)
+            if restore_failed:
+                return 'restore-failed'
+
+
+def record_probe(state, identity_value, outcome, now):
+    state['probe'] = {'identity': identity_value, 'outcome': outcome, 'at': now}
+
+
+def discover(state, now=None):
+    """Resolve native GPS first, otherwise safely qualify one late CP2102N."""
+    now = time.monotonic() if now is None else now
+    native = identity()
+    if native is not None:
+        return native
+    if DEVICE != DEV_ROOT/'cybrrd_gps':
+        # A custom configured path is an explicit operator binding. Never
+        # substitute an automatically discovered bridge for it.
+        return None
+    inventory = tty_inventory()
+    if any(usb_id in UBLOX_IDS for usb_id, _ in inventory):
+        # udev owns native u-blox mapping; a following timer tick sees its link.
+        return None
+    candidates = [path for usb_id, path in inventory if usb_id == HOTPLUG_ID]
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        record_probe(state, None, 'ambiguous', now)
+        print('GPS hotplug refused: multiple CP2102N candidates; no port opened', flush=True)
+        return None
+    candidate = candidates[0]
+    candidate_identity = device_identity(candidate)
+    if candidate_identity is None:
+        return None
+    qualified = state.get('qualified', {})
+    if (qualified.get('usb_id') == HOTPLUG_ID and
+            qualified.get('path') == str(candidate) and
+            qualified.get('identity') == candidate_identity):
+        ownership = held_elsewhere(candidate_identity[2])
+        if ownership:
+            record_probe(state, candidate_identity, ownership, now)
+            return None
+        return candidate_identity
+    previous = state.get('probe', {})
+    if previous.get('identity') == candidate_identity:
+        outcome = previous.get('outcome')
+        elapsed = now-previous.get('at', now)
+        if outcome == 'restore-failed' or (outcome == 'no-nmea' and 0 <= elapsed < PROBE_RETRY_SECONDS):
+            return None
+    outcome = confirm(candidate)
+    # Do not authorize an identity that changed during the bounded read.
+    if outcome == 'ok' and device_identity(candidate) != candidate_identity:
+        outcome = 'changed'
+    record_probe(state, candidate_identity, outcome, now)
+    if outcome != 'ok':
+        print('GPS hotplug candidate '+HOTPLUG_ID+' '+outcome+'; no mapping or restart', flush=True)
+        return None
+    state['qualified'] = {'usb_id': HOTPLUG_ID, 'path': str(candidate),
+                          'identity': candidate_identity}
+    print('GPS hotplug candidate '+HOTPLUG_ID+' NMEA-confirmed; exact device qualified', flush=True)
+    return candidate_identity
 
 
 def prepare(state, current):
@@ -5097,7 +5438,8 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX)
         path = ROOT/'state.json'
         state = json.loads(path.read_text()) if path.exists() else {}
-        current = identity()
+        before = json.dumps(state, sort_keys=True)
+        current = discover(state)
         if sys.argv[1:] == ['prepare']:
             prepare(state, current)
             save(state)
@@ -5106,8 +5448,10 @@ def main():
             # Never interrupt a first-fix ExecStartPre, intentional stop, update,
             # or failed service. --no-block avoids waiting on prepare's lock.
             active = subprocess.run(['systemctl', 'is-active', '--quiet', UNIT], timeout=5)
-            if active.returncode == 0 and should_restart(state, current, time.monotonic()):
-                save(state)  # Persist attempt before calling the restart effector.
+            restart = active.returncode == 0 and should_restart(state, current, time.monotonic())
+            if restart or json.dumps(state, sort_keys=True) != before:
+                save(state)  # Persist qualification/attempt before the effector.
+            if restart:
                 print('GPS appeared/replaced: requesting one bounded engine restart to attach the exact device', flush=True)
                 subprocess.run(['systemctl', 'try-restart', '--no-block', UNIT], check=True, timeout=10)
         else:
@@ -5122,22 +5466,28 @@ if __name__ == '__main__':
         raise SystemExit(1)
 GPS_RUNTIME_EOF
   atomic_install 0644 root root /etc/systemd/system/brrdfeeder-gps-runtime.service <<'GPS_RUNTIME_SERVICE_EOF'
-# BRRDfeeder GPS runtime transport
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 [Unit]
-Description=Attach a returned GPS with a bounded engine restart
+Description=BRRDfeeder GPS hotplug discovery and transport recovery
+ConditionPathExists=/etc/brrdfeeder/config.yaml
+ConditionPathIsExecutable=/usr/local/libexec/brrdfeeder-gps-runtime
+After=systemd-udevd.service
 [Service]
 Type=oneshot
 ExecStart=/usr/local/libexec/brrdfeeder-gps-runtime check
-TimeoutStartSec=20
+TimeoutStartSec=30
 GPS_RUNTIME_SERVICE_EOF
   atomic_install 0644 root root /etc/systemd/system/brrdfeeder-gps-runtime.timer <<'GPS_RUNTIME_TIMER_EOF'
-# BRRDfeeder GPS runtime transport
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 [Unit]
-Description=Check for a returned configured GPS
+Description=BRRDfeeder GPS hotplug retry and recovery observation
 [Timer]
-OnBootSec=15s
+OnBootSec=5s
 OnUnitInactiveSec=5s
 AccuracySec=1s
+Unit=brrdfeeder-gps-runtime.service
 [Install]
 WantedBy=timers.target
 GPS_RUNTIME_TIMER_EOF

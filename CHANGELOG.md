@@ -4,6 +4,7 @@
 
 ## 0.9.0 — Unreleased public beta candidate
 
+- Installer reruns refuse conflicting explicit image pins instead of silently retaining installed images; fresh-install overrides remain last-wins.
 - Installer enrollment refusals identify account node limits and provide install-help and private-support guidance.
 - Automatic engine-side HTTPS credential renewal with local replacement keys,
   independent JWT verification, private atomic credential rotation and explicit

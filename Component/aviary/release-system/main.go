@@ -28,7 +28,7 @@ var launcher []byte
 func main() {
 	if e := cli(os.Args[1:]); e != nil {
 		fmt.Fprintln(os.Stderr, "brrdfeeder-release:", e)
-		os.Exit(1)
+		os.Exit(exitCode(e))
 	}
 }
 func cli(args []string) error {

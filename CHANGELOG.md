@@ -2,6 +2,10 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
+## 0.9.1 — Unreleased
+
+- Defer timer-driven release/host polling with exit 75 while fresh engine clock trust is unavailable; retain the security gate and journal recovery guidance while genuine errors still fail.
+
 ## 0.9.0 — Unreleased public beta candidate
 
 - Automatically confirm CP2102N GPS receivers without a prompt, resolve the correct tty, skip busy ports, restore probe settings, and generate a usable confirmed-device udev rule.

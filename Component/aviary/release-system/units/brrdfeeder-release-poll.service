@@ -7,6 +7,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# Missing fresh engine clock trust is a defer, not a failed timer tick.
+SuccessExitStatus=75
 ExecStart=/usr/local/libexec/brrdfeeder-release-launch poll
 TimeoutStartSec=20min
 UMask=0077

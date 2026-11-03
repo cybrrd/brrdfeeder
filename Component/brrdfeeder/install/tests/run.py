@@ -26,6 +26,7 @@ BASELINES = [
     'credential-renewal/test-contract.py',
     'gps-runtime/test-contract.py',
     'gps-usb-id/test-contract.py',
+    'gps-usb-id/test-autodetect.py',
     'directory-modes/test-contract.py',
     'lock-on/test-contract.py',
     'role-language/test-contract.py',

@@ -2957,15 +2957,18 @@
   },
   "Component/brrdfeeder/install/brrdfeeder-install.sh::GPS_PROBE_EOF": {
     "binding buf = '$'": 1,
-    "binding buf = ''": 1,
+    "binding buf = ''": 2,
+    "call Path ('/proc')": 1,
     "call chunk.decode ('ascii', 'replace')": 1,
     "call os.open (dev)": 1,
-    "call print ('no-nmea')": 2,
-    "call print ('ok' if seen >= 2 else 'no-nmea')": 1,
-    "call s.endswith ('*')": 1,
-    "call s.rpartition ('*')": 1,
-    "call s.startswith ('$GN')": 1,
-    "call s.startswith ('$GP')": 1
+    "call sentence.startswith (('$GP', '$GN'))": 1,
+    "call sentence.strip().rpartition ('*')": 1,
+    "literal '/proc'": 1,
+    "path/div process / 'fd'": 1,
+    "return ''": 1,
+    "return 'busy'": 1,
+    "return 'no-nmea'": 3,
+    "return 'ownership-unknown'": 1
   },
   "Component/brrdfeeder/install/brrdfeeder-install.sh::GPS_USBID_PY": {
     "call cfg.setdefault ('sensors', {})": 1,

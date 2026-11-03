@@ -88,3 +88,13 @@ The approved split explicitly defers:
 PR A preserves those existing behaviors. Unknown-entry refusal claims apply to
 S/P/E outside the explicitly retained patterns, and to credentials/capture
 children; they do not claim the deferred broad policies are already fixed.
+
+## GPS discovery census review (0.9.0)
+
+The installer GPS probe now enumerates `/proc/*/fd` and stats character devices
+to skip ports held by another process. These are read paths outside all four
+uninstall trees. The probe opens only the selected tty with `O_RDONLY`, changes
+and restores termios, and creates no files. The GPS-only census update leaves
+all projected uninstall destinations unchanged; no deletion policy is expanded.
+`gps-usb-id/test-autodetect.py` exercises busy aliases, unknown ownership,
+receive-only PTYs and restored settings on success, timeout and read failure.

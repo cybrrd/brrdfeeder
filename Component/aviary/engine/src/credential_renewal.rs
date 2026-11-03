@@ -620,7 +620,7 @@ pub async fn owner_recover(configured: &str, node: &str, hostname: &str) -> Resu
         .post(format!("{ISSUER}/oauth/v2/device_authorization"))
         .form(&[
             ("client_id", CLIENT),
-            ("scope", "openid profile offline_access"),
+            ("scope", "openid profile"),
         ])
         .send()
         .await

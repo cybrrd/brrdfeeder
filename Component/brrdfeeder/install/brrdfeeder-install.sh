@@ -1261,13 +1261,12 @@ readonly RELEASE_HELPER_URL="https://get.cybrrd.com/releases/v1/updater/${RELEAS
 # Zitadel OAuth Device Flow (BRRDfeeder-tier enrollment — binds feeder to user account)
 readonly OAUTH_ISSUER="https://hospitality.cybrrd.com"
 readonly OAUTH_CLIENT_ID="376855240068104243"   # cyBRRD Platform / brrdfeeder-open-tier (Native, PKCE, Device Code grant)
-readonly OAUTH_SCOPE="openid profile offline_access"
+readonly OAUTH_SCOPE="openid profile"
 # flock v0 enrollment endpoint — exchanges the Zitadel access_token for
 # scoped NATS .creds (Option A: control-plane exchange; data plane stays
 # pure decentralized NATS Ed25519 — see esp32-reference-architecture.md
 # Ruling 3/4 and the Oracle Bottleneck failure-domain argument).
 readonly FLOCK_ENROLL_URL="https://ingest.cybrrd.com/v1/enroll/oauth"
-readonly REFRESH_TOKEN_PATH="${SECRETS_DIR}/oauth_refresh.token"
 
 # ----------------------------------------------------------------------
 # Parse flags
@@ -2883,7 +2882,7 @@ fi
 
 # --- Canonical config tree -------------------------------------------
 # Create /etc/brrdfeeder (0755) + secrets/ (0750 root:service) up front.
-# NATS creds are 0640 root:service; the refresh token remains 0600 root.
+# NATS credentials are 0640 root:service; OAuth tokens are not persisted.
 run install -d -m 0755 -o root -g root "$ETC_DIR"
 run install -d -m 0750 -o root -g "$TARGET_GID" "$SECRETS_DIR"
 ok "config tree present: $ETC_DIR (secrets/ 0750 root:service-group)"
@@ -3028,7 +3027,7 @@ zitadel_device_flow() {
 
   gate enrollment "Linking to your cyBRRD account"
   log_event DETAIL 'Zitadel OAuth Device Flow enrollment'
-  local attempt last_outcome="" access_token="" refresh_token=""
+  local attempt last_outcome="" access_token=""
   poll_outcome() {
     if [[ $last_outcome != "$1" ]]; then
       log_event DETAIL "device-flow outcome=$1 attempt=$attempt"
@@ -3036,7 +3035,7 @@ zitadel_device_flow() {
     fi
   }
   for attempt in 1 2 3; do
-  access_token=""; refresh_token=""; last_outcome=""
+  access_token=""; last_outcome=""
 
   # ---- Step 1: request device authorization --------------------------
   local auth_resp
@@ -3099,9 +3098,7 @@ zitadel_device_flow() {
 
     if [[ "$http_code" == "200" ]]; then
       access_token=$(jq -re '.access_token' <<<"$body") || { poll_outcome exchange-failed; warn "Account linking returned no access token."; _restore_xtrace; return 1; }
-      refresh_token=$(jq -r '.refresh_token // empty' <<<"$body")
       log_secret access-token "$access_token"
-      [[ -z $refresh_token ]] || log_secret refresh-token "$refresh_token"
       poll_outcome approved
       printf '\n\n'
       echo "  ${G}${B}✓ Approved — thank you. Continuing the install…${R}"
@@ -3195,10 +3192,6 @@ zitadel_device_flow() {
 
   umask 077
   printf '%s\n' "$creds_body" | atomic_install 0640 root "$TARGET_GID" "$CREDS_PATH"
-  if [[ -n "$refresh_token" ]]; then
-    printf '%s\n' "$refresh_token" | atomic_install 0600 root root "$REFRESH_TOKEN_PATH"
-    ok "refresh token stored (enables non-interactive creds renewal)"
-  fi
   ok "NATS creds written to $CREDS_PATH (0640 root:service-group)"
   _restore_xtrace
   return 0

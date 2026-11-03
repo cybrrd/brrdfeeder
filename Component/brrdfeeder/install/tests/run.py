@@ -22,6 +22,7 @@ ROOT = HERE.parents[3]
 INSTALL = ROOT/'Component/brrdfeeder/install'
 RELEASE = ROOT/'Component/aviary/release-system'
 BASELINES = [
+    'oauth-refresh/test-contract.py',
     'image-override/test-contract.py',
     'enrollment-refusal/test-contract.py',
     'credential-renewal/test-contract.py',

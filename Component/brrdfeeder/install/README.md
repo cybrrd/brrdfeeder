@@ -245,7 +245,10 @@ UID/GID are allocated locally. Existing service accounts must be non-root system
 accounts with a dedicated group and non-login shell; their home is read from
 passwd. The engine gets the numeric dialout supplementary group, service-writable
 state, and read-only service-group access to root-owned NATS credentials. The
-refresh token remains root-only. The identity helper is embedded, installed by
+installer does not request or store OAuth refresh tokens. Automatic credential
+renewal uses the engine's NKey challenge/complete protocol; owner recovery uses
+interactive device login. Previously stored refresh tokens are left untouched;
+inventory and provider revocation require a separately authorized migration. The identity helper is embedded, installed by
 this script, and equality-checked against the canonical repo helper by the guard.
 
 After both pinned Quadlets exist, rerun without either image argument or the
@@ -387,7 +390,7 @@ is uploaded. Review the archive and choose whether to email it to support.
 D42 does not prove the release image is appropriate, hardware works, OAuth/NATS
 enrollment succeeds, or the engine runs under the rendered contract. No customer
 deployment approval is implied. Journald ordering, partial-install rollback,
-updater deduplication, refresh-token renewal, atomic writes and stronger verify
+updater deduplication, atomic writes and stronger verify
 semantics remain follow-ups. See the
 [D42 report](../../../governance/reviews/2026-09-21-D42-installer-customer-blockers-REPORT.md).
 See also the [package acceptance report](../../../governance/reviews/2026-09-22-package-console-REPORT.md)
@@ -476,3 +479,7 @@ The engine's targeted unblock may be retained by systemd-rfkill in
 radio choices; installer/uninstaller never write that shared OS state. The
 uninstall summary discloses this persistent effect. Native cold boot, rfkill and
 real-air BLE reception still require the release approver's test; agent Pi runs = 0.
+
+Option A for 0.9.1 is proposed pending release approval. If selected, the OAuth
+refresh-grant gate S5.6 becomes permanently N/A, not PASS. This patch does not
+claim a provider-backed refresh-grant test.

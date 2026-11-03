@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # DEP-091-NMEA-REGISTRY: return nmea to crates.io
 
-Status: OPEN. Owner: BRRDfeeder dependency maintainer (Codex owns PR #88).
+Status: OPEN. Owner: BRRDfeeder dependency maintainer (PR #88).
 Review at every dependency-update/release preparation until closed. This is an
 explicit tracked follow-up, not a permanent exception for Git dependencies.
 

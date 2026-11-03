@@ -2,6 +2,13 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
+## 0.9.1 — Planned
+
+- Native engine builds explicitly fetch locked registry and Git dependencies
+  before offline compilation. Document disconnected-builder cache preparation
+  and track the temporary nmea Git pin's crates.io exit as DEP-091-NMEA-REGISTRY
+  in `docs/nmea-registry-follow-up.md`.
+
 ## 0.9.0 — Unreleased public beta candidate
 
 - Automatically confirm CP2102N GPS receivers without a prompt, resolve the correct tty, skip busy ports, restore probe settings, and generate a usable confirmed-device udev rule.

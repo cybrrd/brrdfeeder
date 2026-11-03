@@ -190,7 +190,8 @@ impl Broker {
         let allow = match mode { "deny-normal" => vec![Lane::Red.subject("test-node")],
             "deny-all" => vec!["test-only.no-rights".into()],
             _ => vec![Lane::Operational.subject("test-node"), Lane::Red.subject("test-node")] };
-        let config = serde_json::json!({"host":"127.0.0.1", "port":port,
+        let config = serde_json::json!({"host":"127.0.0.1", "port":if port == 0 { -1 } else { i32::from(port) },
+            "ports_file_dir":root,
             "jetstream":{"store_dir":root.join("js")},
             "authorization":{"users":[{"user":"test-admin","password":password},
               {"user":"test-node","password":password,"permissions":{
@@ -199,7 +200,24 @@ impl Broker {
         let log = OpenOptions::new().create(true).append(true).open(root.join("broker.log")).unwrap();
         let child = Command::new(std::env::var("D40_NATS_SERVER").expect("sandbox broker path required"))
             .arg("-c").arg(root.join("broker.json")).stdout(Stdio::null()).stderr(log).spawn().unwrap();
-        Self { child, root: root.into(), port, password: password.into() }
+        let mut broker = Self { child, root: root.into(), port, password: password.into() };
+        // NATS uses -1 for an OS-assigned port. Read the bound endpoint rather
+        // than probing a free port and racing another test to rebind it.
+        let ports_file = root.join(format!("nats-server_{}.ports", broker.child.id()));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            if let Some(port) = std::fs::read(&ports_file).ok()
+                .and_then(|raw| serde_json::from_slice::<serde_json::Value>(&raw).ok())
+                .and_then(|ports| ports["nats"][0].as_str().map(str::to_owned))
+                .and_then(|url| url.strip_prefix("nats://").and_then(|addr| addr.parse::<std::net::SocketAddr>().ok()))
+                .map(|addr| addr.port()) {
+                broker.port = port;
+                return broker;
+            }
+            assert!(broker.child.try_wait().unwrap().is_none(), "broker exited before publishing its port");
+            assert!(Instant::now() < deadline, "broker did not publish its bound port");
+            std::thread::sleep(Duration::from_millis(10));
+        }
     }
     async fn admin(&self) -> jetstream::Context {
         let deadline = Instant::now() + Duration::from_secs(5);
@@ -212,6 +230,8 @@ impl Broker {
     fn stop(&mut self) { let _ = self.child.kill(); let _ = self.child.wait(); }
     fn restart(&mut self, mode: &str) {
         self.stop();
+        // Preserve the initially OS-assigned endpoint: this test exercises
+        // reconnect of existing clients across a broker outage.
         *self = Self::start(&self.root.clone(), self.port, mode, &self.password.clone());
     }
 }
@@ -236,7 +256,6 @@ async fn wait_for(mut condition: impl FnMut() -> bool, seconds: u64) {
     let deadline = Instant::now() + Duration::from_secs(seconds);
     while !condition() { assert!(Instant::now() < deadline, "condition timed out"); sleep(Duration::from_millis(50)).await; }
 }
-fn port() -> u16 { std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port() }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires isolated worldport NATS broker; run with --ignored --nocapture"]
@@ -244,7 +263,7 @@ async fn broker_permission_offline_restart_and_independent_red() {
     let root = Scratch::new();
     // Ephemeral local password, no NKey/JWT/signature/minter used anywhere.
     let password = std::fs::read_to_string("/proc/sys/kernel/random/uuid").unwrap().trim().to_string();
-    let mut broker = Broker::start(&root.0, port(), "deny-normal", &password);
+    let mut broker = Broker::start(&root.0, 0, "deny-normal", &password);
     let admin = broker.admin().await; streams(&admin).await;
     let spool = root.0.join("spool");
     let engine = handle(&spool, &broker, "first-boot");
@@ -314,7 +333,7 @@ async fn broker_permission_offline_restart_and_independent_red() {
 async fn broker_both_denied_missing_stream_wrong_stream_and_broken_disk() {
     let root = Scratch::new();
     let password = std::fs::read_to_string("/proc/sys/kernel/random/uuid").unwrap().trim().to_string();
-    let mut broker = Broker::start(&root.0, port(), "deny-all", &password);
+    let mut broker = Broker::start(&root.0, 0, "deny-all", &password);
     let admin = broker.admin().await; streams(&admin).await;
     let spool = root.0.join("spool");
     let mut engine = handle(&spool, &broker, "failure-test");

@@ -45,6 +45,7 @@ struct Fixture {
     config: Config,
     credentials: String,
     address: std::net::SocketAddr,
+    socket: Mutex<Option<tokio::net::TcpSocket>>,
     counters: DropCounters,
 }
 impl Fixture {
@@ -62,9 +63,11 @@ impl Fixture {
         let credentials = root.join("test-only.creds");
         let key = nkeys::KeyPair::new_user();
         std::fs::write(&credentials,format!("-----BEGIN NATS USER JWT-----\nTEST-ONLY-NOT-A-REAL-JWT\n------END NATS USER JWT------\n\n-----BEGIN USER NKEY SEED-----\n{}\n------END USER NKEY SEED------\n",key.seed().unwrap())).unwrap();
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        drop(listener);
+        // Reserve the OS-assigned port through the outage; do not listen until
+        // the peer starts. Closing and rebinding here races other parallel tests.
+        let socket = tokio::net::TcpSocket::new_v4().unwrap();
+        socket.bind("127.0.0.1:0".parse().unwrap()).unwrap();
+        let address = socket.local_addr().unwrap();
         Self {
             config: Config {
                 directory: root.join("spool"),
@@ -73,6 +76,7 @@ impl Fixture {
             credentials: credentials.to_string_lossy().into_owned(),
             root,
             address,
+            socket: Mutex::new(Some(socket)),
             counters: DropCounters::new(),
         }
     }
@@ -103,8 +107,14 @@ impl Drop for Peer {
     }
 }
 impl Peer {
-    async fn start(address: std::net::SocketAddr, confirm: bool) -> Self {
-        let listener = tokio::net::TcpListener::bind(address).await.unwrap();
+    async fn start(fixture: &Fixture, confirm: bool) -> Self {
+        let socket = fixture
+            .socket
+            .lock()
+            .unwrap()
+            .take()
+            .expect("peer already started");
+        let listener = socket.listen(1024).unwrap();
         let seen = Arc::new(Mutex::new(Vec::new()));
         let saved = seen.clone();
         let batch_bytes = Arc::new(Mutex::new(Vec::new()));
@@ -161,6 +171,34 @@ impl Peer {
         }
     }
 }
+#[tokio::test]
+async fn fixture_reserves_ephemeral_port_until_peer_starts() {
+    let fixtures: Vec<_> = (0..32).map(|_| Fixture::new(1024)).collect();
+    let mut addresses = std::collections::HashSet::new();
+    for fixture in &fixtures {
+        assert!(fixture.address.ip().is_loopback());
+        assert_ne!(fixture.address.port(), 0);
+        assert!(addresses.insert(fixture.address));
+        assert_eq!(
+            std::net::TcpListener::bind(fixture.address).unwrap_err().kind(),
+            std::io::ErrorKind::AddrInUse,
+            "outage endpoint must stay reserved until peer startup"
+        );
+    }
+    let mut peers = Vec::new();
+    for fixture in &fixtures {
+        peers.push(Peer::start(fixture, true).await);
+        let mut stream = tokio::net::TcpStream::connect(fixture.address)
+            .await
+            .unwrap();
+        let mut greeting = [0; 5];
+        timeout(Duration::from_secs(5), stream.read_exact(&mut greeting))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(&greeting, b"INFO ");
+    }
+}
 async fn until(mut ready: impl FnMut() -> bool, seconds: u64) {
     let end = tokio::time::Instant::now() + Duration::from_secs(seconds);
     while !ready() {
@@ -211,7 +249,7 @@ async fn outage_with_latency_ceiling(count: u64, interval_ms: u64, ceiling_us: O
         handle.status.max_sync_us.load(Ordering::Relaxed)
     );
     assert!(f.counters.loss.lock().unwrap().gaps().is_empty());
-    let peer = Peer::start(f.address, true).await;
+    let peer = Peer::start(&f, true).await;
     // Rotate triggers an immediate reconnect, without modifying credentials.
     assert!(handle.rotate_credentials().await);
     until(
@@ -299,7 +337,7 @@ async fn socket_flush_without_broker_barrier_keeps_saved_batch() {
         assert!(handle.publish("test".into(), fixture_frame(i)).await);
     }
     let before = handle.status.spool_bytes.load(Ordering::Relaxed);
-    let peer = Peer::start(f.address, false).await;
+    let peer = Peer::start(&f, false).await;
     assert!(handle.rotate_credentials().await);
     until(|| peer.seen.lock().unwrap().len() == 10, 10).await;
     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -340,8 +378,12 @@ async fn crash_writer_child() {
                 .await
         );
     }
-    std::fs::write(&ready, b"1000").unwrap();
-    std::fs::File::open(&ready).unwrap().sync_all().unwrap();
+    // Publish a complete marker: existence must never expose an empty file
+    // to the parent while parallel test processes are competing for I/O.
+    let pending_ready = ready.with_extension("pending");
+    std::fs::write(&pending_ready, b"1000").unwrap();
+    std::fs::File::open(&pending_ready).unwrap().sync_all().unwrap();
+    std::fs::rename(&pending_ready, &ready).unwrap();
     loop {
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
@@ -384,7 +426,7 @@ async fn sigkill_mid_outage_restarts_and_replays_identical_set() {
     assert_eq!(std::fs::read(&ready).unwrap(), b"1000");
     child.kill().unwrap();
     assert_eq!(child.wait().unwrap().signal(), Some(libc::SIGKILL));
-    let peer = Peer::start(f.address, true).await;
+    let peer = Peer::start(&f, true).await;
     let handle = f.start();
     until(
         || handle.status.spool_bytes.load(Ordering::Relaxed) == 0,
@@ -451,7 +493,7 @@ async fn broker_real_stream_info_confirms_ordered_batch() {
     std::fs::write(
         &config,
         serde_json::to_vec(&json!({
-            "host":"127.0.0.1", "port":f.address.port(),
+            "host":"127.0.0.1", "port":-1, "ports_file_dir":f.root,
             "jetstream":{"store_dir":f.root.join("jetstream")}
         }))
         .unwrap(),
@@ -466,10 +508,17 @@ async fn broker_real_stream_info_confirms_ordered_batch() {
             .spawn()
             .unwrap(),
     );
+    let ports_file = f.root.join(format!("nats-server_{}.ports", _broker.0.id()));
     let client = timeout(Duration::from_secs(10), async {
         loop {
-            if let Ok(c) = async_nats::connect(format!("nats://{}", f.address)).await {
-                break c;
+            let url = std::fs::read(&ports_file)
+                .ok()
+                .and_then(|raw| serde_json::from_slice::<serde_json::Value>(&raw).ok())
+                .and_then(|ports| ports["nats"][0].as_str().map(str::to_owned));
+            if let Some(url) = url {
+                if let Ok(c) = async_nats::connect(url).await {
+                    break c;
+                }
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
@@ -591,7 +640,7 @@ async fn publisher_confirms_each_byte_bounded_large_record_batch() {
                 .await
         );
     }
-    let peer = Peer::start(f.address, true).await;
+    let peer = Peer::start(&f, true).await;
     assert!(handle.rotate_credentials().await);
     until(
         || handle.status.spool_bytes.load(Ordering::Relaxed) == 0,

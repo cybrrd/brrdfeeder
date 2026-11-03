@@ -195,16 +195,6 @@ func (u *Updater) apply() error {
 	}
 	m := *req.Release
 	target := packageTarget(m)
-	if u.state.Quarantined[target] || u.state.Attempts[target] >= attemptCap { // D44 MUTATE cap
-		u.state.Quarantined[target] = true
-		if e = u.save(); e != nil {
-			return e
-		}
-		if e = u.outcome("quarantined", target, u.state.Attempts[target]); e != nil {
-			return e
-		}
-		return u.clearPending(req.Hash)
-	}
 	s, e := u.status()
 	if e != nil {
 		return e
@@ -222,9 +212,6 @@ func (u *Updater) apply() error {
 	}
 	if e = u.checkFloors(m, s, im, ci); e != nil {
 		return e
-	}
-	if len(u.state.Attempts) >= 32 && u.state.Attempts[target] == 0 {
-		return errors.New("failure history full; operator review required")
 	}
 	quad, e := readBounded(u.cfg.Quadlet, 65536)
 	if e != nil {
@@ -247,6 +234,23 @@ func (u *Updater) apply() error {
 	}
 	ec := !contains(im.RepoDigests, req.Target)
 	cc := !contains(ci.RepoDigests, consoleRepository+"@"+m.ConsoleDigest)
+	if (ec || cc) && len(u.state.Attempts) >= 32 && u.state.Attempts[target] == 0 {
+		return errors.New("failure history full; operator review required")
+	}
+	policy, e := u.planEnginePolicy(quad, req, im, ci)
+	if e != nil {
+		return u.policyRefusal(e)
+	}
+	if (ec || cc) && (u.state.Quarantined[target] || u.state.Attempts[target] >= attemptCap) { // D44 MUTATE cap
+		u.state.Quarantined[target] = true
+		if e = u.save(); e != nil {
+			return e
+		}
+		if e = u.outcome("quarantined", target, u.state.Attempts[target]); e != nil {
+			return e
+		}
+		return u.clearPending(req.Hash)
+	}
 	ni, nc := im, ci
 	if e = u.resourceCheck(); e != nil {
 		return e
@@ -295,17 +299,29 @@ func (u *Updater) apply() error {
 	u.phase("anchor")
 	u.point("downloads")
 	ca := "brrdhouse-rollback-" + req.Hash[:16]
-	if ec {
+	if ec && policy == nil {
 		if e = u.hold(false, im, anchor); e != nil {
 			return e
 		}
 	}
-	if cc {
+	if cc && policy == nil {
 		if e = u.hold(true, ci, ca); e != nil {
 			return e
 		}
 	}
-	tx := &Transaction{Request: req, Previous: old, PreviousID: im.ID, PreviousDigest: im.Digest, PreviousBuild: s.Heartbeat.Build, PreviousVersion: s.Heartbeat.Version, Quadlet: quad, Anchor: anchor, Phase: "prepared", Started: u.now(), EngineChanged: ec, Console: &Checkpoint{Quadlet: cq, Previous: ci, Next: nc, Anchor: ca, Changed: cc}}
+	tx := &Transaction{EnginePolicy: policy, Request: req, Previous: old, PreviousID: im.ID, PreviousDigest: im.Digest, PreviousBuild: s.Heartbeat.Build, PreviousVersion: s.Heartbeat.Version, Quadlet: quad, Anchor: anchor, Phase: "prepared", Started: u.now(), EngineChanged: ec, Console: &Checkpoint{Quadlet: cq, Previous: ci, Next: nc, Anchor: ca, Changed: cc}}
+	if policy != nil {
+		tx.Anchor = "brrdfeeder-policy-" + policy.ID
+		if cc {
+			tx.Console.Anchor = "brrdhouse-policy-" + policy.ID
+		}
+		if e = u.validatePolicyTransaction(tx); e != nil {
+			return e
+		}
+		if e = u.reservePolicy(tx); e != nil {
+			return e
+		}
+	}
 	u.point("anchors")
 	// Anchor creation may itself wait on the container engine. Revalidate again
 	// immediately before journaling; no pins have been touched yet.
@@ -315,13 +331,21 @@ func (u *Updater) apply() error {
 	if u.now().UTC().Before(started) {
 		return errors.New("release clock moved backward before transaction")
 	}
+	if policy != nil {
+		if e = u.checkPolicyInputs(tx); e != nil {
+			return u.policyRefusal(e)
+		}
+		if e = u.checkPolicyHolds(tx); e != nil {
+			return e
+		}
+	}
 	u.state.Active = tx
 	u.phase("journal")
 	u.state.Seen = Seen{m.Sequence, contentHash(m.canonical())}
 	if e = u.save(); e != nil {
 		return e
 	}
-	if e = atomicJSON(u.marker(), map[string]bool{"active": true}, 0644); e != nil {
+	if e = u.writeFile(u.marker(), []byte(`{"active":true}`), 0644); e != nil {
 		return e
 	}
 	u.point("prepared")
@@ -335,8 +359,14 @@ func (u *Updater) apply() error {
 	}
 	u.phase("health")
 	u.point("switching")
-	if ec {
+	if ec || policy != nil {
 		q, re := repin(quad, req.Target)
+		if policy != nil {
+			q, re = policy.After, u.checkPolicyInputs(tx)
+			if re == nil {
+				re = u.checkPolicyHolds(tx)
+			}
+		}
 		if re != nil {
 			return re
 		}
@@ -346,8 +376,21 @@ func (u *Updater) apply() error {
 		} else {
 			u.phase("health")
 			u.point("engine-pin")
-			e = u.restart()
+			if policy != nil {
+				e = u.policyReload(u.policyTarget(tx))
+				if e == nil {
+					e = u.restartPolicyEngine()
+				}
+			} else {
+				e = u.restart()
+			}
 			u.point("engine-restart")
+		}
+		if e == nil && policy != nil {
+			sample, err := u.restartSample(false)
+			if err != nil || sample.Invocation == policy.Engine.Invocation {
+				e = errors.New("policy engine invocation did not change")
+			}
 		}
 		if e == nil {
 			e = u.afterPlannedRestart(false, ni.ID)
@@ -356,7 +399,7 @@ func (u *Updater) apply() error {
 			return u.failedUpdate()
 		} // D44 MUTATE health rollback
 	}
-	if !ec && !u.healthy(im.Digest, m.Version, m.BuildSeq, tx.Started) {
+	if !ec && policy == nil && !u.healthy(im.Digest, m.Version, m.BuildSeq, tx.Started) {
 		return u.failedUpdate()
 	}
 	if cc {
@@ -388,6 +431,11 @@ func (u *Updater) apply() error {
 	if e != nil || ce != nil || actual.ID != ni.ID || ac.ID != nc.ID || !u.stableWindow() {
 		return u.failedUpdate()
 	}
+	if policy != nil {
+		if e = u.policyPostcheck(tx); e != nil {
+			return u.failedUpdate()
+		}
+	}
 	tx.Phase = "confirmed"
 	u.point("health")
 	if e = u.save(); e != nil {
@@ -403,6 +451,11 @@ func (u *Updater) commit() error {
 	m := tx.Request.Release
 	if m == nil || tx.Console == nil {
 		return errors.New("incomplete package journal")
+	}
+	if tx.EnginePolicy != nil {
+		if e := u.commitEnginePolicy(tx); e != nil {
+			return e
+		}
 	}
 	target := packageTarget(*m)
 	u.point("confirmed")
@@ -443,7 +496,9 @@ func (u *Updater) commit() error {
 	if tx.Console.Changed {
 		u.state.ConsoleAnchor = tx.Console.Anchor
 	}
-	delete(u.state.Attempts, target)
+	if tx.EnginePolicy == nil || tx.EngineChanged || tx.Console.Changed {
+		delete(u.state.Attempts, target)
+	}
 	u.state.Active = nil
 	if e := u.save(); e != nil {
 		return e
@@ -453,7 +508,7 @@ func (u *Updater) commit() error {
 }
 func (u *Updater) failedUpdate() error {
 	tx := u.state.Active
-	if !tx.FailureCounted {
+	if !tx.FailureCounted && (tx.EnginePolicy == nil || tx.EngineChanged || tx.Console.Changed) {
 		u.state.Attempts[packageTarget(*tx.Request.Release)]++
 		tx.FailureCounted = true
 		if e := u.save(); e != nil {
@@ -468,6 +523,9 @@ func (u *Updater) recoverWithReadiness(boot bool) error {
 	tx := u.state.Active
 	if tx == nil {
 		return nil
+	}
+	if tx.EnginePolicy != nil {
+		return u.recoverEnginePolicy(boot)
 	}
 	if tx.Phase == "confirmed" {
 		return u.commit()

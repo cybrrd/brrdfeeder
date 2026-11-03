@@ -2,8 +2,10 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Signed releases and independent host convergence
 
-The 0.9.1 candidate advances the explicit installer-authorized helper to build 5, distinct from the
-signed host channel. See the [operator command and prerequisites](../../brrdfeeder/install/README.md#explicit-helper-only-upgrade-090).
+This 0.9.1 draft adds recovery-only bridge helper 6 on the helper-5 baseline.
+Migration initiation remains disabled until the separate build-7 commit. See the
+[two-step migration chain and release gates](docs/engine-policy-091.md).
+The explicit installer-authorized helper remains distinct from the signed host channel. See the [operator command and prerequisites](../../brrdfeeder/install/README.md#explicit-helper-only-upgrade-090).
 The opt-in local operation preserves identity/workload state, verifies existing
 credentials locally, and serializes on `launch.lock` then `lock`.
 It installs the backward-compatible launcher before journaling helper/floor
@@ -39,7 +41,7 @@ installer/bootstrap pins outside the reviewed release workflow.
 
 ```sh
 # From this directory, with the required compiler already available:
-./build-host.sh /path/to/new-artifact-directory
+bash build-host.sh /path/to/new-artifact-directory
 ```
 
 The helper's `publish` subcommand is a **low-level signer client**. It validates

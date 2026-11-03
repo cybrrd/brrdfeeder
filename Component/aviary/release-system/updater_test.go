@@ -207,6 +207,8 @@ func setup(t *testing.T) (*Updater, *fakeHost, ed25519.PrivateKey) {
 		t.Fatal(e)
 	}
 	u := newUpdater(c)
+	disabled := false
+	u.policyTest = &policyEnvironment{initiate: &disabled}
 	now := time.Now().UTC().Truncate(time.Second)
 	u.now = func() time.Time { return now }
 	u.healthTimeout = 10 * time.Second

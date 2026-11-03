@@ -618,9 +618,9 @@ mod r1 {
     /// (f) Config knob: default 300 when absent, explicit parse, clamp helper.
     #[test]
     fn r1_f_config_knob_default_parse_clamp() {
-        let absent: Config = serde_yaml::from_str("spool_dir: /tmp/x").unwrap();
+        let absent: Config = serde_saphyr::from_str("spool_dir: /tmp/x").unwrap();
         assert_eq!(absent.red_boot_grace_s, 300, "(f) default grace is 300 s");
-        let explicit: Config = serde_yaml::from_str("spool_dir: /tmp/x\nred_boot_grace_s: 0").unwrap();
+        let explicit: Config = serde_saphyr::from_str("spool_dir: /tmp/x\nred_boot_grace_s: 0").unwrap();
         assert_eq!(explicit.red_boot_grace_s, 0, "(f) 0 = today's edge-triggered behaviour");
         assert_eq!(clamped_grace_s(0), 0);
         assert_eq!(clamped_grace_s(300), 300);

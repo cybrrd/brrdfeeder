@@ -73,10 +73,10 @@ fn default_status_interval_secs() -> u64 {
 fn status_path<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Option<std::path::PathBuf>, D::Error> {
-    let value = serde_yaml::Value::deserialize(deserializer)?;
+    let value = serde_json::Value::deserialize(deserializer)?;
     match value {
-        serde_yaml::Value::Null => Ok(None),
-        serde_yaml::Value::String(text) => {
+        serde_json::Value::Null => Ok(None),
+        serde_json::Value::String(text) => {
             let path = std::path::PathBuf::from(&text);
             if path.is_absolute() && path.file_name().is_some() && !text.contains('\0') {
                 Ok(Some(path))
@@ -488,7 +488,7 @@ impl EngineConfig {
 
     pub fn load(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let content = std::fs::read_to_string(path)?;
-        let mut cfg: EngineConfig = serde_yaml::from_str(&content)?;
+        let mut cfg: EngineConfig = serde_saphyr::from_str(&content)?;
         let heartbeat_secs = cfg.tuning.heartbeat.interval_secs.max(1);
         if cfg.node.status_file.is_some() && cfg.node.status_interval_secs < heartbeat_secs {
             eprintln!("[config] node.status_interval_secs={} is below heartbeat interval {}; using {} seconds", cfg.node.status_interval_secs, heartbeat_secs, heartbeat_secs);
@@ -704,10 +704,10 @@ mod tests {
     fn status_file_is_explicitly_opt_in() {
         let base = "id: test\nlocation: {latitude: 0, longitude: 0, elevation_meters: 0}\n";
         for suffix in ["", "status_file: null\n"] {
-            let node: NodeYaml = serde_yaml::from_str(&format!("{base}{suffix}")).unwrap();
+            let node: NodeYaml = serde_saphyr::from_str(&format!("{base}{suffix}")).unwrap();
             assert!(node.status_file.is_none());
         }
-        let node: NodeYaml = serde_yaml::from_str(&format!(
+        let node: NodeYaml = serde_saphyr::from_str(&format!(
             "{base}status_file: /var/lib/brrdfeeder/status.json\n"
         ))
         .unwrap();
@@ -716,7 +716,7 @@ mod tests {
             std::path::Path::new("/var/lib/brrdfeeder/status.json")
         );
         let node: NodeYaml =
-            serde_yaml::from_str(&format!("{base}status_file: /tmp/custom-status.json\n")).unwrap();
+            serde_saphyr::from_str(&format!("{base}status_file: /tmp/custom-status.json\n")).unwrap();
         assert_eq!(
             node.status_file.unwrap(),
             std::path::Path::new("/tmp/custom-status.json")
@@ -726,13 +726,13 @@ mod tests {
     #[test]
     fn status_interval_defaults_and_clamps_to_heartbeat() {
         let base = "id: test\nlocation: {latitude: 0, longitude: 0, elevation_meters: 0}\n";
-        let node: NodeYaml = serde_yaml::from_str(base).unwrap();
+        let node: NodeYaml = serde_saphyr::from_str(base).unwrap();
         assert_eq!(node.status_interval_secs, 30);
         assert_eq!(node.effective_status_interval_secs(5), 30);
         assert_eq!(node.effective_status_interval_secs(60), 60);
         for requested in [0, 1, 5, 30, 60] {
             let node: NodeYaml =
-                serde_yaml::from_str(&format!("{base}status_interval_secs: {requested}\n"))
+                serde_saphyr::from_str(&format!("{base}status_interval_secs: {requested}\n"))
                     .unwrap();
             assert_eq!(node.effective_status_interval_secs(5), requested.max(5));
         }
@@ -778,7 +778,7 @@ mod tests {
 
     #[test]
     fn verify_req_brrd_014_config_refuses_unknown_and_defaults_disabled() {
-        let cfg: RidBleYaml = serde_yaml::from_str("{}").unwrap();
+        let cfg: RidBleYaml = serde_saphyr::from_str("{}").unwrap();
         assert!(!cfg.enabled);
         assert!(!cfg.unblock_rfkill);
         assert!(cfg.validate().is_ok());
@@ -788,16 +788,16 @@ mod tests {
             "enabled: true\nadapter: {bd_addr: '00:E0:4C:31:5E:C6', usb_id: '0bda:876e'}",
             "enabled: true\nquiet_window_s: 0\nadapter: {usb_id: '0bda:876e'}",
         ] {
-            assert!(serde_yaml::from_str::<RidBleYaml>(yaml)
+            assert!(serde_saphyr::from_str::<RidBleYaml>(yaml)
                 .unwrap()
                 .validate()
                 .is_err());
         }
         for yaml in ["mystery: true", "adapter: {hci: 0}"] {
-            assert!(serde_yaml::from_str::<RidBleYaml>(yaml).is_err());
+            assert!(serde_saphyr::from_str::<RidBleYaml>(yaml).is_err());
         }
         let cfg: RidBleYaml =
-            serde_yaml::from_str("enabled: true\nadapter: {bd_addr: '00:E0:4C:31:5E:C6'}").unwrap();
+            serde_saphyr::from_str("enabled: true\nadapter: {bd_addr: '00:E0:4C:31:5E:C6'}").unwrap();
         assert!(cfg.validate().is_ok());
     }
 
@@ -814,7 +814,7 @@ node:
 capture: { interface: "wlan1" }
 backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp/x" }
 "#;
-        let err = serde_yaml::from_str::<EngineConfig>(yaml)
+        let err = serde_saphyr::from_str::<EngineConfig>(yaml)
             .expect_err("unknown key must refuse to parse")
             .to_string();
         assert!(
@@ -830,7 +830,7 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
     #[test]
     fn installer_legacy_keys_warn_and_primary_parse_errors_survive() {
         let raw = include_str!("../../deploy/bootstrap/config.yaml.mobile.template");
-        let cfg: EngineConfig = serde_yaml::from_str(raw).unwrap();
+        let cfg: EngineConfig = serde_saphyr::from_str(raw).unwrap();
         assert_eq!(
             cfg.deprecated_keys(),
             ["node.storage_class", "backhaul.target_subject"]
@@ -858,7 +858,7 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
         assert!(load().is_err()); // valid fallback must not hide malformed primary
         std::fs::remove_file(&fallback).unwrap();
         let error = load().unwrap_err();
-        assert!(error.downcast_ref::<serde_yaml::Error>().is_some());
+        assert!(error.downcast_ref::<serde_saphyr::Error>().is_some());
         std::fs::remove_file(&primary).unwrap();
         std::fs::create_dir(&primary).unwrap();
         assert_ne!(
@@ -876,7 +876,7 @@ backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp
     fn shipped_reference_config_parses() {
         let raw = include_str!("../../config.yaml");
         let cfg: EngineConfig =
-            serde_yaml::from_str(raw).expect("reference config.yaml must match the engine schema");
+            serde_saphyr::from_str(raw).expect("reference config.yaml must match the engine schema");
         assert!(
             cfg.sensors.gps.required,
             "reference config must not silently opt out of the GPS trust tier (REQ-BRRD-002)"
@@ -966,7 +966,7 @@ node:
 capture: { interface: "wlan1" }
 backhaul: { broker_urls: ["tls://example.invalid:4222"], credentials_path: "/tmp/x" }
 "#;
-        let cfg: EngineConfig = serde_yaml::from_str(yaml).expect("minimal config must parse");
+        let cfg: EngineConfig = serde_saphyr::from_str(yaml).expect("minimal config must parse");
         assert_eq!(
             cfg.sensors.gps.device, "/dev/cybrrd_gps",
             "REQ-BRRD-001: omitted gps.device must default to the udev symlink"
@@ -980,17 +980,17 @@ mod gps_init_tests {
 
     #[test]
     fn init_off_by_default_sends_nothing() {
-        let y: GpsYaml = serde_yaml::from_str("").unwrap();
+        let y: GpsYaml = serde_saphyr::from_str("").unwrap();
         assert!(y.init.sentences().is_empty());
         let y2: GpsYaml =
-            serde_yaml::from_str("init: {update_rate_hz: 10}").unwrap();
+            serde_saphyr::from_str("init: {update_rate_hz: 10}").unwrap();
         // pmtk master gate false => nothing sent even with fields set.
         assert!(y2.init.sentences().is_empty());
     }
 
     #[test]
     fn init_renders_checksummed_sentences() {
-        let y: GpsYaml = serde_yaml::from_str(
+        let y: GpsYaml = serde_saphyr::from_str(
             "init: {pmtk: true, update_rate_hz: 10, nmea_set: \"GGA, RMC ,gsa\", sbas: true}",
         )
         .unwrap();
@@ -1008,8 +1008,99 @@ mod gps_init_tests {
 
     #[test]
     fn init_update_rate_clamps_to_receiver_limits() {
-        let y: GpsYaml = serde_yaml::from_str("init: {pmtk: true, update_rate_hz: 50}")
+        let y: GpsYaml = serde_saphyr::from_str("init: {pmtk: true, update_rate_hz: 50}")
             .unwrap();
         assert_eq!(y.init.sentences(), vec!["$PMTK220,100*2F".to_string()]);
+    }
+}
+
+#[cfg(test)]
+mod yaml_migration_tests {
+    use super::EngineConfig;
+
+    #[test]
+    fn existing_config_shapes_match_serde_yaml_goldens() {
+        // Captured by EngineConfig::load at main 9faae55 using serde_yaml 0.9.34.
+        // Full Debug snapshots include every field, default and loaded-byte hash.
+        let root =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/config-compat");
+        for name in [
+            "installer-native",
+            "installer-bridge-ble-updater",
+            "reference",
+            "mobile",
+            "v0831",
+            "syntax",
+        ] {
+            let cfg = EngineConfig::load(root.join(format!("{name}.yaml")).to_str().unwrap())
+                .unwrap_or_else(|error| panic!("{name}: {error}"));
+            let expected = std::fs::read_to_string(root.join(format!("{name}.expected"))).unwrap();
+            assert_eq!(
+                format!("{cfg:#?}\n"),
+                expected,
+                "config semantics changed: {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn fixture_covers_every_baseline_installer_field() {
+        let installer = include_str!("../../../brrdfeeder/install/brrdfeeder-install.sh");
+        let template = installer
+            .split("<<'CFGEOF'\n")
+            .nth(1)
+            .unwrap()
+            .split("\nCFGEOF")
+            .next()
+            .unwrap();
+        let mut generated: serde_json::Value = serde_saphyr::from_str(template).unwrap();
+        generated["node"]["id"] = "brrdfeeder-fixture-001".into();
+        generated["node"]["location"] = serde_json::json!({"latitude":40.882590,"longitude":-95.690920,"elevation_meters":320.0});
+        generated["capture"]["interface"] = "wlx001122334455".into();
+        let fixture: serde_json::Value = serde_saphyr::from_str(include_str!(
+            "../tests/fixtures/config-compat/installer-native.yaml"
+        ))
+        .unwrap();
+        assert_eq!(
+            generated, fixture,
+            "installer template gained or changed config fields"
+        );
+        // Additional writes: GPS_USBID_PY, bluetooth-state.py enabled_config,
+        // RELEASE_CONFIG_PY (the provisioned status path is already in CFGEOF).
+        generated["sensors"]["gps"]["usb_id"] = "10c4:ea60".into();
+        generated["sensors"]["rid_ble"] = serde_json::json!({"enabled":true,"unblock_rfkill":true,"adapter":{"usb_id":"0bda:876e"}});
+        generated["node"]["channel"] = "dev".into();
+        generated["upward"] = serde_json::json!({"spool_dir":"/var/lib/brrdfeeder/upward"});
+        let fixture: serde_json::Value = serde_saphyr::from_str(include_str!(
+            "../tests/fixtures/config-compat/installer-bridge-ble-updater.yaml"
+        ))
+        .unwrap();
+        assert_eq!(generated, fixture);
+    }
+
+    #[test]
+    fn malformed_or_ambiguous_config_still_refuses() {
+        let valid = include_str!("../tests/fixtures/config-compat/installer-native.yaml");
+        for input in [
+            valid.replace("  id:", "  unknown_field: true\n  id:"),
+            valid.replace("  id:", "  id: duplicate\n  id:"),
+            format!("{valid}\n---\n{valid}"),
+            valid.replace("required: true", "required: [true]"),
+            valid.replace("latitude: 40.88259", "latitude: .nan"),
+            valid.replace("latitude: 40.88259", "latitude: 91"),
+            valid.replace(
+                "status_file: /var/lib/brrdfeeder-status/status.json",
+                "status_file: 123",
+            ),
+        ] {
+            let path = std::env::temp_dir().join(format!(
+                "yaml-migration-invalid-{}.yaml",
+                std::process::id()
+            ));
+            std::fs::write(&path, &input).unwrap();
+            let result = EngineConfig::load(path.to_str().unwrap());
+            std::fs::remove_file(path).unwrap();
+            assert!(result.is_err(), "accepted invalid config: {input}");
+        }
     }
 }

@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+node:
+  id: "00123"
+  status_file: null
+  status_interval_secs: 60
+  location: {latitude: 40, longitude: -95, elevation_meters: 0}
+capture:
+  interface: >-
+    wlan1
+  savefile: null
+  hunter: {enabled: true, preset: sweep, channel_set: [6, 149], jitter_fraction: 0.15}
+backhaul:
+  broker_urls: [&broker 'tls://example.invalid:4222', *broker]
+  credentials_path: '/tmp/quoted: path.creds'
+sensors:
+  gps: {required: true, device: /dev/cybrrd_gps, init: {pmtk: true, update_rate_hz: 10, nmea_set: 'GGA,RMC', sbas: false}}

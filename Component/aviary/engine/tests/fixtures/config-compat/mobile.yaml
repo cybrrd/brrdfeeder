@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+node:
+  id: brrdfeeder-mobile-001
+  storage_class: ephemeral
+  location:
+    latitude: 40.88259
+    longitude: -95.69092
+    elevation_meters: 320.0
+capture:
+  interface: wlxCHANGEME
+  hunter:
+    enabled: true
+    lock_on_duration_ms: 2000
+    lock_on_min_ms: 500
+backhaul:
+  broker_urls:
+  - tls://ingest.cybrrd.com:4222
+  credentials_path: /home/operator/secrets/brrdfeeder.creds
+  target_subject: cybrrd.telemetry.frame.rid
+tuning:
+  edge_processing:
+    deduplication_window_ms: 1000
+  heartbeat:
+    interval_secs: 5
+sensors:
+  rid_ble:
+    unblock_rfkill: true
+  gps:
+    device: /dev/cybrrd_gps

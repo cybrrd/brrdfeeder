@@ -1972,6 +1972,13 @@
     "call import (\"bytes\" \"context\" \"errors\" \"sync\")": 1,
     "call len (p)": 1
   },
+  "Component/aviary/release-system/exit_status.go": {
+    "call errors . New (\"release clock untrusted: engine has not reported a fresh trusted clock (os_clock_trusted=true); update deferred. If the engine is not running, re-run the installer to update\")": 1,
+    "call len (children)": 1,
+    "call onlyClockDefer (child)": 1,
+    "call onlyClockDefer (err)": 1,
+    "call onlyClockDefer (wrapped . Unwrap ( ))": 1
+  },
   "Component/aviary/release-system/host_update.go": {
     "binding ! = \"\"": 3,
     "binding ! = \"amd64\"": 1,
@@ -2295,6 +2302,7 @@
     "call errors . New (\"updater config must not be group/world writable\")": 1,
     "call errors . New (\"updates require the provisioned status directory and enabled D40 upward lane\")": 1,
     "call errors . New (\"usage: brrdfeeder-release publish|poll|apply|recover|install\")": 1,
+    "call exitCode (e)": 1,
     "call f . String (\"config\", \"/etc/brrdfeeder/updater.json\", \"root-owned installed updater configuration\")": 1,
     "call f . String (\"console-digest\", \"\", \"BRRDhouse sha256 digest, never a tag\")": 1,
     "call f . String (\"console-version\", \"\", \"BRRDhouse 40-hex source revision\")": 1,
@@ -2701,7 +2709,6 @@
     "call errors . New (\"previous Quadlet is not digest-pinned\")": 1,
     "call errors . New (\"release audience/cohort excluded\")": 1,
     "call errors . New (\"release clock moved backward during fetch\")": 1,
-    "call errors . New (\"release clock untrusted: require fresh explicit os_clock_trusted=true\")": 1,
     "call errors . New (\"release redirects refused\")": 1,
     "call errors . New (\"release replay/equivocation\")": 1,
     "call errors . New (\"release ring/replay/equivocation refused\")": 1,

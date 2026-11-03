@@ -246,3 +246,28 @@ An isolated dev proof precedes staging/general. Promote the same proved good
 digests without rebuilding, with a new ring-specific signature and sequence
 under separate approval. The public bootstrap switch is last, after proof and
 review; a GitHub tag or published release alone does not authorize it.
+
+## Clock-trust deferrals
+
+The two timer-driven poll services treat exit **75** as an expected defer via
+`SuccessExitStatus=75`. The journal still explains that the engine has not
+reported a fresh trusted clock. Missing, stale, future, malformed or explicitly
+untrusted status cannot authorize expiry-sensitive release decisions; the
+updater still requires an explicit fresh `os_clock_trusted=true` report.
+OS NTP synchronization alone is not a substitute, and there is no bootstrap
+window exemption. A later timer tick retries after the engine restores trust.
+
+If the engine is not running, re-run the installer to update through the
+operator-driven, hash-pinned recovery path. A closed trust gate cannot deliver
+an update to unstick a dead engine. Independent authenticated time remains a
+separate design, not part of this defer behavior.
+
+The launcher preserves exit 75 for `poll` and `poll-updater`; only those two
+systemd units accept it. Other errors still exit 1 and leave the unit failed,
+including executable download failures and attempt-receipt write failures
+joined with a clock defer. The existing unpublished host-manifest HTTP 404
+no-op remains unchanged. CLI exit 75 is nonzero, not a claim that an update ran.
+
+Both the helper and installed poll units must be updated together through the
+installer's host setup. An engine-only update, or a helper-only replacement
+that leaves old units installed, does not migrate `SuccessExitStatus`.

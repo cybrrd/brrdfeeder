@@ -480,6 +480,6 @@ radio choices; installer/uninstaller never write that shared OS state. The
 uninstall summary discloses this persistent effect. Native cold boot, rfkill and
 real-air BLE reception still require the release approver's test; agent Pi runs = 0.
 
-Option A for 0.9.1 is proposed pending Cy's decision. If selected, the OAuth
+Option A for 0.9.1 is proposed pending release approval. If selected, the OAuth
 refresh-grant gate S5.6 becomes permanently N/A, not PASS. This patch does not
 claim a provider-backed refresh-grant test.

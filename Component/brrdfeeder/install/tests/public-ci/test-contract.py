@@ -151,6 +151,12 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.assertTrue(any('>=0.8' in i.get('versions',[]) for i in ignores))
         self.assertTrue(any('version-update:semver-major' in i.get('update-types',[]) for i in ignores))
 
+    def test_engine_yaml_dependency_exit(self):
+        lock=tomllib.loads((ROOT/'Component/aviary/Cargo.lock').read_text())
+        names={p['name'] for p in lock['package']}
+        self.assertNotIn('unsafe-libyaml',names)
+        self.assertNotIn('serde_yaml',names)
+
     def test_dependabot_workspace_uses_only_root_lockfile(self):
         updates=yaml.safe_load((ROOT/'.github/dependabot.yml').read_text())['updates']
         cargo=[u for u in updates if u['package-ecosystem']=='cargo']

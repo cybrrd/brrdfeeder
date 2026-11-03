@@ -17,7 +17,8 @@ async-nats = "0.50" # Keep the patched rustls-webpki resolution in the workspace
 bytes = "1" # #178: opaque pre-serialized payloads in the multiplexed NATS supervisor
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
+# 1.2+ requires Rust 1.89; keep the tested 1.1 line on our Rust 1.88 floor.
+serde-saphyr = { version = "~1.1.0", default-features = false, features = ["deserialize"] }
 sha2 = "0.11" # D32: hash exactly the loaded config bytes.
 ed25519-dalek = "3"   # #185 Phase 3 — E-CNP-001 Blue policy signature verification
 hex = "0.4"           # #185 Phase 3 — decode the 64-byte Ed25519 sig

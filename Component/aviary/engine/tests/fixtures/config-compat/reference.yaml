@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+node:
+  id: brrdfeeder-open-example-001
+  location:
+    latitude: 40.88259
+    longitude: -95.69092
+    elevation_meters: 320.0
+capture:
+  savefile: null
+  interface: wlan1
+  hunter:
+    enabled: true
+    lock_on_duration_ms: 2000
+    lock_on_min_ms: 500
+backhaul:
+  broker_urls:
+  - tls://ingest.cybrrd.com:4222
+  credentials_path: /etc/brrdfeeder/secrets/brrdfeeder.creds
+tuning:
+  edge_processing:
+    deduplication_window_ms: 1000
+  heartbeat:
+    interval_secs: 5
+sensors:
+  rid_ble:
+    enabled: false
+    adapter:
+      bd_addr: 00:00:00:00:00:00
+    quiet_window_s: 30
+  gps:
+    clock:
+      consistent_fixes: 3
+      max_step_secs: 604800
+      allow_large_step: false
+    device: /dev/cybrrd_gps
+    required: true

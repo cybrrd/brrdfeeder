@@ -1,0 +1,91 @@
+EngineConfig {
+    loaded_config_hash: Some(
+        "sha256:11b81ea070e01a94a905170452fea2a3b0548f793576057c8efbc24a7f3dba68",
+    ),
+    node: NodeYaml {
+        id: "brrdfeeder-fixture-001",
+        status_file: Some(
+            "/var/lib/brrdfeeder-status/status.json",
+        ),
+        status_interval_secs: 30,
+        storage_class: Some(
+            "ephemeral",
+        ),
+        location: NodeLocationYaml {
+            latitude: 40.88259,
+            longitude: -95.69092,
+            elevation_meters: 320.0,
+        },
+        version: None,
+        channel: Some(
+            "general",
+        ),
+    },
+    capture: CaptureYaml {
+        interface: "wlx001122334455",
+        savefile: None,
+        hunter: HunterYaml {
+            enabled: true,
+            preset: None,
+            channel_set: None,
+            dwell_default_ms: None,
+            dwell_priority_ms: None,
+            priority_channels: None,
+            lock_on_duration_ms: None,
+            lock_on_min_ms: None,
+            jitter_fraction: None,
+            jitter_seed: None,
+        },
+    },
+    backhaul: BackhaulYaml {
+        outage_spool: Config {
+            directory: "/var/lib/brrdfeeder/outage",
+            cap_bytes: 2147483648,
+        },
+        target_subject: Some(
+            "cybrrd.telemetry.frame.rid",
+        ),
+        broker_urls: [
+            "tls://ingest.cybrrd.com:4222",
+        ],
+        credentials_path: "/var/lib/brrdfeeder/credentials/brrdfeeder.creds",
+    },
+    tuning: TuningYaml {
+        edge_processing: EdgeProcessingYaml {
+            deduplication_window_ms: 1000,
+        },
+        heartbeat: HeartbeatYaml {
+            interval_secs: 5,
+        },
+    },
+    sensors: SensorsYaml {
+        gps: GpsYaml {
+            clock: ClockYaml {
+                consistent_fixes: 3,
+                max_step_secs: 604800,
+                allow_large_step: false,
+            },
+            init: GpsInitYaml {
+                pmtk: false,
+                update_rate_hz: None,
+                nmea_set: None,
+                sbas: None,
+            },
+            device: "/dev/cybrrd_gps",
+            baud: 9600,
+            required: true,
+            startup_grace_secs: 120,
+            stale_after_secs: 30,
+        },
+        rid_ble: RidBleYaml {
+            enabled: false,
+            unblock_rfkill: false,
+            adapter: BleAdapterYaml {
+                bd_addr: None,
+                usb_id: None,
+            },
+            quiet_window_s: 30,
+        },
+    },
+    upward: None,
+}

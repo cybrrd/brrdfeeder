@@ -2,6 +2,13 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
+## 0.9.1 — Unreleased candidate
+
+- Proposed OAuth option A (pending decision): enrollment and owner recovery no
+  longer request offline access; the installer no longer stores unused refresh
+  tokens. Credential renewal uses NKey renewal or interactive owner recovery.
+  Existing tokens are untouched; inventory/revocation is a separate migration.
+
 ## 0.9.0 — Unreleased public beta candidate
 
 - Automatically confirm CP2102N GPS receivers without a prompt, resolve the correct tty, skip busy ports, restore probe settings, and generate a usable confirmed-device udev rule.

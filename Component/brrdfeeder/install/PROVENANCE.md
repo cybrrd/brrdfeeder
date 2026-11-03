@@ -26,7 +26,7 @@ on resonance, so nothing was actually lost; **the process, not the luck, is what
 | **Zitadel OAuth Device Flow** against `https://hospitality.cybrrd.com` | ✅ constants + flow |
 | displays `user_code` + `verification_uri` for the user to authorise | ✅ |
 | enrols with **flock** at `https://ingest.cybrrd.com/v1/enroll/oauth` | ✅ |
-| stores `oauth_refresh.token` for 90-day credential renewal | ✅ |
+| uses access-token login for enrollment; stores no OAuth refresh token | ✅ |
 | writes config, quadlet, secrets tree (`0700 root`) | ✅ |
 
 **The development team's earlier readiness assessment was wrong** and is corrected here: it was made against

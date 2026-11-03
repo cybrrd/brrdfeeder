@@ -89,7 +89,7 @@ are excluded (including `R/blue_policy.rs:253` pending-update writer).
 | `E/.bluetooth-prior.json` | `BT:23,356` | 0600 | root | private | Yes |
 | `E/secrets/` | `I:2670` | 0750 | root:svc | secret | Yes, safe_tree |
 | `E/secrets/brrdfeeder.creds` | `I:2951` | 0640 | root:svc | secret | Yes |
-| `E/secrets/oauth_refresh.token` | `I:2953` | 0600 | root | secret | Yes |
+| `E/secrets/oauth_refresh.token` | legacy only; no new writer | 0600 | root | secret | Yes |
 | `E/.brrdfeeder-atomic-<8 chars>`; `E/secrets/.brrdfeeder-atomic-<8 chars>` | `I:2434` atomic installer helper and its callers | initially 0600; then target mode | root initially; then target owner | target class | Yes, exact generated suffix plus safe_file |
 | `E/.config-status-<8 chars>` | `I:3500-3532` | initially 0600, then config mode | root | record | Yes, prefix plus safe_file |
 | `E/.release-config-<8 chars>` | `I:4907-4930` | initially 0600, then config mode | config owner, normally root | record | Yes, prefix plus safe_file |

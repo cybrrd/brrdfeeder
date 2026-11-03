@@ -2,9 +2,9 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Signed releases and independent host convergence
 
-This 0.9.1 draft adds recovery-only bridge helper 6 on the helper-5 baseline.
-Migration initiation remains disabled until the separate build-7 commit. See the
-[two-step migration chain and release gates](docs/engine-policy-091.md).
+This draft stacks the 0.9.1 engine-policy chain on helper 5: recovery-only
+bridge build 6, then migration-enabled build 7. See the
+[migration behavior, coverage decision and release gates](docs/engine-policy-091.md).
 The explicit installer-authorized helper remains distinct from the signed host channel. See the [operator command and prerequisites](../../brrdfeeder/install/README.md#explicit-helper-only-upgrade-090).
 The opt-in local operation preserves identity/workload state, verifies existing
 credentials locally, and serializes on `launch.lock` then `lock`.
@@ -20,8 +20,9 @@ The [baseline comparison](HELPER5-BASELINE.md) freezes the planning citations
 against released 0.9.0.
 Fresh released-0.9.0 helper 4 → 5 native qualification remains pending; see the
 [new qualification kit](qualification/helper5/README.md). Historical 0.8.31
-layout support remains a separate regression gate. This change does not migrate
-engine restart policy or authorize release publication.
+layout support remains a separate regression gate. That helper-only baseline does not migrate engine restart policy. Builds 6/7
+retain the helper-only boundary; a later eligible workload poll may migrate
+under the separately documented gates. Release publication remains unauthorized.
 
 AGPL-3.0-or-later. Nodes autonomously PULL. Command and Blue no longer initiate
 software updates. Blue's crypto, pinned Ed25519 public key and applied-build

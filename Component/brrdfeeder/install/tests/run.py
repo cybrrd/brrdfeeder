@@ -152,7 +152,7 @@ for group in groups:
         run('memory-mutations',[sys.executable,ROOT/'Component/aviary/deploy/memory/mutate_memory.py'],timeout=600)
         for name in MUTATIONS:
             run(name.replace('/','-').removesuffix('.py'),[sys.executable,HERE/name])
-        for name in ('run-go-proofs','run-rework-proofs','run-helper5-io-proofs','run-rust-proofs'):
+        for name in ('run-go-proofs','run-rework-proofs','run-helper5-io-proofs','run-policy-proofs','run-rust-proofs'):
             run(name,[sys.executable,RELEASE/'tests'/(name+'.py')],timeout=3600)
     elif group == 'containers':
         run('gps-runtime-start',[sys.executable,HERE/'gps-runtime/test-container.py'])

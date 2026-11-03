@@ -111,7 +111,7 @@ func (f *localFixture) probe(path, verb string) (string, error) {
 	if old {
 		return f.oldBuild, nil
 	}
-	return "6\n", nil
+	return "7\n", nil
 }
 func treeBytes(t *testing.T, root string) map[string]string {
 	t.Helper()
@@ -162,7 +162,7 @@ func TestLocalUpgradeRefusals(t *testing.T) {
 			os.WriteFile(f.p.receipt, []byte(strings.Repeat("0", 64)+"  "+f.p.binary+"\n"), 0600)
 		}},
 		{"downgrade", "downgrade", func(f *localFixture) { f.oldBuild = "9\n" }},
-		{"equal_build_different_hash", "equal-build", func(f *localFixture) { f.oldBuild = "6\n" }},
+		{"equal_build_different_hash", "equal-build", func(f *localFixture) { f.oldBuild = "7\n" }},
 		{"wrong_arch", "architecture", func(f *localFixture) { f.candidate[18] = 0; f.hash = contentHash(f.candidate) }},
 		{"missing_active", "active", func(f *localFixture) { os.Remove(f.p.active) }},
 		{"bad_active_signature", "credentials", func(f *localFixture) { b, _ := os.ReadFile(f.p.active); b[40] ^= 1; os.WriteFile(f.p.active, b, 0600) }},
@@ -213,7 +213,7 @@ func TestLocalUpgradeSuccess(t *testing.T) {
 	var state map[string]any
 	b, _ = os.ReadFile(f.p.private + "/host-state.json")
 	json.Unmarshal(b, &state)
-	if state["build_seq"] != float64(6) || state["seen"].(map[string]any)["sequence"] != float64(27) || state["attempted"].(map[string]any)["retained"] != true {
+	if state["build_seq"] != float64(7) || state["seen"].(map[string]any)["sequence"] != float64(27) || state["attempted"].(map[string]any)["retained"] != true {
 		t.Fatal("host floor/sequence preservation")
 	}
 	if _, e := os.Stat(f.p.private + "/host-transaction.json"); !os.IsNotExist(e) {

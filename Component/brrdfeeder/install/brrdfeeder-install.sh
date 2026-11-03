@@ -1255,7 +1255,7 @@ readonly BLUETOOTH_HELPER="/usr/local/libexec/brrdfeeder-bluetooth"
 readonly STATE_DIR="/var/lib/brrdfeeder"
 # Standalone ARM64 host executable: reproduced twice by build-host.sh with
 # the pinned Go toolchain. Publication is a separate operator step, never tags.
-readonly RELEASE_HELPER_SHA256="fca9304dfe16d86b31ba7cce3aa5b8795879207b2a5c5cf3e7fcd3e5df740025"
+readonly RELEASE_HELPER_SHA256="4f47619a029518c652601d4a87e52e99f4ca608c91c97a3f260d310abbd5f473"
 readonly RELEASE_HELPER_URL="https://get.cybrrd.com/releases/v1/updater/${RELEASE_HELPER_SHA256}/linux-arm64/brrdfeeder-release"
 
 # Zitadel OAuth Device Flow (BRRDfeeder-tier enrollment — binds feeder to user account)

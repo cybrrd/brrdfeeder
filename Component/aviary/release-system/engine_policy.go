@@ -24,7 +24,7 @@ const policyCapability = "brrdfeeder-release recovery engine-restart-policy-v1 s
 
 // Build 6 is the recovery bridge. Build 7 enables initiation in the following
 // commit/release, after build 6 is the authenticated retained executable.
-const policyInitiationEnabled = false
+const policyInitiationEnabled = true
 
 type effectivePolicy struct {
 	IntervalUS uint64 `json:"interval_us"`

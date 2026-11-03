@@ -73,7 +73,7 @@ m.recover(pathlib.Path(sys.argv[2]),pathlib.Path(sys.argv[3]),pathlib.Path(sys.a
       // A synthetic panic after unlink sees the new coherent state in this
       // filesystem; this is not evidence that an unsynced unlink survives boot.
       if !crash {t.Fatal("error returned with candidate unexpectedly committed")}
-      floor,e:=os.ReadFile(f.p.private+"/host-state.json");if e!=nil||!strings.Contains(string(floor),`"build_seq":6`){t.Fatal("candidate floor incoherent")}
+      floor,e:=os.ReadFile(f.p.private+"/host-state.json");if e!=nil||!strings.Contains(string(floor),`"build_seq":7`){t.Fatal("candidate floor incoherent")}
      }else{t.Fatal("unknown installed bytes")}
      if _,e:=os.Lstat(f.p.private+"/host-transaction.json");!os.IsNotExist(e){t.Fatal("journal remains after recovery")}
     })

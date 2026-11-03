@@ -25,9 +25,9 @@ that one-time reinstall. See the [Friday runbook](../../../governance/reviews/d4
 
 ### Explicit helper-only upgrade (0.9.0)
 
-This operation was introduced in 0.9.0 with helper 4. This 0.9.1 draft targets recovery-only bridge helper 6 on the helper-5 baseline.
-Native qualification and publication remain pending. Migration initiation is
-disabled in this bridge; see the [two-step chain](../../aviary/release-system/docs/engine-policy-091.md).
+This operation was introduced in 0.9.0 with helper 4. This 0.9.1 draft stacks recovery-only helper 6 then migration-enabled helper 7
+on the helper-5 baseline. Native qualification and publication remain pending.
+See the [two-step chain and skipped-bridge behavior](../../aviary/release-system/docs/engine-policy-091.md).
 After approved publication of the candidate bootstrap/installer/helper hash chain,
 an already provisioned ARM64 Self-Update installation can run:
 
@@ -37,7 +37,7 @@ curl -fsSL https://get.cybrrd.com | bash -s -- --upgrade-helper
 
 An ordinary rerun still preserves the existing valid helper. The installer flag
 works even when the old installed command lacks this operation. No manual
-staging is needed: only the exact pinned build-6 SHA-addressed artifact is
+staging is needed: only the exact pinned build-7 SHA-addressed artifact is
 downloaded. Optionally append `--helper-file /absolute/path/brrdfeeder-release`
 to use local bytes; the same SHA256 is required and a root-private copy executes.
 
@@ -57,7 +57,7 @@ renewal or other identity-service calls. Python 3/PyYAML and curl must already
 be installed; this mode does not install dependencies or change accounts/services.
 
 Config, existing credential bundles, workload image pins and workload build/sequence
-floors are not written. The independent helper floor may only advance to 6.
+floors are not written. The independent helper floor may only advance to 7.
 Higher floors, equal-build/different-hash replacements, busy locks and pending
 updater work are refused. Finish/recover pending work before retrying; do not
 uninstall or re-enroll to bypass a refusal.

@@ -40,6 +40,18 @@ fallback, a later forward recovery-capable helper must make its actual previous
 compatible, or an independently authorized full-installer repair is required.
 No forward catch-up build is allocated or released by this draft.
 
+### Reproduced draft identities
+
+Bridge commit: `2ec281109e71e65069a1330ccc072a57d4547f5a` (direct child of
+the helper-5 base above). The enabled artifact is built from this PR's second
+commit. Both passed two-path reproduction and QEMU build/self-test/capability
+probes; QEMU is not native qualification.
+
+| Artifact | ARM64 SHA256 |
+|---|---|
+| Bridge 6 | `fca9304dfe16d86b31ba7cce3aa5b8795879207b2a5c5cf3e7fcd3e5df740025` |
+| Enabled 7 | `4f47619a029518c652601d4a87e52e99f4ca608c91c97a3f260d310abbd5f473` |
+
 ## Authority, effects and recovery
 
 Helper-only upgrade and independent signed host update never migrate policy.

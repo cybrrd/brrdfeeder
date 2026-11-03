@@ -2320,7 +2320,7 @@
     "binding hostBinary = \"/usr/local/libexec/brrdfeeder-release\"": 1,
     "binding hostSchema = \"cybrrd.host-updater.v1\"": 1,
     "binding selfTestReply = \"brrdfeeder-release self-test v1\\n\"": 1,
-    "binding updaterBuild = \"6\"": 1,
+    "binding updaterBuild = \"7\"": 1,
     "call ) . Add (pollFloor + time . Duration ( cohort ( u . cfg . Node , \"host-poll\" ) ) * 3 * time . Second)": 1,
     "call atomicFile (binary)": 2,
     "call atomicFile (previous + \".sha256\")": 1,

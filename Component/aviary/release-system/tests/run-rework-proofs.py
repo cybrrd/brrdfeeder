@@ -36,7 +36,7 @@ mutants=[
  ('helper-architecture',release,'local_upgrade.go','binary.LittleEndian.Uint16(candidate[18:20]) != machine','false && binary.LittleEndian.Uint16(candidate[18:20]) != machine','TestLocalUpgradeRefusals/wrong_arch'),
  ('h5-floor',release,'local_upgrade.go','json.RawMessage(strconv.FormatUint(localHelperBuild, 10))','json.RawMessage(`4`)','TestHelperTargetFloorAndIdempotence'),
  ('h5-candidate4',release,'local_upgrade.go','r != strconv.FormatUint(localHelperBuild, 10)+"\\n"','r != "4\\n"','TestHelperTargetWrongCandidateBuild'),
- ('target-candidate7',release,'local_upgrade.go','r != strconv.FormatUint(localHelperBuild, 10)+"\\n"','r != "7\\n"','TestHelperTargetWrongCandidateBuild'),
+ ('target-candidate8',release,'local_upgrade.go','r != strconv.FormatUint(localHelperBuild, 10)+"\\n"','r != "8\\n"','TestHelperTargetWrongCandidateBuild'),
  ('h5-hash',release,'local_upgrade.go','contentHash(candidate) != hash','false','TestLocalUpgradeRefusals/candidate_hash'),
  ('h5-posttest',release,'local_upgrade.go','if e = check(p.binary); e != nil {','if e = error(nil); e != nil {','TestLocalUpgradeFailedSelfTestRollsBack'),
  ('h5-no-install',release,'local_upgrade.go','atomicFile(p.binary, candidate, 0755)','atomicFile(p.binary, s.old, 0755)','TestLocalUpgradeSuccess'),

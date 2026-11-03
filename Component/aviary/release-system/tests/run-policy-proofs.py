@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 
 release=Path(__file__).resolve().parents[1]
-out=Path(os.environ['POLICY_EVIDENCE_DIR']);out.mkdir(parents=True,exist_ok=True)
+out=Path(os.environ.get('POLICY_EVIDENCE_DIR',os.environ.get('D44_EVIDENCE_DIR',str(release/'tests/evidence/policy'))));out.mkdir(parents=True,exist_ok=True)
 goroot=subprocess.check_output(['go','env','GOROOT'],cwd=release,text=True).strip()
 env=dict(os.environ,PATH=goroot+'/bin:'+os.environ['PATH'],GOTOOLCHAIN='local',GOPROXY='off',GOSUMDB='off',PYTHONDONTWRITEBYTECODE='1')
 def run(name,cwd,args,expected=0,extra=None):

@@ -22,10 +22,12 @@ ROOT = HERE.parents[3]
 INSTALL = ROOT/'Component/brrdfeeder/install'
 RELEASE = ROOT/'Component/aviary/release-system'
 BASELINES = [
+    'image-override/test-contract.py',
     'enrollment-refusal/test-contract.py',
     'credential-renewal/test-contract.py',
     'gps-runtime/test-contract.py',
     'gps-usb-id/test-contract.py',
+    'gps-usb-id/test-autodetect.py',
     'directory-modes/test-contract.py',
     'lock-on/test-contract.py',
     'role-language/test-contract.py',

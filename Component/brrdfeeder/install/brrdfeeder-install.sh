@@ -1475,6 +1475,11 @@ ADOPT_LEGACY_ACCOUNTS=0
 AUDIT_LOG=""
 REQUESTED_IMAGE=""
 REQUESTED_CONSOLE_IMAGE=""
+# Every bootstrap prepends exactly one default for each image before user argv.
+# A repeated option is therefore an explicit user pin, even if it repeats the
+# default value. Keep last-wins parsing, but never discard that choice on rerun.
+USER_IMAGE_OVERRIDE=0
+USER_CONSOLE_IMAGE_OVERRIDE=0
 CONSOLE_LISTEN=""
 INSTALL_INTERFACE=""
 INSTALL_LATITUDE=""
@@ -1502,7 +1507,9 @@ while [[ $# -gt 0 ]]; do
         echo "FATAL: $arg requires a value" >&2; exit 2;
       }
       case "$arg" in
-        --console-image) REQUESTED_CONSOLE_IMAGE=$2 ;;
+        --console-image)
+          [[ -z "$REQUESTED_CONSOLE_IMAGE" ]] || USER_CONSOLE_IMAGE_OVERRIDE=1
+          REQUESTED_CONSOLE_IMAGE=$2 ;;
         --console-listen) CONSOLE_LISTEN=$2 ;;
         --interface) INSTALL_INTERFACE=$2 ;;
         --latitude) INSTALL_LATITUDE=$2 ;;
@@ -1521,6 +1528,7 @@ while [[ $# -gt 0 ]]; do
         echo 'FATAL: --image requires ghcr.io/cybrrd/brrdfeeder@sha256:<approved-release-digest>' >&2
         exit 2
       }
+      [[ -z "$REQUESTED_IMAGE" ]] || USER_IMAGE_OVERRIDE=1
       REQUESTED_IMAGE=$2
       shift
       ;;
@@ -2771,9 +2779,9 @@ CONTAINER_IMAGE=$REQUESTED_IMAGE
 if [[ -f "$QUADLET_FILE" ]]; then
   INSTALLED_IMAGE=$(sed -n 's/^Image=//p' "$QUADLET_FILE")
   valid_image_pin "$INSTALLED_IMAGE" || fatal "Existing Quadlet has no unique approved digest pin; explicit operator migration required (no tag resolution)."
-  # A newer one-liner repairs host setup with the installed workload pins.
-  # Explicit direct-installer digest changes still belong to the signed updater.
-  [[ -z "$REQUESTED_IMAGE" || "$REQUESTED_IMAGE" == "$INSTALLED_IMAGE" || $BOOT_PREPARE -eq 1 ]] || fatal "Refusing to replace the installed digest: updates belong to the signed release poller. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
+  # A default-only one-liner repairs host setup with installed workload pins.
+  # Explicit user pins, including bootstrap overrides, must match or fail.
+  [[ -z "$REQUESTED_IMAGE" || "$REQUESTED_IMAGE" == "$INSTALLED_IMAGE" || ( $BOOT_PREPARE -eq 1 && $USER_IMAGE_OVERRIDE -eq 0 ) ]] || fatal "Refusing to replace the installed digest: explicit --image conflicts with the installed pin; updates belong to the signed release poller. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
   if [[ ${VERIFY_ONLY:-0} -eq 0 ]]; then
     RETAINED_ENGINE_VERSION=$(retained_engine_version "$INSTALLED_IMAGE")
     if [[ -n "$RETAINED_ENGINE_VERSION" ]]; then
@@ -2791,8 +2799,8 @@ CONSOLE_IMAGE=$REQUESTED_CONSOLE_IMAGE
 if [[ -f "$CONSOLE_QUADLET_FILE" ]]; then
   INSTALLED_CONSOLE_IMAGE=$(sed -n 's/^Image=//p' "$CONSOLE_QUADLET_FILE")
   valid_image_pin "$INSTALLED_CONSOLE_IMAGE" "$CONSOLE_REPOSITORY" || fatal "Existing console Quadlet has no unique approved digest pin; no tag resolution."
-  [[ -z "$REQUESTED_CONSOLE_IMAGE" || "$REQUESTED_CONSOLE_IMAGE" == "$INSTALLED_CONSOLE_IMAGE" || $BOOT_PREPARE -eq 1 ]] \
-    || fatal "Refusing to replace the installed console digest; reinstall is not an update channel. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
+  [[ -z "$REQUESTED_CONSOLE_IMAGE" || "$REQUESTED_CONSOLE_IMAGE" == "$INSTALLED_CONSOLE_IMAGE" || ( $BOOT_PREPARE -eq 1 && $USER_CONSOLE_IMAGE_OVERRIDE -eq 0 ) ]] \
+    || fatal "Refusing to replace the installed console digest: explicit --console-image conflicts with the installed pin; reinstall is not an update channel. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
   CONSOLE_IMAGE=$INSTALLED_CONSOLE_IMAGE
   if [[ -z "$CONSOLE_LISTEN" ]]; then
     CONSOLE_LISTEN=$(sed -n 's/^Exec=--listen=\([^ ]*\) .*/\1/p' "$CONSOLE_QUADLET_FILE")
@@ -3217,8 +3225,8 @@ HAVE_UBLOX=0; HAVE_NORDIC=0
 gps_usb_preflight() {
   local id vendor product supported device parent supported_product supported_ids=""
   local -A seen=()
-  # USB serial candidates come from sysfs ancestry, without opening/probing them.
-  # lsusb also finds u-blox devices whose tty driver has not attached yet.
+  # Complete metadata inventory before selecting a candidate: u-blox wins
+  # regardless of sysfs enumeration order. No serial ports are opened here.
   while IFS= read -r id; do
     [[ $id =~ ^[[:xdigit:]]{4}:[[:xdigit:]]{4}$ ]] || continue
     id=${id,,}
@@ -3230,14 +3238,11 @@ gps_usb_preflight() {
         [[ $product != "$supported_product" ]] || supported=1
       done
     fi
-    if [[ $id == "$gps_declared_usb_id" && $GPS_USB_ID_PRESENT -eq 1 ]]; then
-      ok "Operator-declared GPS USB ID $id (NMEA-confirmed); tty rule will map /dev/$GPS_SYMLINK"
-    elif [[ $supported -eq 1 ]]; then
+    if [[ $supported -eq 1 ]]; then
       HAVE_UBLOX=1
       ok "Supported GPS USB ID $id detected; tty rule will map /dev/$GPS_SYMLINK"
-    elif [[ $id == 10c4:ea60 && $HAVE_UBLOX -eq 0 && -z $gps_declared_usb_id ]]; then
-      GPS_PROMPT_NEEDED=1
-      warn "Silicon Labs CP2102N bridge $id present — the Adafruit Ultimate GPS (#746) uses this bridge, but so do many other devices. Not mapping without opt-in."
+    elif [[ $id == "$gps_declared_usb_id" || $id == 10c4:ea60 ]]; then
+      say "GPS candidate USB $id detected; NMEA confirmation is required before new mapping."
     else
       warn "USB serial adapter $id present — not a supported GPS; no automatic /dev/$GPS_SYMLINK mapping. See docs/gps-runtime.md for the explicit opt-in boundary; this may be non-GPS hardware."
     fi
@@ -3259,36 +3264,9 @@ gps_usb_preflight() {
     fi
   )
   for product in "${UBLOX_PRODUCTS[@]}"; do supported_ids+=" $UBLOX_VENDOR:$product"; done
-  say "Supported automatic GPS IDs:$supported_ids; connect one GPS receiver."
-  [[ $HAVE_UBLOX -eq 1 ]] || warn "No supported GPS detected; the service will wait. Check the candidate USB IDs above before assuming the receiver is absent."
-  if [[ $GPS_PROMPT_NEEDED -eq 1 && $GPS_USB_ID_PRESENT -eq 0 ]]; then
-    local answer=""
-    local terminal=${BRRDFEEDER_TTY_FD:-}
-    if [[ ! $terminal =~ ^[0-9]+$ ]] || ! [[ -t $terminal ]]; then
-      if ! { exec {terminal}<>/dev/tty; } 2>/dev/null; then
-        terminal=""
-      fi
-    fi
-    if [[ -n $terminal ]] && IFS= read -r -t 60 answer <&"$terminal"; then
-      case $answer in
-        y|Y|yes|YES)
-          gps_declared_usb_id=10c4:ea60
-          local candidate_tty; candidate_tty=$(gps_candidate_tty 10c4:ea60)
-          if [[ -n $candidate_tty ]]; then
-            say "GPS opt-in accepted: passive NMEA confirm on $candidate_tty (5 s, read-only)…"
-            if [[ $(gps_nmea_confirm "$candidate_tty") == ok ]]; then
-              GPS_USB_ID_PRESENT=1
-              ok "NMEA confirmed on $candidate_tty; udev rule will map /dev/$GPS_SYMLINK for 10c4:ea60"
-            else
-              warn "Opted in, no NMEA seen on $candidate_tty. NOT mapping; the service will run the degraded path. Check wiring/power; re-run to retry."
-            fi
-          fi
-          ;;
-        *) say "GPS opt-in declined; 10c4:ea60 stays unmapped. Re-run with --gps-usb-id 10c4:ea60 to opt in later." ;;
-      esac
-    else
-      say "No terminal for the GPS opt-in prompt; 10c4:ea60 stays unmapped (declined by default). Headless opt-in: --gps-usb-id 10c4:ea60"
-    fi
+  say "Supported automatic GPS IDs:$supported_ids; CP2102N 10c4:ea60 requires NMEA confirmation; connect one GPS receiver."
+  if [[ -z $gps_declared_usb_id && $HAVE_UBLOX -eq 0 && -n ${seen[10c4:ea60]:-} ]]; then
+    gps_declared_usb_id=10c4:ea60
   fi
 }
 gps_declared_id() {
@@ -3307,67 +3285,106 @@ GPS_ID_EOF
 }
 
 gps_nmea_confirm() {
-  # Passive NMEA confirm for an opted-in candidate device (follow-up ruling,
-  # 2026-10-08): ~5s read-only at 9600 baud; requires >=2 checksum-valid
-  # $GP/$GN sentences; NEVER writes to the port. Prints "ok" or "no-nmea".
+  # Receive-only, not zero-effect: on an unheld tty, temporarily select raw
+  # 9600 8N1, then restore the original termios settings on every exit.
+  # No protocol bytes, flushes or explicit modem-line commands are sent.
   local dev=$1
   python3 - "$dev" <<'GPS_PROBE_EOF'
-import sys, os, termios, select, time
-dev = sys.argv[1]
-try:
-    fd = os.open(dev, os.O_RDONLY | os.O_NOCTTY | os.O_NONBLOCK)
-except OSError:
-    print('no-nmea'); raise SystemExit(0)
-try:
-    attrs = termios.tcgetattr(fd)
-    attrs[0] = attrs[1] = attrs[3] = 0  # no input/output/line processing
-    attrs[3] |= termios.CS8
-    attrs[4] = termios.B9600
-    attrs[5] = termios.B9600
-    attrs[6][termios.VMIN], attrs[6][termios.VTIME] = 0, 0
-    termios.tcsetattr(fd, termios.TCSANOW, attrs)
-except termios.error:
-    os.close(fd); print('no-nmea'); raise SystemExit(0)
-def valid(s):
-    if len(s) < 6 or not (s.startswith('$GP') or s.startswith('$GN')):
-        return False
-    if not s.endswith('*') and '*' not in s:
-        return False
-    body, _, ck = s.rpartition('*')
-    if len(ck) < 2:
-        return False
-    v = 0
-    for ch in body[1:]:
-        v ^= ord(ch)
-    return ('%02X' % v) == ck[:2].upper()
-buf, seen, deadline = '', 0, time.monotonic() + 5.0
-while time.monotonic() < deadline and seen < 2:
-    r, _, _ = select.select([fd], [], [], max(0.0, deadline - time.monotonic()))
-    if not r:
-        continue
+import sys, os, stat, termios, select, time
+from pathlib import Path
+
+def held_elsewhere(identity):
+    # Compare character-device numbers, including aliases and container grants.
+    # Incomplete visibility is not evidence that a port is free.
     try:
-        chunk = os.read(fd, 256)
-    except (OSError, BlockingIOError):
-        continue
-    if not chunk:
-        break
+        for process in Path('/proc').iterdir():
+            if not process.name.isdigit() or int(process.name) == os.getpid():
+                continue
+            try:
+                for entry in (process / 'fd').iterdir():
+                    try:
+                        info = entry.stat()
+                    except FileNotFoundError:
+                        continue  # fd closed or process exited during enumeration
+                    if stat.S_ISCHR(info.st_mode) and info.st_rdev == identity:
+                        return 'busy'
+            except FileNotFoundError:
+                continue
+    except OSError:
+        return 'ownership-unknown'
+    return ''
+
+def valid(sentence):
+    if not sentence.startswith(('$GP', '$GN')):
+        return False
+    body, sep, checksum = sentence.strip().rpartition('*')
+    if not sep or len(checksum) != 2:
+        return False
+    value = 0
+    for char in body[1:]:
+        value ^= ord(char)
+    return ('%02X' % value) == checksum.upper()
+
+def confirm(dev):
+    fd, original = None, None
     try:
-        text = chunk.decode('ascii', 'replace')
-    except Exception:
-        continue
-    for ch in text:
-        if ch == '$':
-            if valid(buf):
-                seen += 1
-            buf = '$'
-        elif buf:
-            buf += ch
-            if len(buf) > 128:
-                buf = ''
-if valid(buf):
-    seen += 1
-os.close(fd)
-print('ok' if seen >= 2 else 'no-nmea')
+        info = os.stat(dev)
+        if not stat.S_ISCHR(info.st_mode):
+            return 'no-nmea'
+        ownership = held_elsewhere(info.st_rdev)
+        if ownership:
+            return ownership
+        fd = os.open(dev, os.O_RDONLY | os.O_NOCTTY | os.O_NONBLOCK)
+        if os.fstat(fd).st_rdev != info.st_rdev:
+            return 'no-nmea'
+        # Recheck after open, before changing settings or consuming any bytes.
+        ownership = held_elsewhere(info.st_rdev)
+        if ownership:
+            return ownership
+        original = termios.tcgetattr(fd)
+        attrs = termios.tcgetattr(fd)
+        attrs[0] = attrs[1] = attrs[3] = 0
+        attrs[2] = termios.CS8 | termios.CREAD | termios.CLOCAL
+        attrs[4] = attrs[5] = termios.B9600
+        attrs[6][termios.VMIN], attrs[6][termios.VTIME] = 0, 0
+        termios.tcsetattr(fd, termios.TCSANOW, attrs)
+        buf, seen, deadline = '', 0, time.monotonic() + 5.0
+        while time.monotonic() < deadline and seen < 2:
+            ready, _, _ = select.select([fd], [], [], max(0.0, deadline - time.monotonic()))
+            if not ready:
+                continue
+            try:
+                chunk = os.read(fd, 256)
+            except BlockingIOError:
+                continue
+            if not chunk:
+                break
+            for char in chunk.decode('ascii', 'replace'):
+                if char == '$':
+                    if valid(buf):
+                        seen += 1
+                    buf = '$'
+                elif char in '\r\n':
+                    if valid(buf):
+                        seen += 1
+                    buf = ''
+                elif buf:
+                    buf += char
+                    if len(buf) > 128:
+                        buf = ''
+        return 'ok' if seen >= 2 else 'no-nmea'
+    except (OSError, termios.error):
+        return 'no-nmea'
+    finally:
+        if fd is not None:
+            try:
+                if original is not None:
+                    termios.tcsetattr(fd, termios.TCSANOW, original)
+            except (OSError, termios.error):
+                pass  # unplugged: there may no longer be a tty to restore
+            os.close(fd)
+
+print(confirm(sys.argv[1]))
 GPS_PROBE_EOF
 }
 
@@ -3381,7 +3398,10 @@ gps_candidate_tty() {
         read -r vendor < "$parent/idVendor" || break
         read -r product < "$parent/idProduct" || break
         if [[ ${vendor,,}:${product,,} == "$want" ]]; then
-          basename "$(dirname "$(readlink -f "$device")")" | sed 's|^|/dev/|'
+          # The class entry names the tty; its resolved device parent may be
+          # the USB interface (e.g. 1-1.3:1.0), not a /dev node.
+          local tty=${device%/device}
+          printf '/dev/%s\n' "${tty##*/}"
           return 0
         fi
         break
@@ -3400,24 +3420,32 @@ elif configured=$(gps_declared_id); then
   gps_declared_usb_id=$configured   # idempotent re-run: honor without prompting
 fi
 GPS_USB_ID_PRESENT=0
-GPS_PROMPT_NEEDED=0
-if [[ -n $gps_declared_usb_id && $HAVE_UBLOX -eq 0 ]]; then
-  # A declared non-u-blox id is a deliberate claim: confirm NMEA before mapping.
+GPS_PROBE_RESULT="absent"
+gps_usb_preflight
+if [[ -n $gps_declared_usb_id ]]; then
   candidate_tty=$(gps_candidate_tty "$gps_declared_usb_id")
   if [[ -n $candidate_tty ]]; then
-    say "GPS opt-in: $gps_declared_usb_id on $candidate_tty — passive NMEA confirm (5 s, read-only)…"
-    probe=$(gps_nmea_confirm "$candidate_tty")
-    if [[ $probe == ok ]]; then
-      GPS_USB_ID_PRESENT=1
-      ok "NMEA confirmed on $candidate_tty; udev rule will map /dev/$GPS_SYMLINK for $gps_declared_usb_id"
-    else
-      warn "Opted in, no NMEA seen on $candidate_tty ($gps_declared_usb_id). NOT mapping; the service will run the degraded path (preserved position + GPS fault). Check wiring/power; re-run to retry."
-    fi
+    say "GPS candidate $gps_declared_usb_id on $candidate_tty — checking ownership, then receiving NMEA for up to 5 s (temporary raw 9600 8N1; settings restored; no serial writes)…"
+    GPS_PROBE_RESULT=$(gps_nmea_confirm "$candidate_tty")
+    case $GPS_PROBE_RESULT in
+      ok)
+        GPS_USB_ID_PRESENT=1
+        ok "NMEA confirmed on $candidate_tty; udev rule will map /dev/$GPS_SYMLINK for $gps_declared_usb_id"
+        ;;
+      busy|ownership-unknown)
+        warn "GPS candidate $gps_declared_usb_id on $candidate_tty: $GPS_PROBE_RESULT; skipped NMEA read and tty configuration. No new mapping. Close the owning application or check process visibility, then re-run the installer."
+        ;;
+      *)
+        warn "No valid NMEA seen on GPS candidate $gps_declared_usb_id at $candidate_tty; no new mapping. Check USB power, UART wiring and 9600-baud output; check the antenna for a fix, then re-run the installer."
+        ;;
+    esac
   else
-    warn "Opted in GPS id $gps_declared_usb_id not currently attached; not mapping this run (config keeps the declaration; re-run after plugging it in)."
+    warn "GPS candidate $gps_declared_usb_id is not currently attached; no new mapping. Connect the receiver and re-run the installer."
   fi
 fi
-gps_usb_preflight
+if [[ $HAVE_UBLOX -eq 0 && $GPS_USB_ID_PRESENT -eq 0 ]]; then
+  warn "No GPS confirmed this run; an existing mapping may still be usable. Without a mapped receiver the service waits for its first fix, or preserves its saved position with a GPS fault."
+fi
 # Passive USB inventory only; never send HCI commands while the engine may own it.
 HAVE_REALTEK=0
 for ble_device in /sys/bus/usb/devices/*; do
@@ -3717,7 +3745,7 @@ STATUS_PROVISIONER_EOF
   say "Setting up the local console automatically."
   # Preserve all user settings except this package-owned status destination.
 # --- persist a confirmed non-u-blox GPS declaration (idempotent) -------
-# sensors.gps.usb_id records the operator's NMEA-confirmed claim; the udev
+# sensors.gps.usb_id records the NMEA-confirmed receiver ID; the udev
 # render above reads it on re-runs (auto-update never touches this file).
 if [[ -n $gps_declared_usb_id && $GPS_USB_ID_PRESENT -eq 1 && $DRY_RUN -eq 0 ]]; then
   run python3 - "$CONFIG_PATH" "$gps_declared_usb_id" <<'GPS_USBID_PY'
@@ -3833,10 +3861,11 @@ GPS_UDEV_RULES=$(for product in "${UBLOX_PRODUCTS[@]}"; do
 done)
 # Operator-declared non-u-blox GPS (e.g. the Adafruit Ultimate GPS #746 via its
 # CP2102N bridge). Rendered ONLY when the declaration passed the passive NMEA
-# confirm this run — never for an unconfirmed or stale declaration.
+# confirm this run. A matching previously confirmed package rule may be
+# retained below when ownership/absence prevents a new probe.
 GPS_DECLARED_RULE=""
 if [[ -n $gps_declared_usb_id && $GPS_USB_ID_PRESENT -eq 1 ]]; then
-  GPS_DECLARED_RULE=$(printf 'SUBSYSTEM=="tty", ATTRS{idVendor}=="%s", ATTRS{idProduct}=="%s", SYMLINK+="%s", GROUP="dialout", MODE="0660", ENV{CYBRRD_GPS_DECLARED}=="1"' "${gps_declared_usb_id%:*}" "${gps_declared_usb_id#*:}" "$GPS_SYMLINK")
+  GPS_DECLARED_RULE=$(printf 'SUBSYSTEM=="tty", ATTRS{idVendor}=="%s", ATTRS{idProduct}=="%s", SYMLINK+="%s", GROUP="dialout", MODE="0660", ENV{CYBRRD_GPS_DECLARED}="1"' "${gps_declared_usb_id%:*}" "${gps_declared_usb_id#*:}" "$GPS_SYMLINK")
   # Report — never delete or overwrite — a pre-existing third-party rule that
   # already claims this VID:PID (follow-up ruling, 2026-10-08).
   local_style=""
@@ -3848,6 +3877,18 @@ if [[ -n $gps_declared_usb_id && $GPS_USB_ID_PRESENT -eq 1 ]]; then
     fi
   done
 fi
+
+# Do not erase a working binding just because its engine owns the tty on rerun.
+# Retain only the exact rule this installer emits, for the selected ID; never
+# adopt third-party rules or turn an unconfirmed legacy match into an assignment.
+if [[ -z $GPS_DECLARED_RULE && -n $gps_declared_usb_id && ${GPS_PROBE_RESULT:-} =~ ^(busy|ownership-unknown|absent)$ ]]; then
+  expected_rule=$(printf 'SUBSYSTEM=="tty", ATTRS{idVendor}=="%s", ATTRS{idProduct}=="%s", SYMLINK+="%s", GROUP="dialout", MODE="0660", ENV{CYBRRD_GPS_DECLARED}="1"' "${gps_declared_usb_id%:*}" "${gps_declared_usb_id#*:}" "$GPS_SYMLINK")
+  if [[ -f $UDEV_RULES_FILE ]] && grep -Fxq "$expected_rule" "$UDEV_RULES_FILE"; then
+    GPS_DECLARED_RULE=$expected_rule
+    say "Retaining the previously NMEA-confirmed mapping for $gps_declared_usb_id; no new probe or claim."
+  fi
+fi
+
 NEW_UDEV_CONTENT=$(cat <<EOF
 # /etc/udev/rules.d/99-cybrrd-brrdfeeder.rules
 #

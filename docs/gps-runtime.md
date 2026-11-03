@@ -50,16 +50,58 @@ and [generator implementation](https://github.com/containers/podman/blob/v5.4.2/
 show that a `-`-prefixed device is omitted when missing at generation time.
 The stable transport is prepared at service start instead.
 
-## Unsupported serial adapters
+## Receiver discovery and serial ownership
 
-Automatic mapping remains restricted to u-blox `1546:01a5` through `1546:01a9`.
-CP210x (including `10c4:ea60`), FTDI and other USB serial IDs do not identify a
-GPS receiver. They are reported, never automatically claimed or probed.
+The installer maps u-blox `1546:01a5` through `1546:01a9` automatically. When
+none is present and no saved or explicit USB ID selects another receiver, a
+CP2102N `10c4:ea60` (used by Adafruit USB GPS hardware) is automatically checked
+for NMEA. There is no GPS question or terminal timeout. A bridge ID alone does
+not identify a GPS: a new mapping requires at least two checksum-valid `$GP` or
+`$GN` sentences during a bounded five-second receive window at 9600 baud.
+A fix is not required to identify NMEA; the normal first-fix gate still applies.
 
-Use a supported receiver, or have an operator explicitly review the receiver,
-its serial identity, ownership and `sensors.gps.device`/baud configuration before
-opting in. This release does not add an Adafruit support claim, broad CP210x/FTDI
-udev rule, PMTK commands, PPS configuration or chrony discipline changes.
+`--gps-usb-id VID:PID` still selects another USB serial receiver explicitly,
+subject to the same ownership and NMEA checks. Confirmed IDs persist as
+`sensors.gps.usb_id`; reruns use that ID without prompting. Other serial IDs are
+reported without probing unless selected explicitly. Connect one GPS receiver;
+multiple devices sharing a declared VID:PID are not individually enrolled.
+
+Before opening the candidate and again before reading/configuring it, the probe
+checks visible `/proc/*/fd` entries by character-device number, including aliases
+and container device grants. A held port is skipped; incomplete process visibility
+also skips it. No process is stopped and no device owner is displaced. These are
+snapshot checks, not an exclusive lock against a privileged concurrent opener;
+they rely on the installer's host process namespace. Rerun after releasing the
+port or resolving visibility. An exact previously confirmed package-owned rule
+is retained when a rerun cannot probe because the port is busy, ownership is
+unknown, or the receiver is absent. No new mapping is created in those cases.
+
+**Receive-only does not mean zero effect on the tty.** The probe opens with
+`O_RDONLY | O_NOCTTY | O_NONBLOCK`, temporarily selects raw 9600 8N1 with local
+receiver enabled, and restores the saved termios settings in a `finally` block
+on success, timeout and errors (unless unplug prevents restoration). It sends
+no protocol bytes, flushes, or explicit modem-line commands. Driver-specific
+open/close effects on physical modem lines still require hardware verification.
+No PMTK initialization is performed by discovery.
+
+No valid NMEA means no new mapping. Check USB power, UART wiring and 9600-baud
+output, then rerun the installer. Antenna reception affects the subsequent fix;
+it is not normally needed for the receiver to emit NMEA sentences.
+
+The generated non-u-blox rule matches tty subsystem plus the confirmed VID:PID;
+`CYBRRD_GPS_DECLARED=1` is assigned as a marker, not required as a prior property.
+Third-party rules are reported and left untouched.
+
+## Addition after installation
+
+Runtime recovery watches the configured device path; it does not discover or
+qualify new USB serial receivers. A CP2102N first plugged in after an install
+that did not confirm it has no product mapping: rerun the installer with the
+receiver attached and free. Once its rule exists, matching devices can recreate
+`/dev/cybrrd_gps` on hotplug, and the existing first-fix wait, serial retry and
+bounded container restart paths apply. The current rule matches VID:PID, not an
+individual serial number, so it cannot requalify a different device sharing the
+same bridge ID. Wider replacement/enrollment support remains future work.
 
 ## Verification boundaries
 

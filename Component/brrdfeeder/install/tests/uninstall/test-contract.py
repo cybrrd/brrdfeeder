@@ -204,6 +204,16 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
     try: os.fsync(directory)
     finally: os.close(directory)
 ''','')
+            # Explicit image overrides have behavioral coverage in image-override.
+            # Normalize only the two registered rerun guards and their messages;
+            # retain the surrounding image validation, selection and pull freeze.
+            for flag, variable in [('--image', 'USER_IMAGE_OVERRIDE'),
+                                   ('--console-image', 'USER_CONSOLE_IMAGE_OVERRIDE')]:
+                text=text.replace(' || ( $BOOT_PREPARE -eq 1 && ${'+variable+':-0} -eq 0 ) ]]',' ]]')
+                requested, installed = (('REQUESTED_IMAGE', 'INSTALLED_IMAGE') if flag == '--image' else ('REQUESTED_CONSOLE_IMAGE', 'INSTALLED_CONSOLE_IMAGE'))
+                text=text.replace('explicit '+flag+' $'+requested+' conflicts with the installed pin $'+installed+'; ','')
+            text=text.replace('Refusing to replace the installed console digest: reinstall',
+                              'Refusing to replace the installed console digest; reinstall')
             text=text.replace(' || $BOOT_PREPARE -eq 1 ]]',' ]]')
             text=text.replace("  if [[ $BOOT_PREPARE -eq 1 && \"$REQUESTED_IMAGE\" != \"$INSTALLED_IMAGE\" ]]; then say 'Repairing host setup; retaining the installed engine digest for signed Self-Update.'; fi\n",'')
             # PR B's message-only retained-version projection is exercised by

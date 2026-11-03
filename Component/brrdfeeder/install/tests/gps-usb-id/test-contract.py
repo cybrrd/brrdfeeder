@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
-"""Behavioral tests for the non-u-blox GPS opt-in (Adafruit Ultimate GPS #746).
-
-Covers the three follow-up rulings (2026-10-08): headless --gps-usb-id flag discipline is
-covered by bash-level checks here (validation, default-decline without tty);
-the passive NMEA confirm (never writes, >=2 valid $GP/$GN sentences required);
-and pre-existing-rule reporting (never deleted/overwritten). The udev render
-assertions cover declaration-present vs absent.
+"""Explicit-ID and receive-only NMEA contracts; discovery/revert controls live
+in test-autodetect.py. Probe ownership is isolated from the host process tree.
 """
 import re
+import tempfile
 import subprocess
 import sys
 import unittest
@@ -24,8 +20,10 @@ PROBE_SRC = re.search(r"<<'GPS_PROBE_EOF'\n(.*?)\nGPS_PROBE_EOF", NMEA_CONFIRM_S
 
 
 def run_probe(dev):
-    return subprocess.run([sys.executable, '-c', PROBE_SRC, dev],
-                          capture_output=True, text=True, timeout=20).stdout.strip()
+    with tempfile.TemporaryDirectory() as proc:
+        source = PROBE_SRC.replace("Path('/proc')", f"Path({proc!r})")
+        return subprocess.run([sys.executable, '-c', source, dev],
+                              capture_output=True, text=True, timeout=20).stdout.strip()
 
 
 class NmeaConfirm(unittest.TestCase):
@@ -91,13 +89,11 @@ class ScriptContracts(unittest.TestCase):
         self.assertIn('Left untouched', self.text)
         self.assertIn('never delete files we did not create', self.text)
 
-    def test_prompt_default_no_without_tty(self):
-        self.assertIn('declined by default', self.text)
-        self.assertIn('-y', self.text)
-        # -y must not feed the GPS decision: the prompt is inside
-        # gps_usb_preflight gated by GPS_PROMPT_NEEDED, independent of
-        # ASSUME_YES.
-        self.assertNotIn('ASSUME_YES -eq 1 ]] && [[ $GPS_PROMPT_NEEDED', self.text)
+    def test_gps_discovery_has_no_prompt(self):
+        block = self.text.split('gps_usb_preflight() {', 1)[1].split('# Passive USB inventory only;', 1)[0]
+        self.assertNotIn('GPS_PROMPT_NEEDED', block)
+        self.assertNotIn('BRRDFEEDER_TTY_FD', block)
+        self.assertNotIn('declined by default', block)
 
     def test_interim_rule_path_named(self):
         self.assertIn('97-cybrrd-gps-local-adafruit.rules', self.text)

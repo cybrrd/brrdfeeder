@@ -106,6 +106,10 @@ class Contract(unittest.TestCase):
     def inventory(self, usb_id):
         block = SOURCE.split('# Verify USB hardware visible', 1)[1].split('# Capture interface declared', 1)[0]
         block = block[block.index('\n'):]
+        # Inventory fixtures must never open a host tty; real receive and busy
+        # behavior is exercised with PTYs in gps-usb-id/test-autodetect.py.
+        block = block.replace('\ngps_declared_usb_id=""\n',
+            '\ngps_nmea_confirm() { echo no-nmea; }\ngps_declared_usb_id=""\n')
         with tempfile.TemporaryDirectory() as d:
             sysfs = Path(d)/'sys'
             device = sysfs/'devices/usb1/1-1'; (device/'interface').mkdir(parents=True)
@@ -143,13 +147,11 @@ lsusb() {
                 output = self.inventory(usb_id)
                 self.assertIn('supported=0', output)
                 self.assertIn(usb_id, output)
-                # The CP2102N (10c4:ea60) is the Adafruit #746 bridge: it gets
-                # the dedicated recognition notice instead of the generic
-                # not-a-supported-GPS warning, and it still maps nothing
-                # without opt-in.
+                # A CP2102N is a candidate, not proof of GPS capability.
+                # This fixture has no tty data, so confirmation must fail.
                 if usb_id == '10c4:ea60':
-                    self.assertIn('Not mapping without opt-in', output)
-                    self.assertIn('Adafruit Ultimate GPS (#746)', output)
+                    self.assertIn('GPS candidate USB 10c4:ea60', output)
+                    self.assertIn('No valid NMEA seen', output)
                 else:
                     self.assertIn('not a supported GPS', output)
                 samples.append(output)

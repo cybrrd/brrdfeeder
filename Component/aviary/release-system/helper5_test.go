@@ -138,7 +138,7 @@ func TestHelper5WrongCandidateBuild(t *testing.T) {
 }
 
 func TestHelper5FreshInstallerLayout(t *testing.T) {
-	// Exact template from released 0.9.0 b4af3a98. Synthetic credentials remain
+	// Exact template from released 0.9.0 9faae55f. Synthetic credentials remain
 	// temporary-root evidence, never real enrollment/native proof.
 	f := newLocalFixture(t)
 	config, e := os.ReadFile("tests/fixtures/v0.9.0-config.yaml")

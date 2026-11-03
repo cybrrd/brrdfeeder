@@ -3,7 +3,12 @@
 # Helper 5 baseline freeze and planning citations
 
 The implementation baseline is released-0.9.0 public main
-`b4af3a9895f1cddafd82a91aeb115d4a4dfffdbc`. The planning checkout was
+`9faae55f53e27cea198401ee34b4c66c1898666a`. The baseline helper is build 4, SHA-256
+`5044fa434cc52ebcdd044cb1eed5f7cd1bcf27a1b225160ea539b666bcf6fb11`;
+the baseline installer SHA-256 is
+`0b546bfe15566e434a7550654f400e5eda0dcecd3eeee92dfe90808fa2e4ae44`.
+Earlier draft references to b4af3a98 were pre-release inputs, not the released
+baseline. The planning checkout was
 `25e203ab5bb3c500ad4df23ba94415b1ffbf8623`.
 
 The four identity/build/upgrade/proof touchpoints below are byte-for-byte
@@ -32,7 +37,7 @@ Reproduce the comparison from a checkout containing both commits:
 
 ```sh
 git diff --exit-code 25e203ab5bb3c500ad4df23ba94415b1ffbf8623 \
-  b4af3a9895f1cddafd82a91aeb115d4a4dfffdbc -- \
+  9faae55f53e27cea198401ee34b4c66c1898666a -- \
   Component/aviary/release-system/host_update.go \
   Component/aviary/release-system/build-host.sh \
   Component/aviary/release-system/local_upgrade.go \

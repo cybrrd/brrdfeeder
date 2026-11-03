@@ -20,7 +20,7 @@ python3 Component/aviary/release-system/qualification/helper5/package.py \
 ```
 
 The package contains the new installer/helper/launcher, the exact released
-0.9.0 installer from `b4af3a9895f1cddafd82a91aeb115d4a4dfffdbc`, source provenance,
+0.9.0 installer from `9faae55f53e27cea198401ee34b4c66c1898666a`, source provenance,
 licenses, checksums and an unbound template. A dirty-source package is rehearsal
 material only. Archive it and independently record the archive/SHA256SUMS hashes.
 Do not use the new installer as the old fresh-install baseline. No workload image

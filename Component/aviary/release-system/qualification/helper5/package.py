@@ -13,7 +13,7 @@ import subprocess
 HERE = Path(__file__).resolve().parent
 RELEASE = HERE.parents[1]
 ROOT = RELEASE.parents[2]
-BASE = 'b4af3a9895f1cddafd82a91aeb115d4a4dfffdbc'
+BASE = '9faae55f53e27cea198401ee34b4c66c1898666a'
 INSTALL = 'Component/brrdfeeder/install/brrdfeeder-install.sh'
 
 def digest(raw):

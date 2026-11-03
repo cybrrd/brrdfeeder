@@ -117,3 +117,7 @@ archives belong to the operator-selected evidence directory, not new uninstall
 deletion roots. Binding/adapter code only reads credentials and config; it exports
 hashes/metadata. The in-memory preimage tests verify all refusals precede writes
 and that the old launcher is restored last. Native kit execution remains pending.
+
+The Helper 5 packaging baseline is now the released 0.9.0 commit 9faae55f.
+The census change replaces only that immutable Git object ID; projected
+uninstall destinations and deletion policy are unchanged.

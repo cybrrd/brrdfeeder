@@ -3168,6 +3168,8 @@ zitadel_device_flow() {
       warn "This account has reached its node limit${slot_summary}. No new node was enrolled."
       warn "For install help, use GitHub Issues: https://github.com/cybrrd/brrdfeeder/issues/new?template=install-help.yml"
       warn "For a capacity exception or private help, email admin@cybrrd.com. Never include tokens, device codes or credentials in a report."
+      # 77 (EX_NOPERM) distinguishes a server refusal from an incomplete flow.
+      run rm -f "$hdrs"; _restore_xtrace; return 77
     else
       warn "Account approval succeeded, but the feeder could not finish linking. Please retry."
     fi
@@ -3208,7 +3210,14 @@ if [[ ! -f "$CREDS_PATH" ]]; then
   if [[ $DRY_RUN -eq 1 ]]; then
     say "[dry-run] would link this feeder to your cyBRRD account"
   else
-    if ! zitadel_device_flow; then
+    if zitadel_device_flow; then
+      :
+    else
+      enrollment_rc=$?
+      if [[ $enrollment_rc -eq 77 ]]; then
+        warn "Node limit reached — re-run after a slot frees, or request a capacity exception at admin@cybrrd.com."
+        exit "$enrollment_rc"
+      fi
       warn "Account linking did not complete."
       manual_creds_instructions
       fatal "Credentials required — re-run from a terminal to link your account, or provision manually and re-run."

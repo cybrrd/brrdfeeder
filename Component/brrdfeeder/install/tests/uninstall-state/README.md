@@ -98,3 +98,8 @@ and restores termios, and creates no files. The GPS-only census update leaves
 all projected uninstall destinations unchanged; no deletion policy is expanded.
 `gps-usb-id/test-autodetect.py` exercises busy aliases, unknown ownership,
 receive-only PTYs and restored settings on success, timeout and read failure.
+
+PR #84 restore-failure follow-up adds only the `restore-failed` result to the
+GPS probe census. Projected uninstall destinations are unchanged; PTY fault
+injection covers restore exceptions and readback mismatch without authorizing
+a mapping. Restoration is attempted and verified, not guaranteed.

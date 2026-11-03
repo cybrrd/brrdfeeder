@@ -8,6 +8,7 @@ and rendering execute. All paths are temporary; no root, downloads, hardware,
 enrollment, systemd or container runtime. IMAGE_OVERRIDE_INSTALLER selects a
 saved baseline installer for the revert control without modifying the checkout.
 """
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -18,7 +19,7 @@ import unittest
 
 INSTALL = Path(__file__).resolve().parents[2]
 SOURCE = Path(os.environ.get('IMAGE_OVERRIDE_INSTALLER', INSTALL/'brrdfeeder-install.sh')).read_text()
-VARIANTS = ('bootstrap.sh', 'bootstrap-dev.sh', 'bootstrap-d44.sh')
+VARIANTS = ('bootstrap.sh', 'bootstrap-dev.sh', 'bootstrap-d44.sh', 'tests/image-override/served-90440ca4.sh')
 ENGINE = 'ghcr.io/cybrrd/brrdfeeder@sha256:'
 CONSOLE = 'ghcr.io/cybrrd/brrdhouse@sha256:'
 USER_ENGINE, USER_CONSOLE = ENGINE+'a'*64, CONSOLE+'b'*64
@@ -30,7 +31,7 @@ def pin(text, name):
 
 
 class Overrides(unittest.TestCase):
-    def run_install(self, args=(), *, variant='bootstrap.sh', installed=None):
+    def run_install(self, args=(), *, variant='bootstrap.sh', installed=None, config_present=False, omit_parser=False):
         parser = SOURCE[SOURCE.index('DRY_RUN=0\n'):SOURCE.index('\nif [[ $STATUS_ONLY -eq 1 ]]')]
         selection = SOURCE[SOURCE.index('valid_image_pin() {'):SOURCE.index('\nreadonly CONSOLE_IMAGE')+len('\nreadonly CONSOLE_IMAGE')]
         engine_template = SOURCE.split('NEW_QUADLET=$(cat <<EOF\n', 1)[1].split('\nEOF\n)', 1)[0]
@@ -45,6 +46,8 @@ class Overrides(unittest.TestCase):
             root = Path(tmp)
             engine, console = root/'brrdfeeder-engine.container', root/'brrdhouse.container'
             before = {}
+            if config_present:
+                (root/'config.yaml').write_text('{}\n')
             if installed:
                 for path, image in zip((engine, console), installed):
                     path.write_text('[Container]\nImage='+image+'\n')
@@ -64,7 +67,7 @@ class Overrides(unittest.TestCase):
             script += '''fatal() { printf 'FATAL: %s\n' "$*" >&2; exit 1; }
 say() { printf '%s\n' "$*" >&2; }
 retained_engine_version() { :; }
-'''+assembly+'\n'+parser+'\n'+selection+'''
+'''+assembly+'\n'+("REQUESTED_IMAGE=$ENGINE_IMAGE; REQUESTED_CONSOLE_IMAGE=$CONSOLE_IMAGE; CONSOLE_LISTEN=127.0.0.1:8080\n" if omit_parser else parser)+'\n'+selection+'''
 cat > "$QUADLET_FILE" <<ENGINE_EOF
 '''+engine_template+'''
 ENGINE_EOF
@@ -82,6 +85,21 @@ cat > "$CONSOLE_QUADLET_FILE" <<CONSOLE_EOF
         for name, expected in [('brrdfeeder-engine.container', engine), ('brrdhouse.container', console)]:
             images = re.findall(r'^Image=(.*)$', files[name].decode(), re.M)
             self.assertEqual(images, [expected], name)
+
+    def test_exact_served_fixture(self):
+        self.assertEqual(hashlib.sha256((INSTALL/VARIANTS[-1]).read_bytes()).hexdigest(),
+                         '90440ca4f0e548848258e6cf05d68c587ba349a39e909af8603a07117ab48908')
+
+    def test_config_without_quadlets_honors_user_pins(self):
+        for variant in VARIANTS:
+            with self.subTest(variant=variant):
+                self.assert_images(*self.run_install(['--image', USER_ENGINE, '--console-image', USER_CONSOLE],
+                    variant=variant, config_present=True), USER_ENGINE, USER_CONSOLE)
+
+    def test_selection_without_parser_initialization_under_nounset(self):
+        # Hosted interrupted-install extracts selection without the parser.
+        self.assert_images(*self.run_install(installed=(OLD_ENGINE, OLD_CONSOLE), omit_parser=True),
+                           OLD_ENGINE, OLD_CONSOLE)
 
     def test_fresh_defaults(self):
         for variant in VARIANTS:
@@ -145,6 +163,8 @@ cat > "$CONSOLE_QUADLET_FILE" <<CONSOLE_EOF
                     self.assertNotEqual(result.returncode, 0, 'explicit pin silently ignored')
                     self.assertIn('Refusing to replace', result.stderr)
                     self.assertIn(flag, result.stderr)
+                    self.assertIn(value, result.stderr)
+                    self.assertIn(OLD_ENGINE if flag == '--image' else OLD_CONSOLE, result.stderr)
 
     def test_rerun_explicit_default_is_still_an_explicit_pin(self):
         for variant in VARIANTS:
@@ -155,6 +175,8 @@ cat > "$CONSOLE_QUADLET_FILE" <<CONSOLE_EOF
                     result, _ = self.run_install([flag, value], variant=variant, installed=(OLD_ENGINE, OLD_CONSOLE))
                     self.assertNotEqual(result.returncode, 0, 'explicit pin equal to bootstrap default was silently ignored')
                     self.assertIn(flag, result.stderr)
+                    self.assertIn(value, result.stderr)
+                    self.assertIn(OLD_ENGINE if flag == '--image' else OLD_CONSOLE, result.stderr)
 
 
 if __name__ == '__main__':

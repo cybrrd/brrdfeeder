@@ -78,8 +78,12 @@ unknown, or the receiver is absent. No new mapping is created in those cases.
 
 **Receive-only does not mean zero effect on the tty.** The probe opens with
 `O_RDONLY | O_NOCTTY | O_NONBLOCK`, temporarily selects raw 9600 8N1 with local
-receiver enabled, and restores the saved termios settings in a `finally` block
-on success, timeout and errors (unless unplug prevents restoration). It sends
+receiver enabled, and attempts to restore the saved termios settings in a `finally` block
+on success, timeout, read errors and interruption. Restoration is checked by
+reading back the complete settings. A failed restore or verification returns
+`restore-failed`, warns that the tty may remain modified, and does not authorize
+a mapping even after valid NMEA. Check the receiver and restore its serial
+settings before rerunning. It sends
 no protocol bytes, flushes, or explicit modem-line commands. Driver-specific
 open/close effects on physical modem lines still require hardware verification.
 No PMTK initialization is performed by discovery.

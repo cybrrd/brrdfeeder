@@ -2781,7 +2781,7 @@ if [[ -f "$QUADLET_FILE" ]]; then
   valid_image_pin "$INSTALLED_IMAGE" || fatal "Existing Quadlet has no unique approved digest pin; explicit operator migration required (no tag resolution)."
   # A default-only one-liner repairs host setup with installed workload pins.
   # Explicit user pins, including bootstrap overrides, must match or fail.
-  [[ -z "$REQUESTED_IMAGE" || "$REQUESTED_IMAGE" == "$INSTALLED_IMAGE" || ( $BOOT_PREPARE -eq 1 && $USER_IMAGE_OVERRIDE -eq 0 ) ]] || fatal "Refusing to replace the installed digest: explicit --image conflicts with the installed pin; updates belong to the signed release poller. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
+  [[ -z "$REQUESTED_IMAGE" || "$REQUESTED_IMAGE" == "$INSTALLED_IMAGE" || ( $BOOT_PREPARE -eq 1 && ${USER_IMAGE_OVERRIDE:-0} -eq 0 ) ]] || fatal "Refusing to replace the installed digest: explicit --image $REQUESTED_IMAGE conflicts with the installed pin $INSTALLED_IMAGE; updates belong to the signed release poller. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
   if [[ ${VERIFY_ONLY:-0} -eq 0 ]]; then
     RETAINED_ENGINE_VERSION=$(retained_engine_version "$INSTALLED_IMAGE")
     if [[ -n "$RETAINED_ENGINE_VERSION" ]]; then
@@ -2799,8 +2799,8 @@ CONSOLE_IMAGE=$REQUESTED_CONSOLE_IMAGE
 if [[ -f "$CONSOLE_QUADLET_FILE" ]]; then
   INSTALLED_CONSOLE_IMAGE=$(sed -n 's/^Image=//p' "$CONSOLE_QUADLET_FILE")
   valid_image_pin "$INSTALLED_CONSOLE_IMAGE" "$CONSOLE_REPOSITORY" || fatal "Existing console Quadlet has no unique approved digest pin; no tag resolution."
-  [[ -z "$REQUESTED_CONSOLE_IMAGE" || "$REQUESTED_CONSOLE_IMAGE" == "$INSTALLED_CONSOLE_IMAGE" || ( $BOOT_PREPARE -eq 1 && $USER_CONSOLE_IMAGE_OVERRIDE -eq 0 ) ]] \
-    || fatal "Refusing to replace the installed console digest: explicit --console-image conflicts with the installed pin; reinstall is not an update channel. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
+  [[ -z "$REQUESTED_CONSOLE_IMAGE" || "$REQUESTED_CONSOLE_IMAGE" == "$INSTALLED_CONSOLE_IMAGE" || ( $BOOT_PREPARE -eq 1 && ${USER_CONSOLE_IMAGE_OVERRIDE:-0} -eq 0 ) ]] \
+    || fatal "Refusing to replace the installed console digest: explicit --console-image $REQUESTED_CONSOLE_IMAGE conflicts with the installed pin $INSTALLED_CONSOLE_IMAGE; reinstall is not an update channel. To install this release: sudo brrdfeeder uninstall, then run the one-liner again."
   CONSOLE_IMAGE=$INSTALLED_CONSOLE_IMAGE
   if [[ -z "$CONSOLE_LISTEN" ]]; then
     CONSOLE_LISTEN=$(sed -n 's/^Exec=--listen=\([^ ]*\) .*/\1/p' "$CONSOLE_QUADLET_FILE")
@@ -3373,16 +3373,23 @@ def confirm(dev):
                     if len(buf) > 128:
                         buf = ''
         return 'ok' if seen >= 2 else 'no-nmea'
-    except (OSError, termios.error):
+    except (OSError, termios.error, KeyboardInterrupt):
         return 'no-nmea'
     finally:
         if fd is not None:
+            restore_failed = False
             try:
                 if original is not None:
                     termios.tcsetattr(fd, termios.TCSANOW, original)
+                    restore_failed = termios.tcgetattr(fd) != original
             except (OSError, termios.error):
-                pass  # unplugged: there may no longer be a tty to restore
-            os.close(fd)
+                restore_failed = True
+            finally:
+                os.close(fd)
+            if restore_failed:
+                # Override even a pending 'ok': reception alone cannot authorize
+                # mapping when the original tty state could not be restored.
+                return 'restore-failed'
 
 print(confirm(sys.argv[1]))
 GPS_PROBE_EOF
@@ -3425,12 +3432,15 @@ gps_usb_preflight
 if [[ -n $gps_declared_usb_id ]]; then
   candidate_tty=$(gps_candidate_tty "$gps_declared_usb_id")
   if [[ -n $candidate_tty ]]; then
-    say "GPS candidate $gps_declared_usb_id on $candidate_tty — checking ownership, then receiving NMEA for up to 5 s (temporary raw 9600 8N1; settings restored; no serial writes)…"
+    say "GPS candidate $gps_declared_usb_id on $candidate_tty — checking ownership, then receiving NMEA for up to 5 s (temporary raw 9600 8N1; restoration checked before mapping; no serial writes)…"
     GPS_PROBE_RESULT=$(gps_nmea_confirm "$candidate_tty")
     case $GPS_PROBE_RESULT in
       ok)
         GPS_USB_ID_PRESENT=1
         ok "NMEA confirmed on $candidate_tty; udev rule will map /dev/$GPS_SYMLINK for $gps_declared_usb_id"
+        ;;
+      restore-failed)
+        warn "GPS candidate $gps_declared_usb_id on $candidate_tty: restore-failed; original tty settings could not be restored and verified. The tty may remain modified; no new mapping. Check the receiver and restore its serial settings before re-running the installer."
         ;;
       busy|ownership-unknown)
         warn "GPS candidate $gps_declared_usb_id on $candidate_tty: $GPS_PROBE_RESULT; skipped NMEA read and tty configuration. No new mapping. Close the owning application or check process visibility, then re-run the installer."

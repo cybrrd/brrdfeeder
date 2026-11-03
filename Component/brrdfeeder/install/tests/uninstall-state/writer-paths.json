@@ -2968,7 +2968,8 @@
     "return ''": 1,
     "return 'busy'": 1,
     "return 'no-nmea'": 3,
-    "return 'ownership-unknown'": 1
+    "return 'ownership-unknown'": 1,
+    "return 'restore-failed'": 1
   },
   "Component/brrdfeeder/install/brrdfeeder-install.sh::GPS_USBID_PY": {
     "call cfg.setdefault ('sensors', {})": 1,

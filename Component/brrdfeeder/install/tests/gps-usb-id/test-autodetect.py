@@ -204,6 +204,15 @@ class Discovery(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
         self.assertFalse(any(event(line) for line in self.gps_rules(self.run_shell(confirmed=0))))
 
+    def test_restore_failure_never_maps_or_retains_confirmation(self):
+        self.tty()
+        installed = self.rules/'99-cybrrd-brrdfeeder.rules'
+        installed.write_text('\n'.join(self.gps_rules(self.run_shell()))+'\n')
+        result = self.run_shell('restore-failed')
+        self.assertEqual(len(self.gps_rules(result)), 5)
+        self.assertIn('tty may remain modified', result.stdout)
+        self.assertIn('restore-failed', result.stdout)
+
     def test_no_interactive_reads_in_gps_path(self):
         self.assertNotIn('/dev/tty', BLOCK)
         self.assertNotIn('BRRDFEEDER_TTY_FD', BLOCK)
@@ -254,6 +263,50 @@ class Probe(unittest.TestCase):
         started = time.monotonic()
         self.finish(self.start(), 'no-nmea')
         self.assertLess(time.monotonic()-started, 7)
+
+    def test_restore_failure_overrides_all_reception_outcomes(self):
+        original_source = self.source
+        for outcome in ('valid', 'invalid', 'silent', 'read-error', 'interrupt', 'mismatch'):
+            with self.subTest(outcome=outcome):
+                termios.tcsetattr(self.master, termios.TCSANOW, self.before)
+                injection = """
+real_setattr = termios.tcsetattr
+calls = 0
+def failing_restore(*args):
+    global calls
+    calls += 1
+    if calls == 2:
+        if MODE == 'mismatch':
+            return
+        raise termios.error('injected restore failure')
+    return real_setattr(*args)
+termios.tcsetattr = failing_restore
+""".replace('MODE', repr(outcome))
+                if outcome in ('read-error', 'interrupt'):
+                    injection += "select.select = lambda *args: ([1], [], [])\n"
+                    error = 'OSError' if outcome == 'read-error' else 'KeyboardInterrupt'
+                    injection += "os.read = lambda *args: (_ for _ in ()).throw("+error+"())\n"
+                self.source = original_source.replace('print(confirm(sys.argv[1]))',
+                    injection+"\nprint(confirm(sys.argv[1]))\nassert calls == 2")
+                child = self.start()
+                deadline = time.monotonic()+2
+                while termios.tcgetattr(self.master) == self.before and time.monotonic() < deadline:
+                    time.sleep(.01)
+                if outcome in ('valid', 'mismatch'):
+                    os.write(self.master, b'$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47\r\n'
+                             b'$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A\r\n')
+                elif outcome == 'invalid':
+                    os.write(self.master, b'$GPGGA,bad*00\r\n')
+                out, err = child.communicate(timeout=8)
+                self.assertEqual(child.returncode, 0, err)
+                self.assertEqual(out.strip(), 'restore-failed')
+                self.assertNotEqual(termios.tcgetattr(self.master), self.before)
+        termios.tcsetattr(self.master, termios.TCSANOW, self.before)
+
+    def test_interruption_restores_settings(self):
+        self.source = self.source.replace('print(confirm(sys.argv[1]))',
+            "select.select = lambda *args: (_ for _ in ()).throw(KeyboardInterrupt())\nprint(confirm(sys.argv[1]))")
+        self.finish(self.start(), 'no-nmea')
 
     def test_busy_alias_is_not_opened_or_configured(self):
         alias = self.root/'gps'; alias.symlink_to(self.dev)

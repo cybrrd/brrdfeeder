@@ -209,8 +209,9 @@ remove_images() {'''+body+'\n}\nremove_images system ghcr.io/cybrrd/brrdfeeder f
             # retain the surrounding image validation, selection and pull freeze.
             for flag, variable in [('--image', 'USER_IMAGE_OVERRIDE'),
                                    ('--console-image', 'USER_CONSOLE_IMAGE_OVERRIDE')]:
-                text=text.replace(' || ( $BOOT_PREPARE -eq 1 && $'+variable+' -eq 0 ) ]]',' ]]')
-                text=text.replace('explicit '+flag+' conflicts with the installed pin; ','')
+                text=text.replace(' || ( $BOOT_PREPARE -eq 1 && ${'+variable+':-0} -eq 0 ) ]]',' ]]')
+                requested, installed = (('REQUESTED_IMAGE', 'INSTALLED_IMAGE') if flag == '--image' else ('REQUESTED_CONSOLE_IMAGE', 'INSTALLED_CONSOLE_IMAGE'))
+                text=text.replace('explicit '+flag+' $'+requested+' conflicts with the installed pin $'+installed+'; ','')
             text=text.replace('Refusing to replace the installed console digest: reinstall',
                               'Refusing to replace the installed console digest; reinstall')
             text=text.replace(' || $BOOT_PREPARE -eq 1 ]]',' ]]')

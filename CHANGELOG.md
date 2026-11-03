@@ -2,6 +2,16 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
+## 0.9.1 — Planned
+
+- Replace serde_yaml/unsafe-libyaml with serde-saphyr. Installer-generated
+  configuration retains identical typed values and defaults. Hand-edited YAML
+  accepts yes/no/on/off in boolean fields, 011 as decimal 11, and 1_000 as 1000
+  in numeric fields; typed string IDs retain these exact spellings. Merge keys are expanded
+  with explicit values taking precedence, and literal blocks preserve their
+  trailing newline unless `|-` is used. Non-finite coordinates remain refused.
+  See `docs/yaml-configuration-semantics.md` for compatibility and safety decisions.
+
 ## 0.9.0 — Unreleased public beta candidate
 
 - Automatically confirm CP2102N GPS receivers without a prompt, resolve the correct tty, skip busy ports, restore probe settings, and generate a usable confirmed-device udev rule.

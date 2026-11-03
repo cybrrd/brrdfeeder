@@ -1018,6 +1018,133 @@ mod gps_init_tests {
 mod yaml_migration_tests {
     use super::EngineConfig;
 
+    fn load_text(text: &str) -> Result<EngineConfig, Box<dyn std::error::Error>> {
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "yaml-semantics-{}-{}.yaml",
+            std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::write(&path, text).unwrap();
+        let result = EngineConfig::load(path.to_str().unwrap());
+        std::fs::remove_file(path).unwrap();
+        result
+    }
+
+    #[test]
+    fn non_finite_coordinates_are_refused() {
+        let valid = include_str!("../tests/fixtures/config-compat/installer-native.yaml");
+        for scalar in [".nan", ".NaN", ".inf", "-.inf"] {
+            for field in [
+                "latitude: 40.88259",
+                "longitude: -95.69092",
+                "elevation_meters: 320.0",
+            ] {
+                let key = field.split(':').next().unwrap();
+                assert!(
+                    load_text(&valid.replace(field, &format!("{key}: {scalar}"))).is_err(),
+                    "{key}: {scalar}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn legacy_boolean_words_follow_the_destination_type() {
+        let valid = include_str!("../tests/fixtures/config-compat/installer-native.yaml");
+        for (word, expected) in [("yes", true), ("no", false), ("on", true), ("off", false)] {
+            let yaml = valid.replace(
+                "sensors:\n",
+                &format!("sensors:\n  rid_ble:\n    enabled: false\n    unblock_rfkill: {word}\n"),
+            );
+            assert_eq!(
+                load_text(&yaml).unwrap().sensors.rid_ble.unblock_rfkill,
+                expected
+            );
+            assert_eq!(
+                load_text(&valid.replace("id: brrdfeeder-fixture-001", &format!("id: {word}")))
+                    .unwrap().node.id,
+                word
+            );
+            assert_eq!(
+                load_text(&valid.replace("id: brrdfeeder-fixture-001", &format!("id: '{word}'")))
+                    .unwrap()
+                    .node
+                    .id,
+                word
+            );
+        }
+    }
+
+    #[test]
+    fn numeric_spellings_are_decimal_but_string_ids_keep_their_bytes() {
+        let valid = include_str!("../tests/fixtures/config-compat/installer-native.yaml");
+        assert_eq!(
+            load_text(&valid.replace("latitude: 40.88259", "latitude: 011"))
+                .unwrap()
+                .node
+                .location
+                .latitude,
+            11.0
+        );
+        assert_eq!(
+            load_text(&valid.replace("interval_secs: 5", "interval_secs: 1_000"))
+                .unwrap()
+                .tuning
+                .heartbeat
+                .interval_secs,
+            1000
+        );
+        for scalar in ["011", "1_000"] {
+            assert_eq!(
+                load_text(&valid.replace("id: brrdfeeder-fixture-001", &format!("id: {scalar}")))
+                    .unwrap().node.id,
+                scalar
+            );
+            assert_eq!(
+                load_text(&valid.replace("id: brrdfeeder-fixture-001", &format!("id: '{scalar}'")))
+                    .unwrap()
+                    .node
+                    .id,
+                scalar
+            );
+        }
+    }
+
+    #[test]
+    fn merge_keys_obey_explicit_override_and_schema_validation() {
+        let valid = include_str!("../tests/fixtures/config-compat/installer-native.yaml");
+        let merged = valid.replace(
+            "  channel: general",
+            "  <<: &node_defaults {channel: dev, status_interval_secs: 17}\n  channel: general",
+        );
+        let cfg = load_text(&merged).unwrap();
+        assert_eq!(cfg.node.channel.as_deref(), Some("general"));
+        assert_eq!(cfg.node.status_interval_secs, 17);
+        assert!(
+            load_text(&merged.replace("status_interval_secs: 17", "unknown_node_key: 17")).is_err()
+        );
+        assert!(
+            load_text(&merged.replace("status_interval_secs: 17", "status_interval_secs: wrong-type"))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn literal_block_chomping_is_preserved() {
+        let valid = include_str!("../tests/fixtures/config-compat/installer-native.yaml");
+        for (indicator, expected) in [("|", "fixture-version\n"), ("|-", "fixture-version")] {
+            let yaml = valid.replace(
+                "  channel: general",
+                &format!("  channel: general\n  version: {indicator}\n    fixture-version"),
+            );
+            assert_eq!(
+                load_text(&yaml).unwrap().node.version.as_deref(),
+                Some(expected)
+            );
+        }
+    }
+
     #[test]
     fn existing_config_shapes_match_serde_yaml_goldens() {
         // Captured by EngineConfig::load at main 9faae55 using serde_yaml 0.9.34.

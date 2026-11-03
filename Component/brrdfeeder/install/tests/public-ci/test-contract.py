@@ -158,6 +158,14 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         ignores=[i for i in cargo['ignore'] if i['dependency-name']=='nmea']
         self.assertTrue(any('version-update:semver-major' in i.get('update-types',[]) for i in ignores))
 
+    def test_native_engine_fetches_before_offline_build(self):
+        container=(ROOT/'Component/aviary/engine/Containerfile').read_text()
+        fetch=container.index('cargo fetch --locked')
+        build=container.index('cargo auditable build --offline --locked')
+        tree=container.index('cargo tree -p engine --locked --offline')
+        self.assertLess(fetch,build)
+        self.assertLess(build,tree)
+
     def test_dependabot_workspace_uses_only_root_lockfile(self):
         updates=yaml.safe_load((ROOT/'.github/dependabot.yml').read_text())['updates']
         cargo=[u for u in updates if u['package-ecosystem']=='cargo']

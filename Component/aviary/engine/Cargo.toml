@@ -33,6 +33,7 @@ neli = "0.7"  # Wave 7.1 Inc 4: direct netlink for CMD_GET_SURVEY (not exposed b
 # producer in the Anastomotic Reticulum. BLE + SDR will land next as
 # additional `Sensor` impls.
 # 0.8.0 still pins vulnerable serde_with ~3.11; use upstream fix until its next release.
+# Tracked exit: docs/nmea-registry-follow-up.md (DEP-091-NMEA-REGISTRY).
 nmea = { git = "https://github.com/AeroRust/nmea", rev = "b2e7e4f6c1d6b21a0aae787adac35b6baee7c018" }
 chrono = "0.4"         # #183: assemble GPS UTC (RMC date + time) → epoch ms
 libc = "0.2"           # #183: clock_settime(CLOCK_REALTIME) for GPS clock-discipline

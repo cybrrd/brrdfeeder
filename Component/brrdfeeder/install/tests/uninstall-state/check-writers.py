@@ -316,7 +316,7 @@ def destinations(extracted):
             for prefix,parents in [('.update-',(s,p,e)),('.pending-',(p,))]:
                 if '"'+prefix+'*"' in joined:
                     output.update(parent/(prefix+'123') for parent in parents)
-        if source.endswith('/launcher.py') and "'.host-recover-'" in joined:
+        if source.endswith(('/launcher.py', '/helper-preimages.py')) and "'.host-recover-'" in joined:
             output.update(parent/'.host-recover-abcd_123' for parent in (p,e))
         if source.endswith('/credential_renewal.rs'):
             # ACTIVE supplies the actual credential directory; joins supply the

@@ -18,6 +18,10 @@ import (
 func oldInstallerLayout(t *testing.T) *localFixture {
 	t.Helper()
 	f := newLocalFixture(t)
+	f.oldBuild = "2\n" // Historical v0.8.31 helper, separate from fresh 4→5.
+	if e := os.Remove(f.p.private + "/host-state.json"); e != nil {
+		t.Fatal(e)
+	}
 	config, e := os.ReadFile("tests/fixtures/v0.8.31-config.yaml")
 	if e != nil {
 		t.Fatal(e)

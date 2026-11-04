@@ -1,0 +1,1344 @@
+column_path,physical_type,rule
+v5.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.wire_format_version,INT64,nullable; v4 row is SQL NULL
+v5.schema_revision,INT64,nullable; v4 row is SQL NULL
+v5.observation_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.observation_id.node_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.observation_id.boot_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.observation_id.capture_sequence,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.source.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.source.adapter,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.source.adapter_version,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.source.kind,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.source_MAC.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.source_MAC.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.source_MAC.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.source_MAC.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.source_MAC.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.source_MAC.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.source_MAC.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.RSSI_dbm.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.RSSI_dbm.raw,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.RSSI_dbm.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.RSSI_dbm.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.RSSI_dbm.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.RSSI_dbm.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.RSSI_dbm.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.wifi_rx_channel_and_source.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.wifi_rx_channel_and_source.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.wifi_rx_channel_and_source.raw.channel,INT64,nullable; v4 row is SQL NULL
+v5.receiver.wifi_rx_channel_and_source.raw.frequency_mhz,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.wifi_rx_channel_and_source.raw.source,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.wifi_rx_channel_and_source.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.wifi_rx_channel_and_source.decoded.channel,INT64,nullable; v4 row is SQL NULL
+v5.receiver.wifi_rx_channel_and_source.decoded.frequency_mhz,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.wifi_rx_channel_and_source.decoded.source,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.wifi_rx_channel_and_source.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.wifi_rx_channel_and_source.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.wifi_rx_channel_and_source.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.wifi_rx_channel_and_source.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.bluetooth_advertising_channel.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.bluetooth_advertising_channel.raw,INT64,nullable; v4 row is SQL NULL
+v5.receiver.bluetooth_advertising_channel.decoded,INT64,nullable; v4 row is SQL NULL
+v5.receiver.bluetooth_advertising_channel.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.bluetooth_advertising_channel.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.bluetooth_advertising_channel.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.bluetooth_advertising_channel.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.transport.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.transport.raw,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.transport.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.transport.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.transport.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.transport.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.transport.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.host_receive_timestamp_ns.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.host_receive_timestamp_ns.raw,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.host_receive_timestamp_ns.decoded,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.host_receive_timestamp_ns.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.host_receive_timestamp_ns.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.host_receive_timestamp_ns.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.host_receive_timestamp_ns.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.radio_timestamp_and_clock_domain.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.radio_timestamp_and_clock_domain.raw.ticks,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.raw.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.raw.domain,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.raw.wrap_bits,INT64,nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.radio_timestamp_and_clock_domain.decoded.ticks,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.decoded.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.decoded.domain,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.decoded.wrap_bits,INT64,nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.radio_timestamp_and_clock_domain.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.clock_source_and_estimated_error.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.clock_source_and_estimated_error.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.clock_source_and_estimated_error.raw.source,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.clock_source_and_estimated_error.raw.error_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.clock_source_and_estimated_error.raw.estimated_at_host_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.clock_source_and_estimated_error.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.clock_source_and_estimated_error.decoded.source,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.clock_source_and_estimated_error.decoded.error_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.clock_source_and_estimated_error.decoded.estimated_at_host_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.clock_source_and_estimated_error.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.clock_source_and_estimated_error.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.clock_source_and_estimated_error.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.clock_source_and_estimated_error.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.clock_model_parameters_offset_drift.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.clock_model_parameters_offset_drift.raw.offset_ns,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.raw.drift_ppb,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.raw.reference_host_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.raw.model_version,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.raw.uncertainty_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.clock_model_parameters_offset_drift.decoded.offset_ns,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.decoded.drift_ppb,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.decoded.reference_host_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.decoded.model_version,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.decoded.uncertainty_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.clock_model_parameters_offset_drift.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.upload_ingest_time.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.upload_ingest_time.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.upload_ingest_time.raw.upload_utc_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.upload_ingest_time.raw.ingest_utc_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.upload_ingest_time.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.upload_ingest_time.decoded.upload_utc_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.upload_ingest_time.decoded.ingest_utc_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.upload_ingest_time.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.upload_ingest_time.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.upload_ingest_time.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.upload_ingest_time.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.node_id.raw,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_id.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_id.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_id.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_id.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.node_id.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_software_version.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.node_software_version.raw,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_software_version.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_software_version.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_software_version.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_software_version.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.node_software_version.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_latitude.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.node_latitude.raw,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.node_latitude.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.node_latitude.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_latitude.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_latitude.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.node_latitude.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_longitude.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.node_longitude.raw,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.node_longitude.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.node_longitude.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_longitude.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_longitude.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.node_longitude.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_altitude.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.node_altitude.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.node_altitude.raw.value_m,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.node_altitude.raw.datum,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_altitude.raw.source,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_altitude.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.node_altitude.decoded.value_m,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.node_altitude.decoded.datum,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_altitude.decoded.source,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_altitude.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_altitude.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_altitude.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.node_altitude.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.hardware_model_adapter_dongle_GPS.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.hardware_model_adapter_dongle_GPS.raw.adapter_model,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.raw.chipset,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.raw.usb_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.raw.bluetooth_model,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.raw.gps_model,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.hardware_model_adapter_dongle_GPS.decoded.adapter_model,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.decoded.chipset,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.decoded.usb_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.decoded.bluetooth_model,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.decoded.gps_model,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.hardware_model_adapter_dongle_GPS.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.enrollment_credential_ID.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.enrollment_credential_ID.raw,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.enrollment_credential_ID.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.enrollment_credential_ID.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.enrollment_credential_ID.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.enrollment_credential_ID.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.enrollment_credential_ID.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.receiver_GPS_fix_type.raw,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_type.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_type.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_HDOP.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.receiver_GPS_HDOP.raw,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_HDOP.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_HDOP.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_HDOP.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_HDOP.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_HDOP.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_satellite_count.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.receiver_GPS_satellite_count.raw,INT64,nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_satellite_count.decoded,INT64,nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_satellite_count.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_satellite_count.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_satellite_count.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_satellite_count.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_age.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.receiver_GPS_fix_age.raw,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_age.decoded,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_age.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_age.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_age.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_GPS_fix_age.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.mobile_or_fixed.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.mobile_or_fixed.raw,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.mobile_or_fixed.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.mobile_or_fixed.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.mobile_or_fixed.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.mobile_or_fixed.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.mobile_or_fixed.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.receiver_dwell_channel_and_schedule.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.receiver_dwell_channel_and_schedule.raw.channel,INT64,nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.raw.frequency_mhz,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.raw.schedule_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.raw.interval_index,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.raw.start_mono_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.raw.end_mono_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.raw.state,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.receiver_dwell_channel_and_schedule.decoded.channel,INT64,nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.decoded.frequency_mhz,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.decoded.schedule_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.decoded.interval_index,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.decoded.start_mono_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.decoded.end_mono_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.decoded.state,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.receiver_dwell_channel_and_schedule.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.PHY_data_rate.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.PHY_data_rate.raw.phy,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.raw.bitrate_bps,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.raw.mcs,INT64,nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.raw.coding,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.PHY_data_rate.decoded.phy,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.decoded.bitrate_bps,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.decoded.mcs,INT64,nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.decoded.coding,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.PHY_data_rate.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_index.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.antenna_index.raw,INT64,nullable; v4 row is SQL NULL
+v5.receiver.antenna_index.decoded,INT64,nullable; v4 row is SQL NULL
+v5.receiver.antenna_index.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_index.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_index.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_index.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.frame_length.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.frame_length.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.frame_length.raw.captured_bytes,INT64,nullable; v4 row is SQL NULL
+v5.receiver.frame_length.raw.original_bytes,INT64,nullable; v4 row is SQL NULL
+v5.receiver.frame_length.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.frame_length.decoded.captured_bytes,INT64,nullable; v4 row is SQL NULL
+v5.receiver.frame_length.decoded.original_bytes,INT64,nullable; v4 row is SQL NULL
+v5.receiver.frame_length.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.frame_length.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.frame_length.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.frame_length.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.FCS_status.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.FCS_status.raw,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.FCS_status.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.FCS_status.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.FCS_status.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.FCS_status.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.FCS_status.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.raw_frame_bytes.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.raw_frame_bytes.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.raw_frame_bytes.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.raw_frame_bytes.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.raw_frame_bytes.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.raw_frame_bytes.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.raw_frame_bytes.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.extended_advertising_fields.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.extended_advertising_fields.raw.raw_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.adi_data_id,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.adi_set_id,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.aux_offset_raw,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.aux_offset_unit_us,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.aux_channel,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.primary_secondary_link_status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.fec_term1_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.fec_term2_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.secondary_coding_indication,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.extended_header_length,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.advertising_mode,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.raw.primary_adv_data_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.extended_advertising_fields.decoded.raw_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.adi_data_id,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.adi_set_id,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.aux_offset_raw,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.aux_offset_unit_us,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.aux_channel,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.primary_secondary_link_status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.fec_term1_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.fec_term2_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.secondary_coding_indication,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.extended_header_length,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.advertising_mode,INT64,nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.decoded.primary_adv_data_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.extended_advertising_fields.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.parser_version.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.parser_version.raw,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.parser_version.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.parser_version.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.parser_version.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.parser_version.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.parser_version.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.normalizations_applied.raw.$present,BOOLEAN,LIST presence
+v5.receiver.normalizations_applied.raw.$length,INT64,LIST length; preserve empty vs absent
+v5.receiver.normalizations_applied.raw[].$ordinal,INT64,ordered element index
+v5.receiver.normalizations_applied.raw[].$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.normalizations_applied.raw[].rule_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.raw[].version,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.raw[].input_path,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.raw[].output_path,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.raw[].reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.decoded.$present,BOOLEAN,LIST presence
+v5.receiver.normalizations_applied.decoded.$length,INT64,LIST length; preserve empty vs absent
+v5.receiver.normalizations_applied.decoded[].$ordinal,INT64,ordered element index
+v5.receiver.normalizations_applied.decoded[].$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.normalizations_applied.decoded[].rule_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.decoded[].version,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.decoded[].input_path,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.decoded[].output_path,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.decoded[].reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.normalizations_applied.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_description.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.antenna_description.raw,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_description.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_description.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_description.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_description.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.antenna_description.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_height.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.antenna_height.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.antenna_height.raw.height_m,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.antenna_height.raw.reference,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_height.raw.source,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_height.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.antenna_height.decoded.height_m,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.antenna_height.decoded.reference,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_height.decoded.source,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_height.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_height.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.antenna_height.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.antenna_height.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.noise_floor.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.noise_floor.raw,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.noise_floor.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.receiver.noise_floor.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.noise_floor.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.noise_floor.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.noise_floor.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.node_record_signature.raw.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.node_record_signature.raw.algorithm,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.raw.credential_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.raw.scope,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.raw.covered_canonical_sha256,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.raw.signature_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.decoded.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.receiver.node_record_signature.decoded.algorithm,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.decoded.credential_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.decoded.scope,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.decoded.covered_canonical_sha256,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.decoded.signature_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.receiver.node_record_signature.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.network_information.operating_area_polygon.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.network_information.operating_area_polygon.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_polygon.decoded.$present,BOOLEAN,LIST presence
+v5.network_information.operating_area_polygon.decoded.$length,INT64,LIST length; preserve empty vs absent
+v5.network_information.operating_area_polygon.decoded[].$ordinal,INT64,ordered element index
+v5.network_information.operating_area_polygon.decoded[].$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.network_information.operating_area_polygon.decoded[].latitude,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_polygon.decoded[].longitude,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_polygon.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_polygon.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_polygon.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_polygon.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.network_information.operating_area_type.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_type.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_type.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.network_information.operating_area_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_start.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.network_information.operation_area_start.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_start.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_start.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_start.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_start.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_start.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_end.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.network_information.operation_area_end.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_end.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_end.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_end.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_end.resolution,BYTE_ARRAY(UTF8; constant null),nullable; v4 row is SQL NULL
+v5.network_information.operation_area_end.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures.$present,BOOLEAN,LIST presence
+v5.captures.$length,INT64,LIST length; preserve empty vs absent
+v5.captures[].$ordinal,INT64,ordered element index
+v5.captures[].$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].index,INT64,nullable; v4 row is SQL NULL
+v5.captures[].capture_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].capture_id.observation_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].capture_id.observation_id.node_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].capture_id.observation_id.boot_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].capture_id.observation_id.capture_sequence,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.captures[].capture_id.capture_index,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_kind,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].related_captures.$present,BOOLEAN,LIST presence
+v5.captures[].related_captures.$length,INT64,LIST length; preserve empty vs absent
+v5.captures[].related_captures[].$ordinal,INT64,ordered element index
+v5.captures[].related_captures[].$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].related_captures[].index,INT64,nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].source_capture_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].related_captures[].source_capture_id.observation_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].related_captures[].source_capture_id.observation_id.node_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].source_capture_id.observation_id.boot_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].source_capture_id.observation_id.capture_sequence,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].source_capture_id.capture_index,INT64,nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].target_capture_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].related_captures[].target_capture_id.observation_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].related_captures[].target_capture_id.observation_id.node_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].target_capture_id.observation_id.boot_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].target_capture_id.observation_id.capture_sequence,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].target_capture_id.capture_index,INT64,nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].relationship,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].source_receive_order,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].target_receive_order,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].order_basis,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].association_status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].evidence,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].related_captures[].provenance_version,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].format,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].raw_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].captured_length,INT64,nullable; v4 row is SQL NULL
+v5.captures[].original_length,INT64,nullable; v4 row is SQL NULL
+v5.captures[].completeness,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].unavailable_reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt4_legacy.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt4_legacy.preamble.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt4_legacy.preamble.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.preamble.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.preamble.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.preamble.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.preamble.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.preamble.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.access_address.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt4_legacy.access_address.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.access_address.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.access_address.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.access_address.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.access_address.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.access_address.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.pdu_header.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt4_legacy.pdu_header.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.pdu_header.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.pdu_header.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.pdu_header.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.pdu_header.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.pdu_header.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_info.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt4_legacy.ad_info.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_info.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_info.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_info.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_info.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_info.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.app_code.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt4_legacy.app_code.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.app_code.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.app_code.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.app_code.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.app_code.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.app_code.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.odid_message.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt4_legacy.odid_message.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.odid_message.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.odid_message.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.odid_message.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.odid_message.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.odid_message.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.crc.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt4_legacy.crc.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.crc.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.crc.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.crc.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.crc.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.crc.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.message_counter.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt4_legacy.message_counter.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.message_counter.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.message_counter.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.message_counter.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.message_counter.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.message_counter.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_addr.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt4_legacy.ad_addr.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_addr.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_addr.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_addr.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_addr.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt4_legacy.ad_addr.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_primary.preamble.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_primary.preamble.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.preamble.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.preamble.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.preamble.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.preamble.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.preamble.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.access_address.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_primary.access_address.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.access_address.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.access_address.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.access_address.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.access_address.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.access_address.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.coding_indication.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_primary.coding_indication.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.coding_indication.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.coding_indication.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.coding_indication.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.coding_indication.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.coding_indication.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.pdu_header.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_primary.pdu_header.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.pdu_header.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.pdu_header.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.pdu_header.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.pdu_header.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.pdu_header.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.ext_header_ADI_AuxPtr.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_primary.ext_header_ADI_AuxPtr.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.ext_header_ADI_AuxPtr.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.ext_header_ADI_AuxPtr.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.ext_header_ADI_AuxPtr.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.ext_header_ADI_AuxPtr.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.ext_header_ADI_AuxPtr.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.crc.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_primary.crc.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.crc.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.crc.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.crc.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.crc.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_primary.crc.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_secondary.preamble.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_secondary.preamble.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.preamble.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.preamble.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.preamble.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.preamble.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.preamble.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.access_address.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_secondary.access_address.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.access_address.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.access_address.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.access_address.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.access_address.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.access_address.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.pdu_header.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_secondary.pdu_header.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.pdu_header.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.pdu_header.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.pdu_header.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.pdu_header.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.pdu_header.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ext_header_ADI.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_secondary.ext_header_ADI.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ext_header_ADI.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ext_header_ADI.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ext_header_ADI.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ext_header_ADI.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ext_header_ADI.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ad_info.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_secondary.ad_info.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ad_info.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ad_info.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ad_info.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ad_info.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.ad_info.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.app_code.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_secondary.app_code.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.app_code.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.app_code.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.app_code.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.app_code.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.app_code.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.odid_message_pack.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_secondary.odid_message_pack.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.odid_message_pack.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.odid_message_pack.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.odid_message_pack.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.odid_message_pack.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.odid_message_pack.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.crc.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_secondary.crc.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.crc.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.crc.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.crc.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.crc.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.crc.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.AdvA.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_secondary.AdvA.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.AdvA.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.AdvA.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.AdvA.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.AdvA.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.AdvA.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.message_counter.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.bt5_secondary.message_counter.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.message_counter.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.message_counter.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.message_counter.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.message_counter.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.bt5_secondary.message_counter.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sync.element_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sync.element_id.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.element_id.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.element_id.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.element_id.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.element_id.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.element_id.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.length.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sync.length.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.length.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.length.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.length.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.length.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.length.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sync.oui.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sync.oui_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.oui_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.master_indication_attr.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sync.master_indication_attr.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.master_indication_attr.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.master_indication_attr.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.master_indication_attr.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.master_indication_attr.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.master_indication_attr.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.cluster_attr.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sync.cluster_attr.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.cluster_attr.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.cluster_attr.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.cluster_attr.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.cluster_attr.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sync.cluster_attr.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sdf.oui.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sdf.oui.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.oui.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.oui.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.oui.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.oui.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.oui.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.oui_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sdf.oui_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.oui_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.oui_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.oui_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.oui_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.oui_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_descriptor_attr.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sdf.service_descriptor_attr.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_descriptor_attr.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_descriptor_attr.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_descriptor_attr.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_descriptor_attr.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_descriptor_attr.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_info_message_pack.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sdf.service_info_message_pack.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_info_message_pack.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_info_message_pack.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_info_message_pack.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_info_message_pack.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.service_info_message_pack.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.sdea_instance_control_update.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sdf.sdea_instance_control_update.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.sdea_instance_control_update.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.sdea_instance_control_update.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.sdea_instance_control_update.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.sdea_instance_control_update.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.sdea_instance_control_update.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.message_counter.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sdf.message_counter.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.message_counter.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.message_counter.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.message_counter.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.message_counter.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.message_counter.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.addr3_bssid.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_nan_sdf.addr3_bssid.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.addr3_bssid.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.addr3_bssid.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.addr3_bssid.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.addr3_bssid.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_nan_sdf.addr3_bssid.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_beacon.element_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_beacon.element_id.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.element_id.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.element_id.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.element_id.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.element_id.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.element_id.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.length.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_beacon.length.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.length.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.length.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.length.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.length.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.length.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.oui.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_beacon.oui.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.oui.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.oui.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.oui.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.oui.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.oui.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.vendor_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_beacon.vendor_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.vendor_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.vendor_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.vendor_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.vendor_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.vendor_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_pack.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_beacon.message_pack.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_pack.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_pack.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_pack.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_pack.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_pack.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_counter.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.captures[].transport_fields.wifi_beacon.message_counter.raw,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_counter.decoded,INT64,nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_counter.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_counter.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_counter.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.captures[].transport_fields.wifi_beacon.message_counter.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units.$present,BOOLEAN,LIST presence
+v5.rid_units.$length,INT64,LIST length; preserve empty vs absent
+v5.rid_units[].$ordinal,INT64,ordered element index
+v5.rid_units[].$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].index,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].capture_index,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].capture_offset,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].raw_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].kind,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].header.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].header.message_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].header.message_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].header.message_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].header.message_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].header.message_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].header.message_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].header.message_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].header.protocol_version.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].header.protocol_version.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].header.protocol_version.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].header.protocol_version.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].header.protocol_version.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].header.protocol_version.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].header.protocol_version.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_counter.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].message_counter.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].message_counter.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].message_counter.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_counter.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_counter.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_counter.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_size.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].message_size.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].message_size.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].message_size.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_size.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_size.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_size.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_count.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].message_count.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].message_count.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].message_count.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_count.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_count.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].message_count.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages.$present,BOOLEAN,LIST presence
+v5.rid_units[].messages.$length,INT64,LIST length; preserve empty vs absent
+v5.rid_units[].messages[].$ordinal,INT64,ordered element index
+v5.rid_units[].messages[].$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].index,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].raw_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].header.message_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].header.message_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.message_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.message_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.message_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.message_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.message_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.protocol_version.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].header.protocol_version.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.protocol_version.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.protocol_version.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.protocol_version.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.protocol_version.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].header.protocol_version.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].parse_status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].basic_id.id_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].basic_id.id_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.id_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.id_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.id_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.id_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.id_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.ua_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].basic_id.ua_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.ua_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.ua_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.ua_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.ua_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.ua_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.uas_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].basic_id.uas_id.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.uas_id.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.uas_id.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.uas_id.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.uas_id.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.uas_id.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.reserved.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].basic_id.reserved.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.reserved.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.reserved.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.reserved.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.reserved.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].basic_id.reserved.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.operational_status.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.operational_status.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.operational_status.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.operational_status.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.operational_status.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.operational_status.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.operational_status.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.status_reserved.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.status_reserved.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.status_reserved.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.status_reserved.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.status_reserved.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.status_reserved.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.status_reserved.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.height_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.ew_direction_segment.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.ew_direction_segment.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.ew_direction_segment.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.ew_direction_segment.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.ew_direction_segment.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.ew_direction_segment.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.ew_direction_segment.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_multiplier.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.speed_multiplier.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_multiplier.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_multiplier.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_multiplier.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_multiplier.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_multiplier.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.track_direction.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.track_direction.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.track_direction.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.track_direction.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.track_direction.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.track_direction.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.track_direction.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.speed.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_speed.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.vertical_speed.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_speed.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_speed.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_speed.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_speed.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_speed.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.latitude.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.latitude.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.latitude.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.latitude.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.latitude.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.latitude.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.latitude.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.longitude.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.longitude.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.longitude.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.longitude.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.longitude.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.longitude.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.longitude.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.pressure_altitude.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.pressure_altitude.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.pressure_altitude.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.pressure_altitude.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.pressure_altitude.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.pressure_altitude.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.pressure_altitude.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.pressure_altitude.arithmetic_value,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.geodetic_altitude_hae.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.geodetic_altitude_hae.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.geodetic_altitude_hae.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.geodetic_altitude_hae.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.geodetic_altitude_hae.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.geodetic_altitude_hae.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.geodetic_altitude_hae.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.geodetic_altitude_hae.arithmetic_value,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.height.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.height.arithmetic_value,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_accuracy.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.vertical_accuracy.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_accuracy.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_accuracy.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_accuracy.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_accuracy.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.vertical_accuracy.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.horizontal_accuracy.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.horizontal_accuracy.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.horizontal_accuracy.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.horizontal_accuracy.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.horizontal_accuracy.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.horizontal_accuracy.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.horizontal_accuracy.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.baro_altitude_accuracy.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.baro_altitude_accuracy.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.baro_altitude_accuracy.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.baro_altitude_accuracy.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.baro_altitude_accuracy.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.baro_altitude_accuracy.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.baro_altitude_accuracy.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_accuracy.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.speed_accuracy.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_accuracy.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_accuracy.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_accuracy.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_accuracy.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.speed_accuracy.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.timestamp.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_accuracy.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.timestamp_accuracy.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_accuracy.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_accuracy.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_accuracy.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_accuracy.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_accuracy.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_reserved.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.timestamp_reserved.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_reserved.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_reserved.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_reserved.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_reserved.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.timestamp_reserved.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.reserved.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].location.reserved.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.reserved.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.reserved.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.reserved.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.reserved.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].location.reserved.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].auth.auth_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].auth.auth_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.data_page_number.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].auth.data_page_number.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.data_page_number.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.data_page_number.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.data_page_number.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.data_page_number.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.data_page_number.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.page0_reserved.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].auth.page0_reserved.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.page0_reserved.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.page0_reserved.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.page0_reserved.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.page0_reserved.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.page0_reserved.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.last_page.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].auth.last_page.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.last_page.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.last_page.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.last_page.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.last_page.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.last_page.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.length.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].auth.length.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.length.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.length.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.length.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.length.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.length.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.timestamp.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].auth.timestamp.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.timestamp.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.timestamp.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.timestamp.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.timestamp.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.timestamp.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_page0.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].auth.auth_data_page0.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_page0.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_page0.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_page0.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_page0.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_page0.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_pages_1_15.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].auth.auth_data_pages_1_15.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_pages_1_15.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_pages_1_15.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_pages_1_15.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_pages_1_15.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].auth.auth_data_pages_1_15.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].self_id.description_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].self_id.description_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.description_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.description_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.description_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.description_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.description_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.description.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].self_id.description.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.description.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.description.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.description.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.description.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].self_id.description.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.flags_reserved.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.flags_reserved.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.flags_reserved.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.flags_reserved.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.flags_reserved.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.flags_reserved.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.flags_reserved.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.classification_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.classification_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.classification_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.classification_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.classification_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.classification_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.classification_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_location_altitude_source_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.operator_location_altitude_source_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_location_altitude_source_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_location_altitude_source_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_location_altitude_source_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_location_altitude_source_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_location_altitude_source_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_latitude.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.operator_latitude.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_latitude.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_latitude.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_latitude.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_latitude.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_latitude.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_longitude.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.operator_longitude.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_longitude.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_longitude.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_longitude.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_longitude.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_longitude.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_count.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.area_count.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_count.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_count.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_count.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_count.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_count.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_radius.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.area_radius.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_radius.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_radius.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_radius.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_radius.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_radius.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_ceiling_hae.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.area_ceiling_hae.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_ceiling_hae.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_ceiling_hae.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_ceiling_hae.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_ceiling_hae.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_ceiling_hae.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_ceiling_hae.arithmetic_value,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_floor_hae.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.area_floor_hae.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_floor_hae.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_floor_hae.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_floor_hae.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_floor_hae.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_floor_hae.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.area_floor_hae.arithmetic_value,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.category.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.category.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.category.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.category.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.category.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.category.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.category.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.class.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.class.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.class.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.class.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.class.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.class.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.class.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_altitude_hae.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.operator_altitude_hae.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_altitude_hae.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_altitude_hae.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_altitude_hae.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_altitude_hae.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_altitude_hae.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.operator_altitude_hae.arithmetic_value,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.timestamp.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.timestamp.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.timestamp.decoded,BYTE_ARRAY(UTF8 exact decimal),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.timestamp.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.timestamp.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.timestamp.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.timestamp.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.reserved.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].system.reserved.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.reserved.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.reserved.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.reserved.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.reserved.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].system.reserved.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].operator_id.operator_id_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].operator_id.operator_id_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.operator_id_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.operator_id_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.operator_id_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.operator_id_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.operator_id_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.operator_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].operator_id.operator_id.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.operator_id.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.operator_id.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.operator_id.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.operator_id.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.operator_id.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.reserved.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].messages[].operator_id.reserved.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.reserved.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.reserved.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.reserved.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.reserved.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].messages[].operator_id.reserved.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].trailing_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids.$present,BOOLEAN,LIST presence
+v5.rid_units[].basic_ids.$length,INT64,LIST length; preserve empty vs absent
+v5.rid_units[].basic_ids[].$ordinal,INT64,ordered element index
+v5.rid_units[].basic_ids[].$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].basic_ids[].message_index,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].id_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].basic_ids[].id_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].id_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].id_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].id_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].id_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].id_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].ua_type.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].basic_ids[].ua_type.raw,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].ua_type.decoded,INT64,nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].ua_type.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].ua_type.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].ua_type.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].ua_type.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].uas_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].basic_ids[].uas_id.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].uas_id.decoded,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].uas_id.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].uas_id.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].uas_id.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].uas_id.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].reserved.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.rid_units[].basic_ids[].reserved.raw,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].reserved.decoded,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].reserved.status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].reserved.unit,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].reserved.resolution,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.rid_units[].basic_ids[].reserved.reason,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.issues.$present,BOOLEAN,LIST presence
+v5.issues.$length,INT64,LIST length; preserve empty vs absent
+v5.issues[].$ordinal,INT64,ordered element index
+v5.issues[].$present,BOOLEAN,object presence; distinguishes absent from empty/null
+v5.issues[].code,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.issues[].path,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.issues[].detail,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+v5.extensions.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+auth_assembly.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+auth_assembly.assembly_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+auth_assembly.revision,INT64,nullable; v4 row is SQL NULL
+auth_assembly.state,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+auth_assembly.page_refs.$present,BOOLEAN,LIST presence
+auth_assembly.page_refs.$length,INT64,LIST length; preserve empty vs absent
+auth_assembly.page_refs[].$ordinal,INT64,ordered element index
+auth_assembly.page_refs[].$present,BOOLEAN,object presence; distinguishes absent from empty/null
+auth_assembly.page_refs[].observation_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+auth_assembly.page_refs[].observation_id.node_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+auth_assembly.page_refs[].observation_id.boot_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+auth_assembly.page_refs[].observation_id.capture_sequence,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+auth_assembly.page_refs[].unit_index,INT64,nullable; v4 row is SQL NULL
+auth_assembly.page_refs[].message_index,INT64,nullable; v4 row is SQL NULL
+auth_assembly.page_refs[].page_number,INT64,nullable; v4 row is SQL NULL
+auth_assembly.page_refs[].role,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+auth_assembly.counter_raw,INT64,nullable; v4 row is SQL NULL
+auth_assembly.auth_type_raw,INT64,nullable; v4 row is SQL NULL
+auth_assembly.last_page_raw,INT64,nullable; v4 row is SQL NULL
+auth_assembly.payload_length_raw,INT64,nullable; v4 row is SQL NULL
+auth_assembly.timestamp_raw,INT64,nullable; v4 row is SQL NULL
+auth_assembly.payload_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+auth_assembly.additional_length_raw,INT64,nullable; v4 row is SQL NULL
+auth_assembly.additional_data_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+auth_assembly.padding_hex,BYTE_ARRAY(hex decoded),nullable; v4 row is SQL NULL
+auth_assembly.issues.$present,BOOLEAN,LIST presence
+auth_assembly.issues.$length,INT64,LIST length; preserve empty vs absent
+auth_assembly.issues[].$ordinal,INT64,ordered element index
+auth_assembly.issues[].$present,BOOLEAN,object presence; distinguishes absent from empty/null
+auth_assembly.issues[].code,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+auth_assembly.issues[].path,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+auth_assembly.issues[].detail,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+auth_assembly.assembler_version,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+capture_association.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+capture_association.event_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+capture_association.revision,INT64,nullable; v4 row is SQL NULL
+capture_association.supersedes_event_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+capture_association.produced_utc_ns,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+capture_association.edge.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+capture_association.edge.index,INT64,nullable; v4 row is SQL NULL
+capture_association.edge.source_capture_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+capture_association.edge.source_capture_id.observation_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+capture_association.edge.source_capture_id.observation_id.node_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+capture_association.edge.source_capture_id.observation_id.boot_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+capture_association.edge.source_capture_id.observation_id.capture_sequence,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+capture_association.edge.source_capture_id.capture_index,INT64,nullable; v4 row is SQL NULL
+capture_association.edge.target_capture_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+capture_association.edge.target_capture_id.observation_id.$present,BOOLEAN,object presence; distinguishes absent from empty/null
+capture_association.edge.target_capture_id.observation_id.node_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+capture_association.edge.target_capture_id.observation_id.boot_id,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+capture_association.edge.target_capture_id.observation_id.capture_sequence,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+capture_association.edge.target_capture_id.capture_index,INT64,nullable; v4 row is SQL NULL
+capture_association.edge.relationship,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+capture_association.edge.source_receive_order,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+capture_association.edge.target_receive_order,BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615),nullable; v4 row is SQL NULL
+capture_association.edge.order_basis,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+capture_association.edge.association_status,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+capture_association.edge.evidence,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+capture_association.edge.provenance_version,BYTE_ARRAY(UTF8),nullable; v4 row is SQL NULL
+parcel.exact_payload,BYTE_ARRAY,"exact published bytes, JSON or CBOR"
+parcel.content_type,BYTE_ARRAY(UTF8),transport media type
+parcel.exact_audit_envelope,BYTE_ARRAY,exact accepted/quarantine envelope
+parcel.input_subject,BYTE_ARRAY(UTF8),original subject
+parcel.ingest_utc_ns,BYTE_ARRAY(UTF8 uint64),ingest stamp; outside signed node body
+parcel.upload_attempts.$present,BOOLEAN,three-state presence
+parcel.upload_attempts.$length,INT64,ordered list length
+parcel.upload_attempts[].$ordinal,INT64,zero-based attempt ordinal
+parcel.upload_attempts[].$present,BOOLEAN,attempt object presence
+parcel.upload_attempts[].utc_ns,BYTE_ARRAY(UTF8 uint64),each attempt; outside immutable node body
+parcel.extension_leaves.$present,BOOLEAN,three-state presence
+parcel.extension_leaves.$length,INT64,ordered list length
+parcel.extension_leaves[].$ordinal,INT64,zero-based extension ordinal
+parcel.extension_leaves[].$present,BOOLEAN,extension object presence
+parcel.extension_leaves[].path,BYTE_ARRAY(UTF8),unknown future path with array ordinals
+parcel.extension_leaves[].type,BYTE_ARRAY(UTF8),JSON/CBOR type
+parcel.extension_leaves[].value,BYTE_ARRAY,exact canonical value; never instead of declared named column

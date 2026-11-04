@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PROPOSAL \u2014 append-only capture association event",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "supersedes_event_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "produced_utc_ns": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)$",
+      "maxLength": 20,
+      "x-parquet": "BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615)"
+    },
+    "edge": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "source_capture_id": {
+          "type": "object",
+          "properties": {
+            "observation_id": {
+              "type": "object",
+              "properties": {
+                "node_id": {
+                  "type": "string"
+                },
+                "boot_id": {
+                  "type": "string"
+                },
+                "capture_sequence": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9][0-9]*)$",
+                  "maxLength": 20,
+                  "x-parquet": "BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615)"
+                }
+              },
+              "required": [
+                "node_id",
+                "boot_id",
+                "capture_sequence"
+              ],
+              "additionalProperties": true
+            },
+            "capture_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "observation_id",
+            "capture_index"
+          ],
+          "additionalProperties": true
+        },
+        "target_capture_id": {
+          "type": "object",
+          "properties": {
+            "observation_id": {
+              "type": "object",
+              "properties": {
+                "node_id": {
+                  "type": "string"
+                },
+                "boot_id": {
+                  "type": "string"
+                },
+                "capture_sequence": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9][0-9]*)$",
+                  "maxLength": 20,
+                  "x-parquet": "BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615)"
+                }
+              },
+              "required": [
+                "node_id",
+                "boot_id",
+                "capture_sequence"
+              ],
+              "additionalProperties": true
+            },
+            "capture_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "observation_id",
+            "capture_index"
+          ],
+          "additionalProperties": true
+        },
+        "relationship": {
+          "enum": [
+            "bt5_primary_to_secondary",
+            "bt5_secondary_to_primary",
+            "nan_sync_to_sdf",
+            "nan_sdf_to_sync"
+          ]
+        },
+        "source_receive_order": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]*)$",
+              "maxLength": 20,
+              "x-parquet": "BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_receive_order": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]*)$",
+              "maxLength": 20,
+              "x-parquet": "BYTE_ARRAY(UTF8 uint64 decimal; semantic max 18446744073709551615)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "order_basis": {
+          "enum": [
+            "receiver_capture_sequence",
+            "unknown"
+          ]
+        },
+        "association_status": {
+          "enum": [
+            "supported",
+            "candidate",
+            "conflicting",
+            "unresolved"
+          ]
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "provenance_version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "source_capture_id",
+        "target_capture_id",
+        "relationship",
+        "source_receive_order",
+        "target_receive_order",
+        "order_basis",
+        "association_status",
+        "evidence",
+        "provenance_version"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "event_id",
+    "revision",
+    "supersedes_event_id",
+    "produced_utc_ns",
+    "edge"
+  ],
+  "additionalProperties": true
+}

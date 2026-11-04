@@ -1,0 +1,57 @@
+{
+  "status": "offline design validation only; no production hops or full RF decoder tested",
+  "inventory_rows": 136,
+  "network_only_inventory_rows": 4,
+  "total_inventory_rows": 140,
+  "parquet_registry_entries": 1343,
+  "message_vectors": 175,
+  "observation_vectors": 6,
+  "auth_pages": 16,
+  "additional_auth_bytes": 106,
+  "roundtrip_cases": 184,
+  "leaf_deletion_comparator_controls": 5004,
+  "negative_controls": 7,
+  "semantic_positive_checks": 213,
+  "semantic_negative_controls": 195,
+  "repeated_paths_checked": 13,
+  "display_cases": 30,
+  "network_named_columns_checked": 34,
+  "synthetic_sizes": [
+    {
+      "name": "bt4_legacy",
+      "json_bytes": 15358,
+      "cbor_bytes": 7495,
+      "cbor_sha256": "8ff44e5522c9894d60e776d973ac473505fe07a0e14adeb0b3e2e66b48eb7e2d"
+    },
+    {
+      "name": "bt5_long_range",
+      "json_bytes": 28618,
+      "cbor_bytes": 12881,
+      "cbor_sha256": "b6af274445db82f618552c852021cad7bebeb7b0d7625a7826ed17cc57e495eb"
+    },
+    {
+      "name": "wifi_nan",
+      "json_bytes": 28536,
+      "cbor_bytes": 12798,
+      "cbor_sha256": "9992350da110b9679e9c353eaf651c871b5f2795fdddfa1c1ee5bd418428b8f3"
+    },
+    {
+      "name": "wifi_beacon",
+      "json_bytes": 27946,
+      "cbor_bytes": 12519,
+      "cbor_sha256": "ff780d2361cc9840f26a4cf27a246217f56c1f6a91489b865a3310628b5cb129"
+    },
+    {
+      "name": "bt5_primary_companion",
+      "json_bytes": 13649,
+      "cbor_bytes": 6850,
+      "cbor_sha256": "bf54e8e1de763fc10a55c566c0d980a133931abeab7e6cdeef0d7cd6feec8cdf"
+    },
+    {
+      "name": "wifi_nan_sync_companion",
+      "json_bytes": 13433,
+      "cbor_bytes": 6625,
+      "cbor_sha256": "878bf88cc6a3460fd3772fa6a3cf670a7e9921a9a96116e7797b6ce79eecfd5d"
+    }
+  ]
+}

@@ -1,0 +1,980 @@
+{
+  "status": "offline semantic rejection controls, not production or browser execution",
+  "cases": [
+    {
+      "case": "ratified_altitude_B:location.pressure_altitude:null_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.pressure_altitude:wrong_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.pressure_altitude:wrong_arithmetic",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.pressure_altitude:known_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.pressure_altitude:ambiguous_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.pressure_altitude:missing_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.pressure_altitude:changed_raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.geodetic_altitude_hae:null_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.geodetic_altitude_hae:wrong_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.geodetic_altitude_hae:wrong_arithmetic",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.geodetic_altitude_hae:known_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.geodetic_altitude_hae:ambiguous_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.geodetic_altitude_hae:missing_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.geodetic_altitude_hae:changed_raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.height:null_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.height:wrong_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.height:wrong_arithmetic",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.height:known_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.height:ambiguous_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.height:missing_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:location.height:changed_raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_ceiling_hae:null_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_ceiling_hae:wrong_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_ceiling_hae:wrong_arithmetic",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_ceiling_hae:known_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_ceiling_hae:ambiguous_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_ceiling_hae:missing_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_ceiling_hae:changed_raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_floor_hae:null_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_floor_hae:wrong_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_floor_hae:wrong_arithmetic",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_floor_hae:known_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_floor_hae:ambiguous_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_floor_hae:missing_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.area_floor_hae:changed_raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.operator_altitude_hae:null_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.operator_altitude_hae:wrong_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.operator_altitude_hae:wrong_arithmetic",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.operator_altitude_hae:known_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.operator_altitude_hae:ambiguous_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.operator_altitude_hae:missing_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "ratified_altitude_B:system.operator_altitude_hae:changed_raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "sentinel_wrongly_known:basic_id_type_0",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "sentinel_wrongly_known:basic_id_type_0_nul_only",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "sentinel_wrongly_known:serial_nul_only",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "sentinel_wrongly_known:auth_type_0",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "sentinel_wrongly_known:self_id_nul_only",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "sentinel_wrongly_known:operator_id_nul_only",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "sentinel_wrongly_known:serial_whitespace",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "sentinel_wrongly_known:serial_invalid_text",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "sentinel_wrongly_known:serial_embedded_nul",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "valid_type4_null_auth_wrongly_unknown",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "binary_uuid_zero_prefix_treated_as_empty",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "private_version15_wrong_cell_status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "continuation_missing_NA:auth_data_page0",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "continuation_missing_NA:last_page",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "continuation_missing_NA:length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "continuation_missing_NA:page0_reserved",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "continuation_missing_NA:timestamp",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "page0_missing_continuation_NA",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "NA_with_invented_value",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "NA_without_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_missing_network_information",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_field_missing:operating_area_polygon",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operating_area_polygon:not_exposed",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operating_area_polygon:wrong_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operating_area_polygon:no_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operating_area_polygon:fabricated_raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operating_area_polygon:fabricated_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_field_missing:operating_area_type",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operating_area_type:not_exposed",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operating_area_type:wrong_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operating_area_type:no_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operating_area_type:fabricated_raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operating_area_type:fabricated_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_field_missing:operation_area_end",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operation_area_end:not_exposed",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operation_area_end:wrong_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operation_area_end:no_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operation_area_end:fabricated_raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operation_area_end:fabricated_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_field_missing:operation_area_start",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operation_area_start:not_exposed",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operation_area_start:wrong_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operation_area_start:no_reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operation_area_start:fabricated_raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "broadcast_network:operation_area_start:fabricated_decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "capture_missing_group:bt4_legacy",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "capture_missing_group:bt5_primary",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "capture_missing_group:bt5_secondary",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "capture_missing_group:wifi_beacon",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "capture_missing_group:wifi_nan_sdf",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "capture_missing_group:wifi_nan_sync",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "NAN_sync_folded_into_SDF",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "combined_capture_events",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "association_missing_source_id",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "association_wrong_source_id",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "association_missing_target_capture",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "association_wrong_receive_order",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "association_wrong_relationship",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:auth_assembly.issues.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:auth_assembly.issues.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:auth_assembly.issues[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:auth_assembly.page_refs.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:auth_assembly.page_refs.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:auth_assembly.page_refs[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:parcel.extension_leaves.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:parcel.extension_leaves.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:parcel.extension_leaves[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:parcel.upload_attempts.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:parcel.upload_attempts.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:parcel.upload_attempts[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.captures.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.captures.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.captures[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.captures[].related_captures.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.captures[].related_captures.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.captures[].related_captures[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.issues.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.issues.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.issues[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.network_information.operating_area_polygon.decoded.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.network_information.operating_area_polygon.decoded.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.network_information.operating_area_polygon.decoded[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.decoded.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.decoded.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.decoded[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.raw.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.raw.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.raw[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.rid_units.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.rid_units.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.rid_units[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.rid_units[].basic_ids.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.rid_units[].basic_ids.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.rid_units[].basic_ids[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.rid_units[].messages.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.rid_units[].messages.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lake_missing_list_metadata:v5.rid_units[].messages[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded.$length",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded[].$ordinal",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded[].$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded[].latitude",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded[].longitude",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.resolution",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_polygon.unit",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_type.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_type.decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_type.raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_type.reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_type.resolution",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_type.status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operating_area_type.unit",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_end.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_end.decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_end.raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_end.reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_end.resolution",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_end.status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_end.unit",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_start.$present",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_start.decoded",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_start.raw",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_start.reason",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_start.resolution",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_start.status",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "network_named_column_missing:v5.network_information.operation_area_start.unit",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "serial_display_truncated",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:0",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:2",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:3",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:4",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:5",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:6",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:7",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:8",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:9",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:10",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:11",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:12",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:13",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:14",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "nonserial_fallback:15",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "silent_conflict_winner",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "lost_repeated_ID",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "overbroad_Globe_hide:hardware_serial",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "overbroad_Globe_hide:operator_id",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "overbroad_Globe_hide:operator",
+      "expected": "reject",
+      "observed": "rejected"
+    },
+    {
+      "case": "operator_ID_display_missing",
+      "expected": "reject",
+      "observed": "rejected"
+    }
+  ]
+}

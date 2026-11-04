@@ -1,0 +1,5 @@
+row,table1_field,v5_home,raw_type,decoded_type,broadcast_status,broadcast_reason,source,parquet_home
+N01,Operating Area Polygon,network_information.operating_area_polygon,exact source-field bytes as hex; null on broadcast,array,not_applicable,not_applicable_to_broadcast,F3411-22a 5.3.1/Table 1; local L967-968,v5.network_information.operating_area_polygon
+N02,Operating Area Type,network_information.operating_area_type,exact source-field bytes as hex; null on broadcast,string,not_applicable,not_applicable_to_broadcast,F3411-22a 5.3.1/Table 1; local L969,v5.network_information.operating_area_type
+N03,Operation Area Start,network_information.operation_area_start,exact source-field bytes as hex; null on broadcast,string,not_applicable,not_applicable_to_broadcast,F3411-22a 5.3.1/Table 1; local L975-976,v5.network_information.operation_area_start
+N04,Operation Area End,network_information.operation_area_end,exact source-field bytes as hex; null on broadcast,string,not_applicable,not_applicable_to_broadcast,F3411-22a 5.3.1/Table 1; local L977-978,v5.network_information.operation_area_end

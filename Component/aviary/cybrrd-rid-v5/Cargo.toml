@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[package]
+name = "cybrrd-rid-v5"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "AGPL-3.0-or-later"
+description = "Offline evidence-preserving wire v5 development decoder"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[[bin]]
+name = "v5-test-ingress"
+path = "src/bin/ingress.rs"
+
+[[bin]]
+name = "v5-exhaustive"
+path = "src/bin/exhaustive.rs"

@@ -1,0 +1,465 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cybrrd:proposal:wire:5:network-information:0",
+  "title": "PROPOSAL \u2014 Table 1 network-only information fields, not a service protocol",
+  "type": "object",
+  "properties": {
+    "operating_area_polygon": {
+      "type": "object",
+      "properties": {
+        "raw": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{2})*$",
+              "x-parquet": "BYTE_ARRAY(hex decoded)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decoded": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "latitude": {
+                    "type": "string",
+                    "pattern": "^(?:0|-?[1-9][0-9]*)(?:\\.[0-9]*[1-9])?$|^-0\\.[0-9]*[1-9]$",
+                    "x-parquet": "BYTE_ARRAY(UTF8 exact decimal)"
+                  },
+                  "longitude": {
+                    "type": "string",
+                    "pattern": "^(?:0|-?[1-9][0-9]*)(?:\\.[0-9]*[1-9])?$|^-0\\.[0-9]*[1-9]$",
+                    "x-parquet": "BYTE_ARRAY(UTF8 exact decimal)"
+                  }
+                },
+                "required": [
+                  "latitude",
+                  "longitude"
+                ],
+                "additionalProperties": true
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "known",
+            "unknown",
+            "reserved",
+            "private_use",
+            "saturated_lower",
+            "saturated_upper",
+            "out_of_range",
+            "ambiguous",
+            "not_exposed",
+            "not_applicable",
+            "truncated",
+            "unsupported_version"
+          ]
+        },
+        "unit": {
+          "const": "degree"
+        },
+        "resolution": {
+          "const": "0.0000001"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "raw",
+        "decoded",
+        "status",
+        "unit",
+        "resolution",
+        "reason"
+      ],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_applicable",
+                  "not_exposed"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "raw": {
+                "type": "null"
+              },
+              "decoded": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "raw": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "operating_area_type": {
+      "type": "object",
+      "properties": {
+        "raw": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{2})*$",
+              "x-parquet": "BYTE_ARRAY(hex decoded)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decoded": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "cylinder",
+                "polygon"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "known",
+            "unknown",
+            "reserved",
+            "private_use",
+            "saturated_lower",
+            "saturated_upper",
+            "out_of_range",
+            "ambiguous",
+            "not_exposed",
+            "not_applicable",
+            "truncated",
+            "unsupported_version"
+          ]
+        },
+        "unit": {
+          "const": "area_kind"
+        },
+        "resolution": {
+          "const": null
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "raw",
+        "decoded",
+        "status",
+        "unit",
+        "resolution",
+        "reason"
+      ],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_applicable",
+                  "not_exposed"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "raw": {
+                "type": "null"
+              },
+              "decoded": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "raw": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "operation_area_start": {
+      "type": "object",
+      "properties": {
+        "raw": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{2})*$",
+              "x-parquet": "BYTE_ARRAY(hex decoded)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decoded": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "known",
+            "unknown",
+            "reserved",
+            "private_use",
+            "saturated_lower",
+            "saturated_upper",
+            "out_of_range",
+            "ambiguous",
+            "not_exposed",
+            "not_applicable",
+            "truncated",
+            "unsupported_version"
+          ]
+        },
+        "unit": {
+          "const": "date_time"
+        },
+        "resolution": {
+          "const": null
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "raw",
+        "decoded",
+        "status",
+        "unit",
+        "resolution",
+        "reason"
+      ],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_applicable",
+                  "not_exposed"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "raw": {
+                "type": "null"
+              },
+              "decoded": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "raw": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "operation_area_end": {
+      "type": "object",
+      "properties": {
+        "raw": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{2})*$",
+              "x-parquet": "BYTE_ARRAY(hex decoded)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decoded": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "known",
+            "unknown",
+            "reserved",
+            "private_use",
+            "saturated_lower",
+            "saturated_upper",
+            "out_of_range",
+            "ambiguous",
+            "not_exposed",
+            "not_applicable",
+            "truncated",
+            "unsupported_version"
+          ]
+        },
+        "unit": {
+          "const": "date_time"
+        },
+        "resolution": {
+          "const": null
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "raw",
+        "decoded",
+        "status",
+        "unit",
+        "resolution",
+        "reason"
+      ],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_applicable",
+                  "not_exposed"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "raw": {
+                "type": "null"
+              },
+              "decoded": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "raw": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "required": [
+    "operating_area_polygon",
+    "operating_area_type",
+    "operation_area_start",
+    "operation_area_end"
+  ],
+  "additionalProperties": true
+}

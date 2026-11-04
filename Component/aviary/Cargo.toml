@@ -17,6 +17,7 @@ members = [
     "engine",
     "cybrrd-rid-core",
     "cybrrd-rid-protocol",
+    "cybrrd-rid-v5",
 ]
 # `orchestrator` retired 2026-07-18 (edge-beta Increment 0 / Executable Contracts spec §8):
 # it was the customer install ritual, superseded by the handbook path

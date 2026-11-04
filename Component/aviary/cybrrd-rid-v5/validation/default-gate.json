@@ -1,0 +1,92 @@
+{
+  "status": "passed",
+  "exhaustive_domains": "separate release_gate.py",
+  "commands": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--manifest-path",
+        "$REPO/Component/aviary/cybrrd-rid-v5/Cargo.toml",
+        "--package",
+        "cybrrd-rid-v5",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.112,
+      "log": "default-0.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "$REPO/Component/aviary/cybrrd-rid-v5/Cargo.toml",
+        "-p",
+        "cybrrd-rid-v5",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.644,
+      "log": "default-1.log",
+      "sha256": "f410b2715f19afb31512e7488ff343bde6f65f85ec65bf255d0a439e7dcf9123"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "$REPO/Component/aviary/cybrrd-rid-v5/Cargo.toml",
+        "-p",
+        "cybrrd-rid-v5",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 33.53,
+      "log": "default-2.log",
+      "sha256": "6a04781dd2aa7a060c894154e820af58762f29fba3dcda7bf3beab581b007e4e"
+    },
+    {
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--release",
+        "--manifest-path",
+        "$REPO/Component/aviary/cybrrd-rid-v5/Cargo.toml",
+        "-p",
+        "cybrrd-rid-v5"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 7.311,
+      "log": "default-3.log",
+      "sha256": "547364b7a339e982327cccd8c13ea18dc0249cf724c40bc5d8e58c70884e69d3"
+    },
+    {
+      "command": [
+        "$PYTHON",
+        "$REPO/Component/aviary/cybrrd-rid-v5/tools/verify_contract.py",
+        "--binary",
+        "$REPO/Component/aviary/target/release/v5-test-ingress",
+        "--receipt",
+        "$EVIDENCE/final-bounds-default/independent-contract.json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 6.007,
+      "log": "default-4.log",
+      "sha256": "ef12e0b9ff29076196901920b3b57eeccdb9243bd22c3d42d0a60efb4d929e54"
+    }
+  ],
+  "path_normalization": "Environment paths only; logical fixture and capture evidence unchanged."
+}

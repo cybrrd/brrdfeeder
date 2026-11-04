@@ -196,6 +196,9 @@ fn customer_udev_is_the_verbatim_hardened_block() {
     // supported-family generator. Keep checking every other hardened byte.
     let gps = "# u-blox 7 GPS / GNSS receiver\nSUBSYSTEM==\"tty\", ATTRS{idVendor}==\"${UBLOX_VENDOR}\", ATTRS{idProduct}==\"${UBLOX_PRODUCT}\", SYMLINK+=\"${GPS_SYMLINK}\", GROUP=\"dialout\", MODE=\"0660\"";
     let reference = reference.replace(gps, "# Supported u-blox USB family; one connected GPS, no wildcard clone probing.\n${GPS_UDEV_RULES}\n# Operator-declared, NMEA-confirmed non-u-blox GPS (sensors.gps.usb_id).\n${GPS_DECLARED_RULE}");
+    // The CP2102N rule only wakes qualification; it must never grant a
+    // symlink or permissions before the receive-only NMEA check succeeds.
+    let reference = reference.replace("\n# Operator-declared", "\n# CP2102N is only a candidate: trigger receive-only qualification, never map by ID.\nACTION==\"add\", SUBSYSTEM==\"tty\", ATTRS{idVendor}==\"10c4\", ATTRS{idProduct}==\"ea60\", TAG+=\"systemd\", ENV{SYSTEMD_WANTS}+=\"brrdfeeder-gps-runtime.service\"\n# Operator-declared");
     assert_eq!(rules, reference, "customer non-GPS udev hardening drifted");
     let products = "readonly -a UBLOX_PRODUCTS=(01a5 01a6 01a7 01a8 01a9)";
     assert_eq!(CUSTOMER_INSTALLER.matches(products).count(), 1);

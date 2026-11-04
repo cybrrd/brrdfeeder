@@ -4947,7 +4947,7 @@ if [[ $DRY_RUN -eq 0 ]]; then
 #!/usr/bin/python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
-"""BRRDfeeder GPS runtime: safe discovery, exact grant, bounded recovery.
+"""BRRDfeeder GPS runtime transport: safe discovery, exact grant, bounded recovery.
 
 Native/previously confirmed mappings win. When they are absent, one CP2102N tty
 may be receive-only NMEA-qualified with the install-time ownership and restore
@@ -5308,7 +5308,7 @@ GPS_RUNTIME_EOF
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 [Unit]
-Description=BRRDfeeder GPS hotplug discovery and transport recovery
+Description=BRRDfeeder GPS runtime transport: hotplug discovery and recovery
 ConditionPathExists=/etc/brrdfeeder/config.yaml
 ConditionPathIsExecutable=/usr/local/libexec/brrdfeeder-gps-runtime
 After=systemd-udevd.service
@@ -5321,7 +5321,7 @@ GPS_RUNTIME_SERVICE_EOF
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 [Unit]
-Description=BRRDfeeder GPS hotplug retry and recovery observation
+Description=BRRDfeeder GPS runtime transport: hotplug retry and recovery observation
 [Timer]
 OnBootSec=5s
 OnUnitInactiveSec=5s

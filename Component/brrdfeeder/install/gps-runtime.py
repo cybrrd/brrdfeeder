@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
-"""BRRDfeeder GPS runtime: safe discovery, exact grant, bounded recovery.
+"""BRRDfeeder GPS runtime transport: safe discovery, exact grant, bounded recovery.
 
 Native/previously confirmed mappings win. When they are absent, one CP2102N tty
 may be receive-only NMEA-qualified with the install-time ownership and restore

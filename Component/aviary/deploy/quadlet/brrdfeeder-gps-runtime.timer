@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 [Unit]
-Description=BRRDfeeder GPS hotplug retry and recovery observation
+Description=BRRDfeeder GPS runtime transport: hotplug retry and recovery observation
 [Timer]
 OnBootSec=5s
 OnUnitInactiveSec=5s

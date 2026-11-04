@@ -104,7 +104,7 @@ config bytes, credentials or executable paths. Receipts do not authorize drift.
 Temporary holds carry transaction labels and are checked before removal; a
 policy-only hold never replaces the historical package rollback anchor.
 
-## Coverage decision still required from Cy
+## Coverage decision still required from the release owner
 
 Accept staged convergence with visible pending cohorts, or require automatic
 one-step coverage for every node that misses the bridge? This draft implements

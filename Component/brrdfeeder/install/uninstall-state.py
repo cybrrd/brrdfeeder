@@ -114,6 +114,11 @@ def validate(path, uid, gid):
     elif path == PRIVATE / 'attempt.json':
         owned_directory(PRIVATE, 0, 0, (0o700,))
         owned_file(path, 0, 0, (0o600,))
+    elif path == STATE / 'engine_policy_outcome.json':
+        owned_file(path, 0, 0, (0o644,))
+    elif path == PRIVATE / 'engine-policy-budget.json':
+        owned_directory(PRIVATE, 0, 0, (0o700,))
+        owned_file(path, 0, 0, (0o600,))
     elif path == STATE / 'credentials':
         owned_directory(path, uid, gid, (0o700,))
         for child in path.iterdir():

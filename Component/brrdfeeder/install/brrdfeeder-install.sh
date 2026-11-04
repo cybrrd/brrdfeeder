@@ -1255,7 +1255,7 @@ readonly BLUETOOTH_HELPER="/usr/local/libexec/brrdfeeder-bluetooth"
 readonly STATE_DIR="/var/lib/brrdfeeder"
 # Standalone ARM64 host executable: reproduced twice by build-host.sh with
 # the pinned Go toolchain. Publication is a separate operator step, never tags.
-readonly RELEASE_HELPER_SHA256="d143f1eba7f791686e5c92f8f8317e7fad95e512b16d93defd3143983e902eb2"
+readonly RELEASE_HELPER_SHA256="4f47619a029518c652601d4a87e52e99f4ca608c91c97a3f260d310abbd5f473"
 readonly RELEASE_HELPER_URL="https://get.cybrrd.com/releases/v1/updater/${RELEASE_HELPER_SHA256}/linux-arm64/brrdfeeder-release"
 
 # Zitadel OAuth Device Flow (BRRDfeeder-tier enrollment — binds feeder to user account)
@@ -1971,6 +1971,11 @@ def validate(path, uid, gid):
     elif path == PRIVATE / 'attempt.json':
         owned_directory(PRIVATE, 0, 0, (0o700,))
         owned_file(path, 0, 0, (0o600,))
+    elif path == STATE / 'engine_policy_outcome.json':
+        owned_file(path, 0, 0, (0o644,))
+    elif path == PRIVATE / 'engine-policy-budget.json':
+        owned_directory(PRIVATE, 0, 0, (0o700,))
+        owned_file(path, 0, 0, (0o600,))
     elif path == STATE / 'credentials':
         owned_directory(path, uid, gid, (0o700,))
         for child in path.iterdir():
@@ -2247,7 +2252,7 @@ for entry in /etc/brrdfeeder/secrets/*; do
 done
 for entry in /var/lib/brrdfeeder/*; do
   case ${entry##*/} in policy_state.json|pending_update.json|pending_update.failed|update_outcome.json|update_transaction.json|release_currency.json|*.tmp|.update-*|.pending-*) ;;
-    release_attempt.json|status.json|status.json.tmp.*) safe_added_state "$entry"; continue;;
+    engine_policy_outcome.json|release_attempt.json|status.json|status.json.tmp.*) safe_added_state "$entry"; continue;;
     credentials|capture|outage) safe_tree "$entry"; safe_added_state "$entry"; continue;;
     upward) safe_tree "$entry"; continue;;
     .config|.local|.cache) service_home_residue "$entry"; continue;;
@@ -2256,7 +2261,7 @@ for entry in /var/lib/brrdfeeder/*; do
 done
 for entry in /var/lib/brrdfeeder-updater/*; do
   case ${entry##*/} in state.json|lock|launch.lock|host-state.json|host-transaction.json|pending.failed.json|rejected.json|.update-*) safe_file "$entry";;
-    attempt.json|pending_update.json|.pending-*|.host-recover-*) safe_added_state "$entry";;
+    engine-policy-budget.json|attempt.json|pending_update.json|.pending-*|.host-recover-*) safe_added_state "$entry";;
     rejected-pending-*) [[ -d $entry ]] && safe_tree "$entry" || die "invalid rejected-pending record: $entry";;
     *) die "unrecognised updater state: $entry";; esac
 done

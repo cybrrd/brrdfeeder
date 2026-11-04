@@ -28,8 +28,8 @@ const selfTestReply = "brrdfeeder-release self-test v1\n"
 const maxHostBinary = 32 << 20
 
 // Build/release pipeline sets -X main.updaterBuild; the 0.9.1 candidate host
-// artifact is build 5. A blank journal never removes this embedded floor.
-var updaterBuild = "5"
+// artifact is migration-enabled build 7. A blank journal never removes this embedded floor.
+var updaterBuild = "7"
 
 // A different signed domain AND explicit boolean prevent a package release
 // from smuggling a host executable into an engine/console transaction.

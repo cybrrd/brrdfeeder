@@ -17,16 +17,19 @@ import (
 	"testing"
 )
 
-func TestHelper5Identity(t *testing.T) {
-	if updaterBuild != "5" || localHelperBuild != 5 {
-		t.Fatal("helper 5 compiled/local identity mismatch")
+func TestHelperTargetIdentity(t *testing.T) {
+	if !policyInitiationEnabled {
+		t.Fatal("enabled build must initiate eligible migration")
+	}
+	if updaterBuild != "7" || localHelperBuild != 7 {
+		t.Fatal("helper 7 compiled/local identity mismatch")
 	}
 	b, e := os.ReadFile("build-host.sh")
 	if e != nil {
 		t.Fatal(e)
 	}
-	if !strings.Contains(string(b), "-X main.updaterBuild=5'") {
-		t.Fatal("official artifact must link build 5")
+	if !strings.Contains(string(b), "-X main.updaterBuild=7'") {
+		t.Fatal("official artifact must link build 7")
 	}
 	b, e = os.ReadFile("local_upgrade.go")
 	if e != nil {
@@ -62,8 +65,8 @@ func installedMetadata(t *testing.T, root string) map[string]string {
 	return result
 }
 
-func TestHelper5FloorAndIdempotence(t *testing.T) {
-	for _, prior := range []string{"", `{"build_seq":2}`, ` {"build_seq":4,"extension":{"keep":true}} `} {
+func TestHelperTargetFloorAndIdempotence(t *testing.T) {
+	for _, prior := range []string{"", `{"build_seq":2}`, ` {"build_seq":4,"extension":{"keep":true}} `, `{"build_seq":5}`, `{"build_seq":6}`} {
 		t.Run(prior, func(t *testing.T) {
 			f := newLocalFixture(t)
 			floor := f.p.private + "/host-state.json"
@@ -85,8 +88,8 @@ func TestHelper5FloorAndIdempotence(t *testing.T) {
 			if e := json.Unmarshal(raw, &state); e != nil {
 				t.Fatal(e)
 			}
-			if string(state["build_seq"]) != "5" {
-				t.Fatal("expected literal helper floor 5")
+			if string(state["build_seq"]) != "7" {
+				t.Fatal("expected literal helper floor 7")
 			}
 			if strings.Contains(prior, "extension") && string(state["extension"]) != `{"keep":true}` {
 				t.Fatal("extra field lost")
@@ -98,7 +101,7 @@ func TestHelper5FloorAndIdempotence(t *testing.T) {
 			if !reflect.DeepEqual(before, installedMetadata(t, f.p.boundary)) {
 				t.Fatal("idempotent invocation changed installed metadata or bytes")
 			}
-			if e := os.WriteFile(floor, []byte(`{"build_seq":6}`), 0600); e != nil {
+			if e := os.WriteFile(floor, []byte(`{"build_seq":8}`), 0600); e != nil {
 				t.Fatal(e)
 			}
 			before = installedMetadata(t, f.p.boundary)
@@ -112,8 +115,8 @@ func TestHelper5FloorAndIdempotence(t *testing.T) {
 	}
 }
 
-func TestHelper5WrongCandidateBuild(t *testing.T) {
-	for _, build := range []string{"4\n", "6\n", "5", "05\n"} {
+func TestHelperTargetWrongCandidateBuild(t *testing.T) {
+	for _, build := range []string{"4\n", "5\n", "6\n", "8\n", "7", "07\n"} {
 		t.Run(strings.TrimSpace(build), func(t *testing.T) {
 			f := newLocalFixture(t)
 			before := treeBytes(t, f.p.boundary)
@@ -124,7 +127,7 @@ func TestHelper5WrongCandidateBuild(t *testing.T) {
 				return f.probe(path, verb)
 			}
 			e := upgradeLocal(f.p, f.candidate, f.hash, probe, func(string) {})
-			if e == nil || !strings.Contains(e.Error(), "exactly 5") {
+			if e == nil || !strings.Contains(e.Error(), "exactly 7") {
 				t.Fatalf("wrong candidate build accepted: %q %v", build, e)
 			}
 			after := treeBytes(t, f.p.boundary)
@@ -137,7 +140,7 @@ func TestHelper5WrongCandidateBuild(t *testing.T) {
 	}
 }
 
-func TestHelper5FreshInstallerLayout(t *testing.T) {
+func TestHelperTargetFreshInstallerLayout(t *testing.T) {
 	// Exact template from released 0.9.0 9faae55f. Synthetic credentials remain
 	// temporary-root evidence, never real enrollment/native proof.
 	f := newLocalFixture(t)
@@ -158,11 +161,11 @@ func TestHelper5FreshInstallerLayout(t *testing.T) {
 	}
 	assertProtected(t, f, before)
 	if b, _ := os.ReadFile(f.p.binary); !bytes.Equal(b, f.candidate) {
-		t.Fatal("fresh layout did not install helper 5")
+		t.Fatal("fresh layout did not install helper 7")
 	}
 }
 
-func TestHelper5AbsentFloorPosttestRollback(t *testing.T) {
+func TestHelperTargetAbsentFloorPosttestRollback(t *testing.T) {
 	f := newLocalFixture(t)
 	floor := f.p.private + "/host-state.json"
 	if e := os.Remove(floor); e != nil {
@@ -180,7 +183,7 @@ func TestHelper5AbsentFloorPosttestRollback(t *testing.T) {
 	}
 }
 
-func TestHelper5AdditionalRefusals(t *testing.T) {
+func TestHelperTargetAdditionalRefusals(t *testing.T) {
 	for _, name := range []string{"empty_candidate", "non_elf", "malformed_floor", "null_floor", "missing_floor_field", "negative_floor", "host_transaction", "workload_transaction"} {
 		t.Run(name, func(t *testing.T) {
 			f := newLocalFixture(t)
@@ -221,8 +224,8 @@ func TestHelper5AdditionalRefusals(t *testing.T) {
 	}
 }
 
-func TestHelper5CompiledHostFloor(t *testing.T) {
-	for _, build := range []uint64{4, 5} {
+func TestHelperTargetCompiledHostFloor(t *testing.T) {
+	for _, build := range []uint64{6, 7} {
 		t.Run(fmt.Sprint(build), func(t *testing.T) {
 			u, h, key := setup(t)
 			m := hostManifest(u)
@@ -241,7 +244,7 @@ func TestHelper5CompiledHostFloor(t *testing.T) {
 			}
 			before := installedMetadata(t, dir)
 			e := u.pollHostAt(binary, receipt)
-			if (e != nil) != (build == 4) {
+			if (e != nil) != (build == 6) {
 				t.Fatalf("wrong floor behavior: %v", e)
 			}
 			if calls != 1 || !reflect.DeepEqual(before, installedMetadata(t, dir)) || len(h.events) != 0 {
@@ -249,8 +252,8 @@ func TestHelper5CompiledHostFloor(t *testing.T) {
 			}
 			var state HostState
 			b, err := os.ReadFile(filepath.Join(u.cfg.PrivateDir, "host-state.json"))
-			if err != nil || json.Unmarshal(b, &state) != nil || state.Build != 5 {
-				t.Fatal("absent host state lost compiled floor 5")
+			if err != nil || json.Unmarshal(b, &state) != nil || state.Build != 7 {
+				t.Fatal("absent host state lost compiled floor 7")
 			}
 		})
 	}

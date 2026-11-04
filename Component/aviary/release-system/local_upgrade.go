@@ -35,7 +35,7 @@ type localPaths struct {
 }
 
 // This fixed target belongs to the reviewed installer artifact, not caller input.
-const localHelperBuild uint64 = 5
+const localHelperBuild uint64 = 7
 
 const localSystemCredentials = "/etc/brrdfeeder/secrets/brrdfeeder.creds"
 
@@ -72,7 +72,9 @@ func localHelperCLI(args []string) error {
 	if e = upgradeLocal(p, candidate, *hash, probeLocal, func(string) {}); e != nil {
 		return e
 	}
-	fmt.Printf("Helper build %d verified; identity, credentials and workload state preserved. No enrollment performed.\n", localHelperBuild)
+	// Status reads need no HTTP client, mutation callbacks or update execution.
+	observer := &Updater{cfg: defaults(), run: commands{}}
+	fmt.Printf("Helper build %d verified; identity, credentials and workload state preserved. No enrollment performed. Engine policy: %s; disabled polling requires an operator poll.\n", localHelperBuild, observer.localPolicyStatus())
 	return nil
 }
 

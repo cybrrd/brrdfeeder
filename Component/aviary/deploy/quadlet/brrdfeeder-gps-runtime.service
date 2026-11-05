@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 [Unit]
-Description=BRRDfeeder GPS hotplug discovery and transport recovery
+Description=BRRDfeeder GPS runtime transport: hotplug discovery and recovery
 ConditionPathExists=/etc/brrdfeeder/config.yaml
 ConditionPathIsExecutable=/usr/local/libexec/brrdfeeder-gps-runtime
 After=systemd-udevd.service

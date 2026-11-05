@@ -9,6 +9,7 @@ import io
 import os
 from pathlib import Path
 import pty
+import re
 import select
 import tempfile
 import termios
@@ -156,6 +157,21 @@ class Hotplug(unittest.TestCase):
 
 
 class Wiring(unittest.TestCase):
+    def test_installed_runtime_files_retain_uninstall_ownership_markers(self):
+        uninstall = (INSTALL/'uninstall.sh').read_text()
+        installer = (INSTALL/'brrdfeeder-install.sh').read_text()
+        files = {'/usr/local/libexec/brrdfeeder-gps-runtime': INSTALL/'gps-runtime.py'}
+        for ext in ('service', 'timer'):
+            files[f'/etc/systemd/system/brrdfeeder-gps-runtime.{ext}'] = (
+                ROOT/f'Component/aviary/deploy/quadlet/brrdfeeder-gps-runtime.{ext}')
+        for installed, source in files.items():
+            with self.subTest(installed=installed):
+                marker = re.search(re.escape(installed) + r"\|([^']+)'", uninstall)
+                self.assertIsNotNone(marker, 'installed runtime file lacks uninstall ownership rule')
+                content = source.read_text()
+                self.assertIn(marker[1], content)
+                self.assertIn(content, installer)
+
     def test_helper_is_embedded_and_never_rewrites_gps_required(self):
         helper = (INSTALL/'gps-runtime.py').read_text()
         installer = (INSTALL/'brrdfeeder-install.sh').read_text()

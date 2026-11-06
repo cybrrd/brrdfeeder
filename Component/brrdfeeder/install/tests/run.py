@@ -26,6 +26,7 @@ BASELINES = [
     'enrollment-refusal/test-contract.py',
     'credential-renewal/test-contract.py',
     'gps-runtime/test-contract.py',
+    'gps-hotplug/test-contract.py',
     'gps-usb-id/test-contract.py',
     'gps-usb-id/test-autodetect.py',
     'directory-modes/test-contract.py',
@@ -58,6 +59,7 @@ BASELINES = [
 ]
 MUTATIONS = [
     'installer-ux/test-mutations.py',
+    'gps-hotplug/test-mutations.py',
     'lock-on/test-mutations.py',
     'github-scaffold/test-mutations.py',
     'source-date/test-mutations.py',

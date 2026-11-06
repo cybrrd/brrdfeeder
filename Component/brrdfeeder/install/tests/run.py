@@ -22,11 +22,13 @@ ROOT = HERE.parents[3]
 INSTALL = ROOT/'Component/brrdfeeder/install'
 RELEASE = ROOT/'Component/aviary/release-system'
 BASELINES = [
+    'device-lifecycle/test-contract.py',
     'image-override/test-contract.py',
     'enrollment-refusal/test-contract.py',
     'ble-hotplug/test-contract.py',
     'credential-renewal/test-contract.py',
     'gps-runtime/test-contract.py',
+    'gps-hotplug/test-contract.py',
     'gps-usb-id/test-contract.py',
     'gps-usb-id/test-autodetect.py',
     'directory-modes/test-contract.py',
@@ -61,6 +63,7 @@ MUTATIONS = [
     'ble-hotplug/test-mutations.py',
     'ble-hotplug/test-config-mutations.py',
     'installer-ux/test-mutations.py',
+    'gps-hotplug/test-mutations.py',
     'lock-on/test-mutations.py',
     'github-scaffold/test-mutations.py',
     'source-date/test-mutations.py',

@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "catalog_version": "0.9.1-draft-1",
+  "profiles": [
+    {
+      "id": "ublox-usb",
+      "role": "gps",
+      "usb_ids": [
+        "1546:01a5",
+        "1546:01a6",
+        "1546:01a7",
+        "1546:01a8",
+        "1546:01a9"
+      ],
+      "drivers": [
+        "cdc_acm"
+      ],
+      "label": "u-blox USB GPS family",
+      "qualification_path": "gps-runtime",
+      "capability": "existing-native-mapping",
+      "qualification": "candidate",
+      "ownership": "existing-runtime-policy-only",
+      "compatibility": {
+        "qualified_platforms": []
+      },
+      "evidence": "See devices README; native qualification pending"
+    },
+    {
+      "id": "cp210x-nmea",
+      "role": "gps",
+      "usb_ids": [
+        "10c4:ea60"
+      ],
+      "drivers": [
+        "cp210x"
+      ],
+      "label": "CP210x bridge \u2014 GPS capability unverified",
+      "qualification_path": "gps-runtime",
+      "capability": "owned-receive-only-nmea",
+      "qualification": "candidate",
+      "ownership": "existing-runtime-policy-only",
+      "compatibility": {
+        "qualified_platforms": []
+      },
+      "evidence": "See devices README; native qualification pending"
+    },
+    {
+      "id": "realtek-hci",
+      "role": "rid-ble",
+      "usb_ids": [
+        "0bda:876e",
+        "0bda:a728"
+      ],
+      "drivers": [
+        "btusb"
+      ],
+      "label": "Realtek HCI candidate",
+      "qualification_path": "bluetooth-hotplug",
+      "capability": "exclusive-user-channel",
+      "qualification": "candidate",
+      "ownership": "existing-runtime-policy-only",
+      "compatibility": {
+        "qualified_platforms": []
+      },
+      "evidence": "See devices README; native qualification pending"
+    },
+    {
+      "id": "nordic-legacy",
+      "role": "legacy-serial",
+      "usb_ids": [
+        "1915:c00a"
+      ],
+      "drivers": [
+        "cdc_acm"
+      ],
+      "label": "Nordic legacy serial \u2014 not raw-HCI RID.BLE",
+      "qualification_path": "legacy-unqualified",
+      "capability": "unqualified-legacy",
+      "qualification": "candidate",
+      "ownership": "existing-runtime-policy-only",
+      "compatibility": {
+        "qualified_platforms": []
+      },
+      "evidence": "See devices README; native qualification pending"
+    },
+    {
+      "id": "mt7921-usb",
+      "role": "wifi-capture",
+      "usb_ids": [
+        "0e8d:7961"
+      ],
+      "drivers": [
+        "mt7921u"
+      ],
+      "label": "MT7921 USB family \u2014 retail revision unverified",
+      "qualification_path": "capture-watchdog",
+      "capability": "monitor-mode-and-management-isolation",
+      "qualification": "candidate",
+      "ownership": "existing-runtime-policy-only",
+      "compatibility": {
+        "qualified_platforms": []
+      },
+      "evidence": "See devices README; native qualification pending"
+    }
+  ]
+}

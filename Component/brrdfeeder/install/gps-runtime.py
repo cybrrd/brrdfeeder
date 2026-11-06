@@ -1,11 +1,12 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
-"""BRRDfeeder GPS runtime transport: exact device grant, bounded hotplug recovery.
+"""BRRDfeeder GPS runtime transport: safe discovery, exact grant, bounded recovery.
 
-Never opens a serial port or discovers/claims adapters. A stable character inode
-survives USB removal between ExecStartPre and Podman's device stat. /dev/null is
-the absent transport: termios rejects it, so it cannot masquerade as live GPS.
+Native/previously confirmed mappings win. When they are absent, one CP2102N tty
+may be receive-only NMEA-qualified with the install-time ownership and restore
+contract. The exact character device is then passed through the existing stable
+transport; no broad CP210x udev mapping or configuration rewrite is needed.
 """
 import fcntl
 import datetime
@@ -13,10 +14,12 @@ import grp
 import json
 import os
 import re
+import select
 from pathlib import Path
 import stat
 import subprocess
 import sys
+import termios
 import time
 import yaml
 
@@ -25,6 +28,13 @@ DEVICE = Path('/dev/cybrrd_gps')
 CONFIG = Path('/etc/brrdfeeder/config.yaml')
 UNIT = 'brrdfeeder-engine.service'
 STATUS = Path('/var/lib/brrdfeeder-status')
+SYS_TTY = Path('/sys/class/tty')
+DEV_ROOT = Path('/dev')
+PROC = Path('/proc')
+HOTPLUG_ID = '10c4:ea60'
+UBLOX_IDS = {'1546:'+product for product in ('01a5', '01a6', '01a7', '01a8', '01a9')}
+PROBE_SECONDS = 5.0
+PROBE_RETRY_SECONDS = 60.0
 
 
 def status():
@@ -68,14 +78,202 @@ def status():
         print('GPS status is invalid; current GPS state unknown.')
 
 
-def identity():
+def device_identity(path):
     try:
-        value = DEVICE.stat()
+        value = path.stat()
         if stat.S_ISCHR(value.st_mode):
             return [value.st_dev, value.st_ino, value.st_rdev, value.st_ctime_ns]
     except OSError:
         pass
     return None
+
+
+def identity():
+    return device_identity(DEVICE)
+
+
+def tty_inventory():
+    """Return [(usb_id, tty_path)] from tty sysfs metadata without opening ttys."""
+    found = []
+    try:
+        entries = sorted(SYS_TTY.iterdir())
+    except OSError:
+        return found
+    for entry in entries:
+        try:
+            parent = (entry/'device').resolve(strict=True)
+        except OSError:
+            continue
+        while parent != parent.parent:
+            try:
+                vendor = (parent/'idVendor').read_text().strip().lower()
+                product = (parent/'idProduct').read_text().strip().lower()
+            except (FileNotFoundError, NotADirectoryError):
+                parent = parent.parent
+                continue
+            except OSError:
+                break
+            usb_id = vendor+':'+product
+            if re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', usb_id):
+                found.append((usb_id, DEV_ROOT/entry.name))
+            break
+    return found
+
+
+def held_elsewhere(rdev):
+    """Fail closed if another visible process holds any alias of this tty."""
+    try:
+        for process in PROC.iterdir():
+            if not process.name.isdigit() or int(process.name) == os.getpid():
+                continue
+            try:
+                for entry in (process/'fd').iterdir():
+                    try:
+                        info = entry.stat()
+                    except FileNotFoundError:
+                        continue
+                    if stat.S_ISCHR(info.st_mode) and info.st_rdev == rdev:
+                        return 'busy'
+            except FileNotFoundError:
+                continue
+    except OSError:
+        return 'ownership-unknown'
+    return ''
+
+
+def valid_nmea(sentence):
+    if not sentence.startswith(('$GP', '$GN')):
+        return False
+    body, separator, checksum = sentence.strip().rpartition('*')
+    if not separator or len(checksum) != 2:
+        return False
+    value = 0
+    for char in body[1:]:
+        value ^= ord(char)
+    return ('%02X' % value) == checksum.upper()
+
+
+def confirm(device):
+    """Receive-only NMEA confirmation; restore failure overrides all outcomes."""
+    fd, original = None, None
+    try:
+        info = os.stat(device)
+        if not stat.S_ISCHR(info.st_mode):
+            return 'no-nmea'
+        ownership = held_elsewhere(info.st_rdev)
+        if ownership:
+            return ownership
+        fd = os.open(device, os.O_RDONLY | os.O_NOCTTY | os.O_NONBLOCK)
+        if os.fstat(fd).st_rdev != info.st_rdev:
+            return 'no-nmea'
+        ownership = held_elsewhere(info.st_rdev)
+        if ownership:
+            return ownership
+        original = termios.tcgetattr(fd)
+        attrs = termios.tcgetattr(fd)
+        attrs[0] = attrs[1] = attrs[3] = 0
+        attrs[2] = termios.CS8 | termios.CREAD | termios.CLOCAL
+        attrs[4] = attrs[5] = termios.B9600
+        attrs[6][termios.VMIN], attrs[6][termios.VTIME] = 0, 0
+        termios.tcsetattr(fd, termios.TCSANOW, attrs)
+        buffer, seen, deadline = '', 0, time.monotonic()+PROBE_SECONDS
+        while time.monotonic() < deadline and seen < 2:
+            ready, _, _ = select.select([fd], [], [], max(0.0, deadline-time.monotonic()))
+            if not ready:
+                continue
+            try:
+                chunk = os.read(fd, 256)
+            except BlockingIOError:
+                continue
+            if not chunk:
+                break
+            for char in chunk.decode('ascii', 'replace'):
+                if char == '$':
+                    if valid_nmea(buffer):
+                        seen += 1
+                    buffer = '$'
+                elif char in '\r\n':
+                    if valid_nmea(buffer):
+                        seen += 1
+                    buffer = ''
+                elif buffer:
+                    buffer += char
+                    if len(buffer) > 128:
+                        buffer = ''
+        return 'ok' if seen >= 2 else 'no-nmea'
+    except (OSError, termios.error, KeyboardInterrupt):
+        return 'no-nmea'
+    finally:
+        if fd is not None:
+            restore_failed = False
+            try:
+                if original is not None:
+                    termios.tcsetattr(fd, termios.TCSANOW, original)
+                    restore_failed = termios.tcgetattr(fd) != original
+            except (OSError, termios.error):
+                restore_failed = True
+            finally:
+                os.close(fd)
+            if restore_failed:
+                return 'restore-failed'
+
+
+def record_probe(state, identity_value, outcome, now):
+    state['probe'] = {'identity': identity_value, 'outcome': outcome, 'at': now}
+
+
+def discover(state, now=None):
+    """Resolve native GPS first, otherwise safely qualify one late CP2102N."""
+    now = time.monotonic() if now is None else now
+    native = identity()
+    if native is not None:
+        return native
+    if DEVICE != DEV_ROOT/'cybrrd_gps':
+        # A custom configured path is an explicit operator binding. Never
+        # substitute an automatically discovered bridge for it.
+        return None
+    inventory = tty_inventory()
+    if any(usb_id in UBLOX_IDS for usb_id, _ in inventory):
+        # udev owns native u-blox mapping; a following timer tick sees its link.
+        return None
+    candidates = [path for usb_id, path in inventory if usb_id == HOTPLUG_ID]
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        record_probe(state, None, 'ambiguous', now)
+        print('GPS hotplug refused: multiple CP2102N candidates; no port opened', flush=True)
+        return None
+    candidate = candidates[0]
+    candidate_identity = device_identity(candidate)
+    if candidate_identity is None:
+        return None
+    qualified = state.get('qualified', {})
+    if (qualified.get('usb_id') == HOTPLUG_ID and
+            qualified.get('path') == str(candidate) and
+            qualified.get('identity') == candidate_identity):
+        ownership = held_elsewhere(candidate_identity[2])
+        if ownership:
+            record_probe(state, candidate_identity, ownership, now)
+            return None
+        return candidate_identity
+    previous = state.get('probe', {})
+    if previous.get('identity') == candidate_identity:
+        outcome = previous.get('outcome')
+        elapsed = now-previous.get('at', now)
+        if outcome == 'restore-failed' or (outcome == 'no-nmea' and 0 <= elapsed < PROBE_RETRY_SECONDS):
+            return None
+    outcome = confirm(candidate)
+    # Do not authorize an identity that changed during the bounded read.
+    if outcome == 'ok' and device_identity(candidate) != candidate_identity:
+        outcome = 'changed'
+    record_probe(state, candidate_identity, outcome, now)
+    if outcome != 'ok':
+        print('GPS hotplug candidate '+HOTPLUG_ID+' '+outcome+'; no mapping or restart', flush=True)
+        return None
+    state['qualified'] = {'usb_id': HOTPLUG_ID, 'path': str(candidate),
+                          'identity': candidate_identity}
+    print('GPS hotplug candidate '+HOTPLUG_ID+' NMEA-confirmed; exact device qualified', flush=True)
+    return candidate_identity
 
 
 def prepare(state, current):
@@ -133,7 +331,8 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX)
         path = ROOT/'state.json'
         state = json.loads(path.read_text()) if path.exists() else {}
-        current = identity()
+        before = json.dumps(state, sort_keys=True)
+        current = discover(state)
         if sys.argv[1:] == ['prepare']:
             prepare(state, current)
             save(state)
@@ -142,8 +341,10 @@ def main():
             # Never interrupt a first-fix ExecStartPre, intentional stop, update,
             # or failed service. --no-block avoids waiting on prepare's lock.
             active = subprocess.run(['systemctl', 'is-active', '--quiet', UNIT], timeout=5)
-            if active.returncode == 0 and should_restart(state, current, time.monotonic()):
-                save(state)  # Persist attempt before calling the restart effector.
+            restart = active.returncode == 0 and should_restart(state, current, time.monotonic())
+            if restart or json.dumps(state, sort_keys=True) != before:
+                save(state)  # Persist qualification/attempt before the effector.
+            if restart:
                 print('GPS appeared/replaced: requesting one bounded engine restart to attach the exact device', flush=True)
                 subprocess.run(['systemctl', 'try-restart', '--no-block', UNIT], check=True, timeout=10)
         else:

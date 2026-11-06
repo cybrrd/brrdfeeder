@@ -103,3 +103,14 @@ PR #84 restore-failure follow-up adds only the `restore-failed` result to the
 GPS probe census. Projected uninstall destinations are unchanged; PTY fault
 injection covers restore exceptions and readback mismatch without authorizing
 a mapping. Restoration is attempted and verified, not guaranteed.
+
+## GPS hotplug census review (0.9.1)
+
+Late CP2102N qualification moves the same receive-only probe into
+`gps-runtime.py`, adding read expressions for `/sys/class/tty`, `/proc/*/fd`
+and the selected `/dev/tty*`, plus fixed NMEA parser/state vocabulary. Runtime
+state remains under the already inventoried `/run/brrdfeeder-gps` root. Comparing
+the old and refreshed censuses yields no added or removed projected uninstall
+path, so no persistent deletion policy is expanded. The GPS hotplug PTY/sysfs
+suite proves busy and ownership-unknown outcomes do not call `os.open`, the
+probe never writes serial bytes, and restore failure cannot qualify a device.

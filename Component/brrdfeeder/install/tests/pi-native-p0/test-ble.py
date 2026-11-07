@@ -59,6 +59,7 @@ class BLE(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name); self.config=self.root/'config.yaml'; self.receipt=self.root/'.bluetooth-prior.json'
         self.usb=self.root/'usb'; self.usb.mkdir()
+        self.hci=self.root/'hci'; self.hci.mkdir()
         # A real render of the shipped template; measured position below is a FIXTURE.
         text=(INSTALL/'brrdfeeder-install.sh').read_text()
         self.template=text.split("<<'CFGEOF'\n",1)[1].split('\nCFGEOF',1)[0]
@@ -68,6 +69,8 @@ class BLE(unittest.TestCase):
         self.systemd.engine='active'; self.systemd.pid='42'
         self.log=io.StringIO()
         for p in [patch.object(ble,'CONFIG',self.config),patch.object(ble,'RECEIPT',self.receipt),patch.object(ble,'USB',self.usb),
+                  patch.object(ble,'HCI',self.hci),patch.object(ble,'DEVICES',self.usb),
+                  patch.object(ble,'CONFLICT',self.root/'conflict'),
                   patch.object(ble,'controller_down'),
                   patch.object(ble,'container_gone'),
                   patch.object(ble,'ctl',self.systemd),patch.object(ble,'safe'),contextlib.redirect_stdout(self.log)]:
@@ -75,6 +78,8 @@ class BLE(unittest.TestCase):
         # Ownership checks are a separate adversarial test: this fixture is NOT root.
     def adapter(self,name='1-2',identity='0bda:876e'):
         d=self.usb/name; d.mkdir(); v,p=identity.split(':'); (d/'idVendor').write_text(v); (d/'idProduct').write_text(p)
+        h=self.hci/f'hci{len(list(self.hci.iterdir()))}'; h.mkdir(); (h/'device').symlink_to(d)
+        (h/'address').write_text('AA:BB:CC:DD:EE:FF')
     def explicit(self,value):
         doc=yaml.safe_load(self.config.read_bytes()); doc.setdefault('sensors',{})['rid_ble']=value
         self.config.write_text(yaml.safe_dump(doc,sort_keys=False))
@@ -149,14 +154,15 @@ class BLE(unittest.TestCase):
         self.adapter(); self.adapter('1-3')
         with self.assertRaisesRegex(ValueError,'multiple'): ble.apply()
         self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
+        (self.hci/'hci1'/'address').write_text('00:11:22:33:44:55')
         self.explicit({'enabled':True,'unblock_rfkill':False,'adapter':{'bd_addr':'AA:BB:CC:DD:EE:FF'}})
         before=self.config.read_bytes(); ble.apply(); self.assertEqual(self.config.read_bytes(),before)
-    def test_a728_upgrade_from_0822(self):
+    def test_8771_upgrade_from_0822(self):
         # Exact 0.8.22 state: no rid_ble, no receipt, bluetoothd untouched.
-        self.adapter(identity='0bda:a728')
+        self.adapter(identity='0bda:8771')
         ble.apply()
         self.assertEqual(yaml.safe_load(self.config.read_bytes())['sensors']['rid_ble'],
-                         {'enabled':True,'unblock_rfkill':True,'adapter':{'usb_id':'0bda:a728'}})
+                         {'enabled':True,'unblock_rfkill':True,'adapter':{'usb_id':'0bda:8771'}})
         self.assertEqual(json.loads(self.receipt.read_bytes()),
                          {'version':1,'unit':ble.UNIT,'enabled':'enabled','active':True})
         self.assertEqual((self.systemd.enabled,self.systemd.active),('masked',False))
@@ -164,12 +170,14 @@ class BLE(unittest.TestCase):
         ble.restore()
         self.assertEqual((self.systemd.enabled,self.systemd.active),('enabled',True))
     def test_mixed_supported_adapters_refuse_to_guess(self):
-        self.adapter(); self.adapter('1-3','0bda:a728')
+        self.adapter(); self.adapter('1-3','0bda:8771')
         with self.assertRaisesRegex(ValueError,'multiple'): ble.apply()
         self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
-    def test_unknown_realtek_stays_disabled(self):
-        self.adapter(identity='0bda:8771'); before=self.config.read_bytes()
+    def test_a728_broken_extended_scan_stays_disabled(self):
+        self.adapter(identity='0bda:a728'); before=self.config.read_bytes()
         ble.apply()
+        self.assertIn('broken extended scan',self.log.getvalue())
+        self.assertIn('Coded-PHY',self.log.getvalue())
         self.assertEqual(self.config.read_bytes(),before)
         self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
     def test_dry_run_no_mutation_and_no_receipt(self):
@@ -179,11 +187,11 @@ class BLE(unittest.TestCase):
         ble.apply(); before=self.receipt.read_bytes(); self.systemd.calls=[]; ble.restore(dry=True)
         self.assertEqual(self.receipt.read_bytes(),before); self.assertFalse(self.systemd.calls)
         self.assertIn('WOULD restore',self.log.getvalue())
-    def test_failed_mask_receipt_survives_retry(self):
+    def test_failed_mask_rollback_removes_new_receipt_then_retry(self):
         self.adapter(); self.systemd.fail=('mask',ble.UNIT)
         with self.assertRaisesRegex(ValueError,'seeded'): ble.apply()
-        prior=self.receipt.read_bytes(); self.assertTrue(json.loads(prior)['active'])
-        self.systemd.fail=None; ble.apply(); self.assertEqual(self.receipt.read_bytes(),prior)
+        self.assertFalse(self.receipt.exists())
+        self.systemd.fail=None; ble.apply(); self.assertTrue(json.loads(self.receipt.read_bytes())['active'])
         self.systemd.fail=('start',ble.UNIT)
         with self.assertRaises(ValueError): ble.restore()
         self.assertTrue(self.receipt.exists())
@@ -315,9 +323,9 @@ class Controller(unittest.TestCase):
         self.add('hci8')
         with self.assertRaisesRegex(ValueError,'exactly one'): ble.controller_down({'usb_id':'0bda:876e'})
         self.sock.assert_not_called()
-    def test_a728_selected_by_actual_usb_identity(self):
-        (self.devices/'hci7'/'idProduct').write_text('a728')
-        ble.controller_down({'usb_id':'0bda:a728'})
+    def test_8771_selected_by_actual_usb_identity(self):
+        (self.devices/'hci7'/'idProduct').write_text('8771')
+        ble.controller_down({'usb_id':'0bda:8771'})
         self.assertEqual(self.calls,[(99,0x400448ca),(99,0x800448d3)])
     def test_live_owners_never_open_socket(self):
         self.systemd.active=True

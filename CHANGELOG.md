@@ -2,6 +2,22 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
+## 0.9.1 — Unreleased Bluetooth hotplug candidate
+
+- Correct B16 Bluetooth admission to 0bda:876e/0bda:8771; refuse a728 for broken extended scan (no Coded-PHY RID). 8771 native Coded-PHY capture remains pending.
+
+- Missing RID.BLE configuration now means enabled intent with automatic supported
+  adapter selection; explicit off remains off. Existing explicit sections keep
+  their previous enabled/rfkill defaults on engine-only updates. Installer
+  takeover validates selection before ownership changes and cleans up a new
+  receipt after successful rollback. Missing/lost adapters retry,
+  with local status reasons and console display instead of terminal failure.
+- Supported-ID HCI ADD rules and a five-second retry/ownership timer invoke the
+  receipt-guarded Bluetooth helper without rewriting config or stopping an
+  enabled engine. Manual bluetoothd unmask/start is reported, never reclaimed
+  automatically. Uninstall removes the service, timer, rules and runtime state.
+- Native hardware acceptance remains required before release inclusion.
+
 ## 0.9.0 — Unreleased public beta candidate
 
 - Automatically confirm CP2102N GPS receivers without a prompt, resolve the correct tty, skip busy ports, restore probe settings, and generate a usable confirmed-device udev rule.

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[Unit]
+Description=BRRDfeeder Bluetooth hotplug ownership
+ConditionPathExists=/etc/brrdfeeder/config.yaml
+ConditionPathIsExecutable=/usr/local/libexec/brrdfeeder-bluetooth
+After=systemd-udevd.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/brrdfeeder-bluetooth apply --hotplug
+TimeoutStartSec=120

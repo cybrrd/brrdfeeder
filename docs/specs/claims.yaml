@@ -81,14 +81,13 @@
       "id": "H04",
       "section": "requirements",
       "title": "Standard Bluetooth receiver",
-      "value": "RTL8761B family; USB 0bda:876e or 0bda:a728; LE Coded PHY for Coded reception",
+      "value": "USB 0bda:876e; 0bda:8771 allowed-pending-native-Coded-PHY-proof; LE Coded PHY required",
       "unit": "profile",
       "scope": "0.9-beta",
       "status": "target",
       "evidence_kind": "source",
       "source_ref": [
-        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/brrdfeeder/install/README.md",
-        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/capabilities.toml"
+        "evidence/ble-adapters.md"
       ],
       "public": true,
       "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
@@ -97,7 +96,7 @@
         "scenario": "RF acceptance: record USB identity, firmware, detected PHY and actual legacy/Coded reception.",
         "receipt": null
       },
-      "note": "Recognized USB IDs are not proof that every clone or firmware supports the required receive behavior.",
+      "note": "0.9.1 correction: 8771 is not listed-supported until actual Coded-PHY RID capture on brrdg2s2. a728 is refused: broken extended scan (BTUSB_BROKEN_EXT_SCAN), no Coded-PHY RID. Recognized IDs alone are not reception proof; see evidence/ble-adapters.md.",
       "semantics": "expectation"
     },
     {

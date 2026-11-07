@@ -32,7 +32,7 @@ for i,command in enumerate(commands):
     if result.returncode: receipt['result']='FAIL'
 
 cases=[('unblock-default','unblock_rfkill=True','unblock_rfkill=False','Policy.test_new_and_rerun_missing_policy'),
-       ('explicit-false',"if 'unblock_rfkill' not in ble:",'if True:','Policy.test_explicit_policies_win'),
+       ('explicit-false',"if not hotplug and 'rid_ble' in sensors and 'unblock_rfkill' not in ble:",'if True:','Policy.test_explicit_policies_win'),
        ('stale-green','not 0 <= now-written.timestamp() <= 3*interval','False','Summary.test_freshness_scales_and_missing_is_unknown'),
        ('failed-green','state, detail = match.groups()',"state, detail = match.groups(); state = 'Healthy'",'Summary.test_latest_engine_state_wins_with_reason')]
 for name,old,new,test in cases:

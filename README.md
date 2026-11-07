@@ -30,6 +30,18 @@ Licensing is described in the root [LICENSE](LICENSE). Release approval and
 publishing a draft release remain maintainer actions; successful CI alone does
 not authorize a release.
 
+## Bluetooth hotplug
+
+With the matching engine and host installer update, an absent `sensors.rid_ble`
+key means automatic reception when one allowed Realtek **0bda:876e** or
+**0bda:8771** adapter is plugged in. Explicit `enabled: false` stays off. 8771 is **allowed-pending-native-Coded-PHY-proof**,
+not listed-supported until a real Coded-PHY RID capture on brrdg2s2.
+a728 is refused for broken extended scan (no Coded-PHY RID); see the
+[adapter matrix](docs/specs/evidence/ble-adapters.md).
+Missing or unplugged adapters are retried about every five seconds; local status
+and the console explain waiting, unsupported hardware, ambiguous selection and
+ownership conflicts. See [behavior, limits and native checks](docs/ble-hotplug.md).
+
 ## Ownership
 
 Copyright © 2026 Macawi LLC, Iowa, USA.

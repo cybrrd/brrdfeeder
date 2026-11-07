@@ -409,8 +409,13 @@ Default rating thresholds and operator tuning flags are in the
 
 ## RID.BLE controller ownership
 
-BRRDfeeder includes Wi-Fi and Bluetooth RID. Passive USB inventory names the supported
-Realtek **0bda:876e** and **0bda:a728** receivers without sending HCI commands. On fresh installs
+**0.9.1 qualification:** 8771 is **allowed-pending-native-Coded-PHY-proof**,
+not listed-supported until an actual Coded-PHY RID capture on brrdg2s2.
+0bda:a728 is refused: kernel `BTUSB_BROKEN_EXT_SCAN` means broken extended
+scan and no Coded-PHY RID reception. See the [adapter matrix](../../../docs/specs/evidence/ble-adapters.md).
+
+BRRDfeeder includes Wi-Fi and Bluetooth RID. Passive USB inventory admits only
+Realtek **0bda:876e** and **0bda:8771** receivers without sending HCI commands. On fresh installs
 and reruns, **only a missing `sensors.rid_ble` key** is added when exactly one
 supported receiver is present, as `enabled: true`, `unblock_rfkill: true` with
 `adapter.usb_id` set to the detected receiver's actual USB ID. Reruns also add only an absent `unblock_rfkill` field
@@ -418,7 +423,7 @@ to an already-enabled, validated RID.BLE configuration. Explicit true/false wins
 No supported receiver leaves the key absent: this means enabled-auto intent,
 not disabled. The installer prints “Bluetooth will activate automatically when a
 supported adapter is plugged in” and names unsupported HCI adapters (including
-`0bda:8771`). Multiple supported receivers, including one of each ID, require
+`0bda:a728`, refused for broken extended scan / no Coded-PHY RID). Multiple allowed receivers, including one of each ID, require
 an explicit BD_ADDR selection. Explicit existing config (including `enabled:
 false`) is preserved, not silently changed; config migration may reformat YAML
 comments but preserves existing values. The engine, not the installer, performs
@@ -439,7 +444,7 @@ receipt for retry; legacy installations without a receipt leave bluetoothd alone
 
 Realtek RID.BLE uses a raw HCI USER socket; `/dev/cybrrd_ble` is the separate
 legacy Nordic serial symlink and is not required for either Realtek USB ID.
-A 0.8.22 installation with an a728 receiver and no `rid_ble` section receives
+An older installation with an 8771 receiver and no `rid_ble` section receives
 the same configuration and recorded Bluetooth handover when this installer is rerun.
 The one-liner retains already installed engine/console digests during host repair;
 signed Self-Update remains responsible for workload upgrades. Direct installer

@@ -27,6 +27,19 @@ class Hotplug(unittest.TestCase):
         prior.BLE.adapter(self,str(index),identity)
         h=self.hci/f'hci{index}'
         (h/'address').write_text(f'AA:BB:CC:DD:EE:{index:02X}')
+    def test_finite_allowlist_admission_and_reason(self):
+        self.assertEqual(set(ble.SUPPORTED), {'0bda:876e','0bda:8771'})
+        for index,usb in enumerate(('0bda:876e','0bda:8771','0bda:a728','0bda:ffff','1234:5678','0e8d:7961')):
+            with self.subTest(usb=usb):
+                self.adapter(index,usb)
+                for pin in ({'usb_id':usb},{'bd_addr':f'AA:BB:CC:DD:EE:{index:02X}'}):
+                    if usb in ('0bda:876e','0bda:8771'):
+                        self.assertEqual(ble.selected_controller(pin)[0],index)
+                    else:
+                        with self.assertRaisesRegex(ValueError,'broken extended scan.*Coded-PHY' if usb=='0bda:a728' else 'exactly one'):
+                            ble.selected_controller(pin)
+        self.assertFalse(self.receipt.exists());self.assertFalse(self.systemd.calls)
+        ble.controller_down.assert_not_called()
     def test_install_with_missing_pin_defers_claim_without_mutation(self):
         self.explicit({'enabled':True,'adapter':{'usb_id':'0bda:876e'}})
         before=self.config.read_bytes(); ble.apply()
@@ -35,7 +48,7 @@ class Hotplug(unittest.TestCase):
         ble.controller_down.assert_not_called()
     def test_install_missing_pin_with_other_supported_model_never_mutates(self):
         self.explicit({'enabled':True,'adapter':{'usb_id':'0bda:876e'}})
-        self.adapter(identity='0bda:a728'); before=self.config.read_bytes()
+        self.adapter(identity='0bda:8771'); before=self.config.read_bytes()
         # Keep the real selection in DOWN: the old installer fails too late.
         with patch.object(ble,'controller_down',side_effect=lambda a:ble.selected_controller(a)):
             with self.assertRaisesRegex(ValueError,'exactly one'): ble.apply()
@@ -60,7 +73,7 @@ class Hotplug(unittest.TestCase):
         self.adapter(); before=self.config.read_bytes(); original=self.systemd
         def control(*args):
             result=original(*args)
-            if args==('stop',ble.ENGINE): (self.usb/'0'/'idProduct').write_text('a728')
+            if args==('stop',ble.ENGINE): (self.usb/'0'/'idProduct').write_text('8771')
             return result
         with patch.object(ble,'ctl',control):
             with self.assertRaisesRegex(ValueError,'exactly one|changed'): ble.apply()
@@ -124,7 +137,7 @@ class Hotplug(unittest.TestCase):
         self.adapter(identity='1234:5678'); ble.apply(hotplug=True)
         self.assertIn('unsupported Bluetooth adapter 1234:5678',self.log.getvalue())
         self.assertFalse(self.systemd.calls)
-        self.adapter(1); self.adapter(2,'0bda:a728')
+        self.adapter(1); self.adapter(2,'0bda:8771')
         with self.assertRaisesRegex(ValueError,'exactly one'): ble.apply(hotplug=True)
         self.assertFalse(self.receipt.exists()); ble.controller_down.assert_not_called()
         self.explicit({'enabled':True,'adapter':{'usb_id':'0bda:ffff'}})
@@ -211,7 +224,7 @@ class LocalStatus(unittest.TestCase):
         stamp=ble.dt.datetime.fromtimestamp(10000-age,ble.dt.timezone.utc).isoformat()
         return dict(schema_version=1,status_interval_secs=30,written_at=stamp,
                     heartbeat={'node_id':'fixture'}, inventory={'rid_ble':{
-                        'state':'degraded','enabled':enabled,'reason':'Waiting: unsupported 1234:5678; recommended 0bda:876e / 0bda:a728'}})
+                        'state':'degraded','enabled':enabled,'reason':'Waiting: unsupported 1234:5678; recommended 0bda:876e / 0bda:8771'}})
     def test_health_summary_prefers_local_reason_and_explicit_off(self):
         for enabled in (True,False):
             text=ble.summarize_health(self.snapshot(enabled),'[rid_ble] state=Healthy detail=None',10000)
@@ -242,7 +255,7 @@ class Wiring(unittest.TestCase):
                 p=re.search(r'ATTRS\{idProduct\}=="([0-9a-f]{4})"',line)
                 self.assertIsNotNone(v); self.assertIsNotNone(p); ids.add(v[1]+':'+p[1])
                 self.assertNotIn('RUN',line)
-            self.assertEqual(ids,{'0bda:876e','0bda:a728'})
+            self.assertEqual(ids,{'0bda:876e','0bda:8771'})
     def test_service_timer_mount_and_uninstall(self):
         installer=(INSTALL/'brrdfeeder-install.sh').read_text(); uninstall=(INSTALL/'uninstall.sh').read_text()
         for ext in ['service','timer']:

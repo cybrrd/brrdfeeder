@@ -31,6 +31,44 @@ impl Drop for Tree {
     }
 }
 #[test]
+fn hotplug_finite_allowlist_and_a728_reason() {
+    assert_eq!(SUPPORTED_USB.as_slice(), &["0bda:876e", "0bda:8771"]);
+    for usb in [
+        "0bda:876e",
+        "0bda:8771",
+        "0bda:a728",
+        "0bda:ffff",
+        "1234:5678",
+        "0e8d:7961",
+    ] {
+        let t = Tree::new();
+        t.add(7, usb);
+        for identity in [
+            BleAdapterYaml::default(),
+            BleAdapterYaml {
+                usb_id: Some(usb.into()),
+                bd_addr: None,
+            },
+            BleAdapterYaml {
+                usb_id: None,
+                bd_addr: Some("AA:BB:CC:DD:EE:07".into()),
+            },
+        ] {
+            let result = select_adapter_at(&t.0, &identity);
+            if matches!(usb, "0bda:876e" | "0bda:8771") {
+                assert_eq!(result.unwrap().usb_id.as_deref(), Some(usb));
+            } else {
+                let reason = result.unwrap_err().to_string();
+                assert!(reason.contains(usb));
+                if usb == "0bda:a728" {
+                    assert!(reason.contains("broken extended scan"));
+                    assert!(reason.contains("Coded-PHY"));
+                }
+            }
+        }
+    }
+}
+#[test]
 fn hotplug_selection_matrix_and_pin_remedy() {
     let t = Tree::new();
     let auto = BleAdapterYaml::default();
@@ -40,26 +78,26 @@ fn hotplug_selection_matrix_and_pin_remedy() {
         .contains("activate automatically"));
     t.add(0, "1234:5678");
     let reason = select_adapter_at(&t.0, &auto).unwrap_err().to_string();
-    for word in ["1234:5678", "not supported", "0bda:876e", "0bda:a728"] {
+    for word in ["1234:5678", "not supported", "0bda:876e", "0bda:8771"] {
         assert!(reason.contains(word));
     }
     t.add(1, "0bda:876e");
     assert_eq!(select_adapter_at(&t.0, &auto).unwrap().index, 1);
     let pin = BleAdapterYaml {
-        usb_id: Some("0bda:a728".into()),
+        usb_id: Some("0bda:8771".into()),
         bd_addr: None,
     };
     let reason = select_adapter_at(&t.0, &pin).unwrap_err().to_string();
-    for word in ["Pinned", "0bda:a728", "0bda:876e", "adapter: {}"] {
+    for word in ["Pinned", "0bda:8771", "0bda:876e", "adapter: {}"] {
         assert!(reason.contains(word));
     }
-    t.add(2, "0bda:a728");
+    t.add(2, "0bda:8771");
     assert!(select_adapter_at(&t.0, &auto)
         .unwrap_err()
         .to_string()
         .contains("Multiple"));
     assert_eq!(select_adapter_at(&t.0, &pin).unwrap().index, 2);
-    t.add(3, "0bda:a728");
+    t.add(3, "0bda:8771");
     assert!(select_adapter_at(&t.0, &pin).is_err());
     let addr = BleAdapterYaml {
         usb_id: None,

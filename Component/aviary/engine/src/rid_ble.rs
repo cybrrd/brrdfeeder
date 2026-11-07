@@ -20,8 +20,10 @@ use crate::audit::{SubstrateAuditEvent, KITTLER_LINEAGE};
 use crate::node_config::{BleAdapterYaml, RidBleYaml};
 use crate::sensor::{now_unix_ms, Sensor, SensorContext, SensorHandle, SensorHealth, SensorState};
 
-const SUPPORTED_USB: [&str; 2] = ["0bda:876e", "0bda:a728"];
+const SUPPORTED_USB: [&str; 2] = ["0bda:876e", "0bda:8771"];
 const RESCAN: Duration = Duration::from_secs(5);
+const A728_REFUSAL: &str =
+    "0bda:a728: broken extended scan (BTUSB_BROKEN_EXT_SCAN); no Coded-PHY RID reception";
 const HCI_SYSFS: &str = "/sys/class/bluetooth";
 const OWNERSHIP_CONFLICT: &str = "/run/brrdfeeder-bluetooth/conflict";
 const CONFLICT_REASON: &str = "Bluetooth ownership conflict: bluetooth.service was started or unmasked after the RID.BLE claim; leave it under operator control. Set sensors.rid_ble.enabled: false, or explicitly reclaim with sudo /usr/local/libexec/brrdfeeder-bluetooth apply.";
@@ -534,6 +536,13 @@ fn select_adapter_with(
     identity: &BleAdapterYaml,
     address_of: impl Fn(u16, &Path) -> io::Result<String>,
 ) -> io::Result<Controller> {
+    if identity
+        .usb_id
+        .as_deref()
+        .is_some_and(|id| id.eq_ignore_ascii_case("0bda:a728"))
+    {
+        return Err(io::Error::other(A728_REFUSAL));
+    }
     let entries = match std::fs::read_dir(root) {
         Ok(entries) => Some(entries),
         Err(error) if error.kind() == io::ErrorKind::NotFound => None,
@@ -604,10 +613,10 @@ fn select_adapter_with(
             format!(
                 "hci{} {}",
                 controller.index,
-                controller
-                    .usb_id
-                    .as_deref()
-                    .unwrap_or("unknown USB identity")
+                match controller.usb_id.as_deref() {
+                    Some("0bda:a728") => A728_REFUSAL,
+                    other => other.unwrap_or("unknown USB identity"),
+                }
             )
         })
         .collect();

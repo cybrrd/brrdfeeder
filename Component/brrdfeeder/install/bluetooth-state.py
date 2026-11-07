@@ -24,7 +24,8 @@ RECEIPT = Path('/etc/brrdfeeder/.bluetooth-prior.json')
 USB = Path('/sys/bus/usb/devices')
 HCI = Path('/sys/class/bluetooth')
 DEVICES = Path('/sys/devices')
-SUPPORTED = ('0bda:876e', '0bda:a728')  # finite allowlist; no HCI discovery
+SUPPORTED = ('0bda:876e', '0bda:8771')  # finite allowlist; no HCI discovery
+A728_REFUSAL = '0bda:a728: broken extended scan (BTUSB_BROKEN_EXT_SCAN); no Coded-PHY RID reception'
 UNIT = 'bluetooth.service'
 ENGINE = 'brrdfeeder-engine.service'
 STATUS = Path('/var/lib/brrdfeeder-status/status.json')
@@ -210,11 +211,13 @@ def inventory():
         if not re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', identity): continue
         if identity in SUPPORTED:
             found.append(identity)
-            say('supported RID.BLE adapter: Realtek USB '+identity)
+            say('allowed RID.BLE adapter: Realtek USB '+identity)
+        elif identity == '0bda:a728':
+            say(A728_REFUSAL)
     for path in sorted(HCI.glob('hci*')):
         identity = controller_usb_id(path)
         if identity and identity not in SUPPORTED:
-            say('unsupported Bluetooth adapter '+identity+'; recommended: '+', '.join(SUPPORTED))
+            say('unsupported Bluetooth adapter '+identity+'; '+(A728_REFUSAL+'; ' if identity == '0bda:a728' else '')+'recommended: '+', '.join(SUPPORTED))
     if not found:
         say('Bluetooth will activate automatically when a supported adapter is plugged in ('+', '.join(SUPPORTED)+'); no HCI probe performed')
     return found
@@ -309,6 +312,7 @@ def controller_address(path, index):
 def selected_controller(adapter):
     """Only sysfs identity, never inquiry, discovery or a guessed hci index."""
     matches = []
+    rejected_a728 = (adapter.get('usb_id') or '').lower() == '0bda:a728'
     for path in sorted(HCI.glob('hci*')):
         if not re.fullmatch(r'hci[0-9]{1,5}',path.name): continue
         index = int(path.name[3:])
@@ -317,6 +321,7 @@ def selected_controller(adapter):
             device = (path/'device').resolve(strict=True)
             if not device.is_relative_to(DEVICES): continue
             usb = controller_usb_id(path)
+            if usb == '0bda:a728': rejected_a728 = True
             if usb not in SUPPORTED: continue
             if adapter.get('usb_id') is not None:
                 if usb != adapter['usb_id'].lower(): continue
@@ -325,7 +330,7 @@ def selected_controller(adapter):
             matches.append((index, device, path.stat().st_ino))
         except OSError: continue
     if len(matches) != 1:
-        raise ValueError('BLE DOWN refused: sysfs must identify exactly one configured supported USB controller (0bda:876e, 0bda:a728); check driver/connection/identity')
+        raise ValueError('BLE DOWN refused: sysfs must identify exactly one configured supported USB controller (0bda:876e, 0bda:8771); check driver/connection/identity'+('; '+A728_REFUSAL if rejected_a728 else ''))
     return matches[0]
 
 

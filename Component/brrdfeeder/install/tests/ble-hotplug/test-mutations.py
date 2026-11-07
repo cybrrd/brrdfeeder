@@ -12,6 +12,11 @@ ROOT=Path(__file__).resolve().parents[5]
 paths=['Component/brrdfeeder/install/'+p for p in ['bluetooth-state.py','install-log.py','brrdfeeder-install.sh','uninstall.sh','tests/ble-hotplug/test-contract.py','tests/pi-native-p0/test-ble.py']]
 paths += ['Component/aviary/'+p for p in ['engine/src/rid_ble.rs','deploy/udev/99-cybrrd-brrdfeeder.rules','deploy/quadlet/brrdfeeder-engine.container','deploy/quadlet/brrdfeeder-ble-takeover.service','deploy/quadlet/brrdfeeder-ble-takeover.timer']]
 mutants=[
+    ('allow-a728','Component/brrdfeeder/install/bluetooth-state.py',"SUPPORTED = ('0bda:876e', '0bda:8771')","SUPPORTED = ('0bda:876e', '0bda:8771', '0bda:a728')"),
+    ('drop-8771','Component/brrdfeeder/install/bluetooth-state.py',"SUPPORTED = ('0bda:876e', '0bda:8771')","SUPPORTED = ('0bda:876e',)"),
+    ('embedded-allow-a728','Component/brrdfeeder/install/brrdfeeder-install.sh',"SUPPORTED = ('0bda:876e', '0bda:8771')","SUPPORTED = ('0bda:876e', '0bda:8771', '0bda:a728')"),
+    ('embedded-drop-8771','Component/brrdfeeder/install/brrdfeeder-install.sh',"SUPPORTED = ('0bda:876e', '0bda:8771')","SUPPORTED = ('0bda:876e',)"),
+    ('udev-allow-a728','Component/aviary/deploy/udev/99-cybrrd-brrdfeeder.rules','ATTRS{idProduct}=="8771", TAG','ATTRS{idProduct}=="a728", TAG'),
     ('absent-disabled','Component/brrdfeeder/install/bluetooth-state.py',"enabled = ble.get('enabled', 'rid_ble' not in sensors)","enabled = ble.get('enabled', False)"),
     ('explicit-enabled','Component/brrdfeeder/install/bluetooth-state.py',"enabled = ble.get('enabled', 'rid_ble' not in sensors)","enabled = ble.get('enabled', True)"),
     ('selection-too-late','Component/brrdfeeder/install/bluetooth-state.py',"target = selected_controller(adapter)  # Validate before stopping any service or writing state.","target = None"),

@@ -209,7 +209,7 @@ printf 'RETAINED %s %s\\n' "$CONTAINER_IMAGE" "$CONSOLE_IMAGE"
             self.assertNotIn('UNTRUSTED-VERSION',result.stdout)
 
 class Upgrade(unittest.TestCase):
-    def test_full_one_liner_host_repair_from_0822_a728(self):
+    def test_full_one_liner_host_repair_from_0822_8771(self):
         # Reuse the real-installer OS fixture. Only hardware and external
         # services are simulated; execute the shipped embedded BLE helper.
         os.environ['BRRD_NAMING_CONTAINER']='1'
@@ -224,7 +224,7 @@ class Upgrade(unittest.TestCase):
         engine.write_text('# Installed by brrdfeeder-install.sh.\nImage=ghcr.io/cybrrd/brrdfeeder@sha256:'+'b'*64+'\n')
         console.write_text('Image=ghcr.io/cybrrd/brrdhouse@sha256:'+'d'*64+'\n')
         adapter=Path('/tmp/upgrade-usb/1-2'); adapter.mkdir(parents=True,exist_ok=True)
-        (adapter/'idVendor').write_text('0bda'); (adapter/'idProduct').write_text('a728')
+        (adapter/'idVendor').write_text('0bda'); (adapter/'idProduct').write_text('8771')
         # Match the real sysfs relationship used by pre-mutation selection.
         controller=Path('/tmp/upgrade-hci/hci0'); controller.mkdir(parents=True,exist_ok=True)
         (controller/'device').symlink_to(adapter)
@@ -251,7 +251,7 @@ m.HCI=Path('/tmp/upgrade-hci')
 m.ctl=f.Systemd()
 m.ctl.engine='active'; m.ctl.pid='42'; m.ctl.stop_state='failed'
 def down(adapter):
-    assert adapter=={'usb_id':'0bda:a728'}
+    assert adapter=={'usb_id':'0bda:8771'}
     assert m.ctl.enabled=='masked' and not m.ctl.active
 m.controller_down=down
 sys.argv=sys.argv[1:]
@@ -264,7 +264,7 @@ Path('/tmp/upgrade-bluetooth-state').write_text(json.dumps([m.ctl.enabled,m.ctl.
         import json, yaml
         doc=yaml.safe_load(Path('/etc/brrdfeeder/config.yaml').read_bytes())
         self.assertEqual(doc['sensors']['rid_ble'],
-                         {'enabled':True,'unblock_rfkill':True,'adapter':{'usb_id':'0bda:a728'}})
+                         {'enabled':True,'unblock_rfkill':True,'adapter':{'usb_id':'0bda:8771'}})
         self.assertEqual(json.loads(Path('/etc/brrdfeeder/.bluetooth-prior.json').read_bytes()),
                          {'version':1,'unit':'bluetooth.service','enabled':'enabled','active':True})
         self.assertIn('Image=ghcr.io/cybrrd/brrdfeeder@sha256:'+'b'*64,engine.read_text())

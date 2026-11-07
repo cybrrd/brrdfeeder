@@ -52,6 +52,21 @@ with tempfile.TemporaryDirectory(prefix='ble-config-mutants-') as tmp:
         records.append(dict(control=label,killed=killed,exit=code))
         assert killed,label+' survived or failed before assertions: '+text
         print(label+': KILLED',flush=True)
+    path = root/'Component/aviary/engine/src/rid_ble.rs'
+    original = path.read_text()
+    for label,after in [
+        ('allow-a728', 'const SUPPORTED_USB: [&str; 3] = ["0bda:876e", "0bda:8771", "0bda:a728"];'),
+        ('drop-8771', 'const SUPPORTED_USB: [&str; 1] = ["0bda:876e"];'),
+    ]:
+        before = 'const SUPPORTED_USB: [&str; 2] = ["0bda:876e", "0bda:8771"];'
+        assert before in original
+        path.write_text(original.replace(before,after,1))
+        code,text = run(label)
+        path.write_text(original)
+        killed = code == 101 and 'hotplug_finite_allowlist_and_a728_reason ... FAILED' in text
+        records.append(dict(control=label,killed=killed,exit=code))
+        assert killed,label+' survived or failed before assertions: '+text
+        print(label+': KILLED',flush=True)
     # Removing the runtime OFF guard must break the running restart transition.
     path = root/'Component/aviary/engine/src/rid_ble.rs'
     original = path.read_text()

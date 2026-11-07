@@ -157,12 +157,12 @@ class BLE(unittest.TestCase):
         (self.hci/'hci1'/'address').write_text('00:11:22:33:44:55')
         self.explicit({'enabled':True,'unblock_rfkill':False,'adapter':{'bd_addr':'AA:BB:CC:DD:EE:FF'}})
         before=self.config.read_bytes(); ble.apply(); self.assertEqual(self.config.read_bytes(),before)
-    def test_a728_upgrade_from_0822(self):
+    def test_8771_upgrade_from_0822(self):
         # Exact 0.8.22 state: no rid_ble, no receipt, bluetoothd untouched.
-        self.adapter(identity='0bda:a728')
+        self.adapter(identity='0bda:8771')
         ble.apply()
         self.assertEqual(yaml.safe_load(self.config.read_bytes())['sensors']['rid_ble'],
-                         {'enabled':True,'unblock_rfkill':True,'adapter':{'usb_id':'0bda:a728'}})
+                         {'enabled':True,'unblock_rfkill':True,'adapter':{'usb_id':'0bda:8771'}})
         self.assertEqual(json.loads(self.receipt.read_bytes()),
                          {'version':1,'unit':ble.UNIT,'enabled':'enabled','active':True})
         self.assertEqual((self.systemd.enabled,self.systemd.active),('masked',False))
@@ -170,12 +170,14 @@ class BLE(unittest.TestCase):
         ble.restore()
         self.assertEqual((self.systemd.enabled,self.systemd.active),('enabled',True))
     def test_mixed_supported_adapters_refuse_to_guess(self):
-        self.adapter(); self.adapter('1-3','0bda:a728')
+        self.adapter(); self.adapter('1-3','0bda:8771')
         with self.assertRaisesRegex(ValueError,'multiple'): ble.apply()
         self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
-    def test_unknown_realtek_stays_disabled(self):
-        self.adapter(identity='0bda:8771'); before=self.config.read_bytes()
+    def test_a728_broken_extended_scan_stays_disabled(self):
+        self.adapter(identity='0bda:a728'); before=self.config.read_bytes()
         ble.apply()
+        self.assertIn('broken extended scan',self.log.getvalue())
+        self.assertIn('Coded-PHY',self.log.getvalue())
         self.assertEqual(self.config.read_bytes(),before)
         self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
     def test_dry_run_no_mutation_and_no_receipt(self):
@@ -321,9 +323,9 @@ class Controller(unittest.TestCase):
         self.add('hci8')
         with self.assertRaisesRegex(ValueError,'exactly one'): ble.controller_down({'usb_id':'0bda:876e'})
         self.sock.assert_not_called()
-    def test_a728_selected_by_actual_usb_identity(self):
-        (self.devices/'hci7'/'idProduct').write_text('a728')
-        ble.controller_down({'usb_id':'0bda:a728'})
+    def test_8771_selected_by_actual_usb_identity(self):
+        (self.devices/'hci7'/'idProduct').write_text('8771')
+        ble.controller_down({'usb_id':'0bda:8771'})
         self.assertEqual(self.calls,[(99,0x400448ca),(99,0x800448d3)])
     def test_live_owners_never_open_socket(self):
         self.systemd.active=True

@@ -8,6 +8,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+serde_json = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 # The no_std/heapless decode core (#168 Option B). This crate is the std/serde
 # wrapper: it owns the JSON wire types and adapts the core's heapless output.
@@ -15,3 +16,6 @@ cybrrd-rid-core = { path = "../cybrrd-rid-core" }
 
 [dev-dependencies]
 serde_json = "1.0"
+
+[features]
+wire-v5 = ["dep:serde_json", "cybrrd-rid-core/wire-v5"]

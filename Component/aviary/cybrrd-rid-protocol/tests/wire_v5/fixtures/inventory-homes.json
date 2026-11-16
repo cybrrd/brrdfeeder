@@ -1,0 +1,702 @@
+[
+  {
+    "row": "1",
+    "path": "rid_units[].messages[].header.message_type",
+    "also_at": "rid_units[].header.message_type"
+  },
+  {
+    "row": "2",
+    "path": "rid_units[].messages[].header.protocol_version",
+    "also_at": "rid_units[].header.protocol_version"
+  },
+  {
+    "row": "3",
+    "path": "rid_units[].messages[].basic_id.id_type",
+    "also_at": "rid_units[].basic_ids[].id_type"
+  },
+  {
+    "row": "4",
+    "path": "rid_units[].messages[].basic_id.ua_type",
+    "also_at": "rid_units[].basic_ids[].ua_type"
+  },
+  {
+    "row": "5",
+    "path": "rid_units[].messages[].basic_id.uas_id",
+    "also_at": "rid_units[].basic_ids[].uas_id"
+  },
+  {
+    "row": "6",
+    "path": "rid_units[].messages[].basic_id.reserved",
+    "also_at": "rid_units[].basic_ids[].reserved"
+  },
+  {
+    "row": "7",
+    "path": "rid_units[].messages[].location.operational_status",
+    "also_at": ""
+  },
+  {
+    "row": "8",
+    "path": "rid_units[].messages[].location.status_reserved",
+    "also_at": ""
+  },
+  {
+    "row": "9",
+    "path": "rid_units[].messages[].location.height_type",
+    "also_at": ""
+  },
+  {
+    "row": "10",
+    "path": "rid_units[].messages[].location.ew_direction_segment",
+    "also_at": ""
+  },
+  {
+    "row": "11",
+    "path": "rid_units[].messages[].location.speed_multiplier",
+    "also_at": ""
+  },
+  {
+    "row": "12",
+    "path": "rid_units[].messages[].location.track_direction",
+    "also_at": ""
+  },
+  {
+    "row": "13",
+    "path": "rid_units[].messages[].location.speed",
+    "also_at": ""
+  },
+  {
+    "row": "14",
+    "path": "rid_units[].messages[].location.vertical_speed",
+    "also_at": ""
+  },
+  {
+    "row": "15",
+    "path": "rid_units[].messages[].location.latitude",
+    "also_at": ""
+  },
+  {
+    "row": "16",
+    "path": "rid_units[].messages[].location.longitude",
+    "also_at": ""
+  },
+  {
+    "row": "17",
+    "path": "rid_units[].messages[].location.pressure_altitude",
+    "also_at": ""
+  },
+  {
+    "row": "18",
+    "path": "rid_units[].messages[].location.geodetic_altitude_hae",
+    "also_at": ""
+  },
+  {
+    "row": "19",
+    "path": "rid_units[].messages[].location.height",
+    "also_at": ""
+  },
+  {
+    "row": "20",
+    "path": "rid_units[].messages[].location.vertical_accuracy",
+    "also_at": ""
+  },
+  {
+    "row": "21",
+    "path": "rid_units[].messages[].location.horizontal_accuracy",
+    "also_at": ""
+  },
+  {
+    "row": "22",
+    "path": "rid_units[].messages[].location.baro_altitude_accuracy",
+    "also_at": ""
+  },
+  {
+    "row": "23",
+    "path": "rid_units[].messages[].location.speed_accuracy",
+    "also_at": ""
+  },
+  {
+    "row": "24",
+    "path": "rid_units[].messages[].location.timestamp",
+    "also_at": ""
+  },
+  {
+    "row": "25",
+    "path": "rid_units[].messages[].location.timestamp_accuracy",
+    "also_at": ""
+  },
+  {
+    "row": "26",
+    "path": "rid_units[].messages[].location.timestamp_reserved",
+    "also_at": ""
+  },
+  {
+    "row": "27",
+    "path": "rid_units[].messages[].location.reserved",
+    "also_at": ""
+  },
+  {
+    "row": "28",
+    "path": "rid_units[].messages[].auth.auth_type",
+    "also_at": ""
+  },
+  {
+    "row": "29",
+    "path": "rid_units[].messages[].auth.data_page_number",
+    "also_at": ""
+  },
+  {
+    "row": "30",
+    "path": "rid_units[].messages[].auth.page0_reserved",
+    "also_at": ""
+  },
+  {
+    "row": "31",
+    "path": "rid_units[].messages[].auth.last_page",
+    "also_at": ""
+  },
+  {
+    "row": "32",
+    "path": "rid_units[].messages[].auth.length",
+    "also_at": ""
+  },
+  {
+    "row": "33",
+    "path": "rid_units[].messages[].auth.timestamp",
+    "also_at": ""
+  },
+  {
+    "row": "34",
+    "path": "rid_units[].messages[].auth.auth_data_page0",
+    "also_at": ""
+  },
+  {
+    "row": "35",
+    "path": "rid_units[].messages[].auth.auth_data_pages_1_15",
+    "also_at": ""
+  },
+  {
+    "row": "36",
+    "path": "rid_units[].messages[].self_id.description_type",
+    "also_at": ""
+  },
+  {
+    "row": "37",
+    "path": "rid_units[].messages[].self_id.description",
+    "also_at": ""
+  },
+  {
+    "row": "38",
+    "path": "rid_units[].messages[].system.flags_reserved",
+    "also_at": ""
+  },
+  {
+    "row": "39",
+    "path": "rid_units[].messages[].system.classification_type",
+    "also_at": ""
+  },
+  {
+    "row": "40",
+    "path": "rid_units[].messages[].system.operator_location_altitude_source_type",
+    "also_at": ""
+  },
+  {
+    "row": "41",
+    "path": "rid_units[].messages[].system.operator_latitude",
+    "also_at": ""
+  },
+  {
+    "row": "42",
+    "path": "rid_units[].messages[].system.operator_longitude",
+    "also_at": ""
+  },
+  {
+    "row": "43",
+    "path": "rid_units[].messages[].system.area_count",
+    "also_at": ""
+  },
+  {
+    "row": "44",
+    "path": "rid_units[].messages[].system.area_radius",
+    "also_at": ""
+  },
+  {
+    "row": "45",
+    "path": "rid_units[].messages[].system.area_ceiling_hae",
+    "also_at": ""
+  },
+  {
+    "row": "46",
+    "path": "rid_units[].messages[].system.area_floor_hae",
+    "also_at": ""
+  },
+  {
+    "row": "47",
+    "path": "rid_units[].messages[].system.category",
+    "also_at": ""
+  },
+  {
+    "row": "48",
+    "path": "rid_units[].messages[].system.class",
+    "also_at": ""
+  },
+  {
+    "row": "49",
+    "path": "rid_units[].messages[].system.operator_altitude_hae",
+    "also_at": ""
+  },
+  {
+    "row": "50",
+    "path": "rid_units[].messages[].system.timestamp",
+    "also_at": ""
+  },
+  {
+    "row": "51",
+    "path": "rid_units[].messages[].system.reserved",
+    "also_at": ""
+  },
+  {
+    "row": "52",
+    "path": "rid_units[].messages[].operator_id.operator_id_type",
+    "also_at": ""
+  },
+  {
+    "row": "53",
+    "path": "rid_units[].messages[].operator_id.operator_id",
+    "also_at": ""
+  },
+  {
+    "row": "54",
+    "path": "rid_units[].messages[].operator_id.reserved",
+    "also_at": ""
+  },
+  {
+    "row": "55",
+    "path": "rid_units[].message_size",
+    "also_at": ""
+  },
+  {
+    "row": "56",
+    "path": "rid_units[].message_count",
+    "also_at": ""
+  },
+  {
+    "row": "57",
+    "path": "rid_units[].messages",
+    "also_at": ""
+  },
+  {
+    "row": "58",
+    "path": "captures[].transport_fields.bt4_legacy.preamble",
+    "also_at": ""
+  },
+  {
+    "row": "59",
+    "path": "captures[].transport_fields.bt4_legacy.access_address",
+    "also_at": ""
+  },
+  {
+    "row": "60",
+    "path": "captures[].transport_fields.bt4_legacy.pdu_header",
+    "also_at": ""
+  },
+  {
+    "row": "61",
+    "path": "captures[].transport_fields.bt4_legacy.ad_info",
+    "also_at": ""
+  },
+  {
+    "row": "62",
+    "path": "captures[].transport_fields.bt4_legacy.app_code",
+    "also_at": ""
+  },
+  {
+    "row": "63",
+    "path": "captures[].transport_fields.bt4_legacy.odid_message",
+    "also_at": ""
+  },
+  {
+    "row": "64",
+    "path": "captures[].transport_fields.bt4_legacy.crc",
+    "also_at": ""
+  },
+  {
+    "row": "65",
+    "path": "captures[].transport_fields.bt4_legacy.message_counter",
+    "also_at": ""
+  },
+  {
+    "row": "66",
+    "path": "captures[].transport_fields.bt4_legacy.ad_addr",
+    "also_at": ""
+  },
+  {
+    "row": "67",
+    "path": "captures[].transport_fields.bt5_primary.preamble",
+    "also_at": ""
+  },
+  {
+    "row": "68",
+    "path": "captures[].transport_fields.bt5_primary.access_address",
+    "also_at": ""
+  },
+  {
+    "row": "69",
+    "path": "captures[].transport_fields.bt5_primary.coding_indication",
+    "also_at": ""
+  },
+  {
+    "row": "70",
+    "path": "captures[].transport_fields.bt5_primary.pdu_header",
+    "also_at": ""
+  },
+  {
+    "row": "71",
+    "path": "captures[].transport_fields.bt5_primary.ext_header_ADI_AuxPtr",
+    "also_at": ""
+  },
+  {
+    "row": "72",
+    "path": "captures[].transport_fields.bt5_primary.crc",
+    "also_at": ""
+  },
+  {
+    "row": "73",
+    "path": "captures[].transport_fields.bt5_secondary.preamble",
+    "also_at": ""
+  },
+  {
+    "row": "74",
+    "path": "captures[].transport_fields.bt5_secondary.access_address",
+    "also_at": ""
+  },
+  {
+    "row": "75",
+    "path": "captures[].transport_fields.bt5_secondary.pdu_header",
+    "also_at": ""
+  },
+  {
+    "row": "76",
+    "path": "captures[].transport_fields.bt5_secondary.ext_header_ADI",
+    "also_at": ""
+  },
+  {
+    "row": "77",
+    "path": "captures[].transport_fields.bt5_secondary.ad_info",
+    "also_at": ""
+  },
+  {
+    "row": "78",
+    "path": "captures[].transport_fields.bt5_secondary.app_code",
+    "also_at": ""
+  },
+  {
+    "row": "79",
+    "path": "captures[].transport_fields.bt5_secondary.odid_message_pack",
+    "also_at": ""
+  },
+  {
+    "row": "80",
+    "path": "captures[].transport_fields.bt5_secondary.crc",
+    "also_at": ""
+  },
+  {
+    "row": "81",
+    "path": "captures[].transport_fields.bt5_secondary.AdvA",
+    "also_at": ""
+  },
+  {
+    "row": "82",
+    "path": "captures[].transport_fields.bt5_secondary.message_counter",
+    "also_at": ""
+  },
+  {
+    "row": "83",
+    "path": "captures[].transport_fields.wifi_nan_sync.element_id",
+    "also_at": ""
+  },
+  {
+    "row": "84",
+    "path": "captures[].transport_fields.wifi_nan_sync.length",
+    "also_at": ""
+  },
+  {
+    "row": "85",
+    "path": "captures[].transport_fields.wifi_nan_sync.oui",
+    "also_at": ""
+  },
+  {
+    "row": "86",
+    "path": "captures[].transport_fields.wifi_nan_sync.oui_type",
+    "also_at": ""
+  },
+  {
+    "row": "87",
+    "path": "captures[].transport_fields.wifi_nan_sync.master_indication_attr",
+    "also_at": ""
+  },
+  {
+    "row": "88",
+    "path": "captures[].transport_fields.wifi_nan_sync.cluster_attr",
+    "also_at": ""
+  },
+  {
+    "row": "89",
+    "path": "captures[].transport_fields.wifi_nan_sdf.oui",
+    "also_at": ""
+  },
+  {
+    "row": "90",
+    "path": "captures[].transport_fields.wifi_nan_sdf.oui_type",
+    "also_at": ""
+  },
+  {
+    "row": "91",
+    "path": "captures[].transport_fields.wifi_nan_sdf.service_descriptor_attr",
+    "also_at": ""
+  },
+  {
+    "row": "92",
+    "path": "captures[].transport_fields.wifi_nan_sdf.service_info_message_pack",
+    "also_at": ""
+  },
+  {
+    "row": "93",
+    "path": "captures[].transport_fields.wifi_nan_sdf.sdea_instance_control_update",
+    "also_at": ""
+  },
+  {
+    "row": "94",
+    "path": "captures[].transport_fields.wifi_nan_sdf.message_counter",
+    "also_at": ""
+  },
+  {
+    "row": "95",
+    "path": "captures[].transport_fields.wifi_nan_sdf.addr3_bssid",
+    "also_at": ""
+  },
+  {
+    "row": "96",
+    "path": "captures[].transport_fields.wifi_beacon.element_id",
+    "also_at": ""
+  },
+  {
+    "row": "97",
+    "path": "captures[].transport_fields.wifi_beacon.length",
+    "also_at": ""
+  },
+  {
+    "row": "98",
+    "path": "captures[].transport_fields.wifi_beacon.oui",
+    "also_at": ""
+  },
+  {
+    "row": "99",
+    "path": "captures[].transport_fields.wifi_beacon.vendor_type",
+    "also_at": ""
+  },
+  {
+    "row": "100",
+    "path": "captures[].transport_fields.wifi_beacon.message_pack",
+    "also_at": ""
+  },
+  {
+    "row": "101",
+    "path": "captures[].transport_fields.wifi_beacon.message_counter",
+    "also_at": ""
+  },
+  {
+    "row": "102",
+    "path": "receiver.source_MAC",
+    "also_at": ""
+  },
+  {
+    "row": "103",
+    "path": "receiver.RSSI_dbm",
+    "also_at": ""
+  },
+  {
+    "row": "104",
+    "path": "receiver.wifi_rx_channel_and_source",
+    "also_at": ""
+  },
+  {
+    "row": "105",
+    "path": "receiver.bluetooth_advertising_channel",
+    "also_at": ""
+  },
+  {
+    "row": "106",
+    "path": "receiver.transport",
+    "also_at": ""
+  },
+  {
+    "row": "107",
+    "path": "receiver.host_receive_timestamp_ns",
+    "also_at": ""
+  },
+  {
+    "row": "108",
+    "path": "receiver.radio_timestamp_and_clock_domain",
+    "also_at": ""
+  },
+  {
+    "row": "109",
+    "path": "receiver.clock_source_and_estimated_error",
+    "also_at": ""
+  },
+  {
+    "row": "110",
+    "path": "receiver.clock_model_parameters_offset_drift",
+    "also_at": ""
+  },
+  {
+    "row": "111",
+    "path": "receiver.upload_ingest_time",
+    "also_at": ""
+  },
+  {
+    "row": "112",
+    "path": "receiver.node_id",
+    "also_at": ""
+  },
+  {
+    "row": "113",
+    "path": "receiver.node_software_version",
+    "also_at": ""
+  },
+  {
+    "row": "114",
+    "path": "receiver.node_latitude",
+    "also_at": ""
+  },
+  {
+    "row": "115",
+    "path": "receiver.node_longitude",
+    "also_at": ""
+  },
+  {
+    "row": "116",
+    "path": "receiver.node_altitude",
+    "also_at": ""
+  },
+  {
+    "row": "117",
+    "path": "receiver.hardware_model_adapter_dongle_GPS",
+    "also_at": ""
+  },
+  {
+    "row": "118",
+    "path": "receiver.enrollment_credential_ID",
+    "also_at": ""
+  },
+  {
+    "row": "119",
+    "path": "receiver.receiver_GPS_fix_type",
+    "also_at": ""
+  },
+  {
+    "row": "120",
+    "path": "receiver.receiver_GPS_HDOP",
+    "also_at": ""
+  },
+  {
+    "row": "121",
+    "path": "receiver.receiver_GPS_satellite_count",
+    "also_at": ""
+  },
+  {
+    "row": "122",
+    "path": "receiver.receiver_GPS_fix_age",
+    "also_at": ""
+  },
+  {
+    "row": "123",
+    "path": "receiver.mobile_or_fixed",
+    "also_at": ""
+  },
+  {
+    "row": "124",
+    "path": "receiver.receiver_dwell_channel_and_schedule",
+    "also_at": ""
+  },
+  {
+    "row": "125",
+    "path": "receiver.PHY_data_rate",
+    "also_at": ""
+  },
+  {
+    "row": "126",
+    "path": "receiver.antenna_index",
+    "also_at": ""
+  },
+  {
+    "row": "127",
+    "path": "receiver.frame_length",
+    "also_at": ""
+  },
+  {
+    "row": "128",
+    "path": "receiver.FCS_status",
+    "also_at": ""
+  },
+  {
+    "row": "129",
+    "path": "receiver.raw_frame_bytes",
+    "also_at": ""
+  },
+  {
+    "row": "130",
+    "path": "receiver.extended_advertising_fields",
+    "also_at": ""
+  },
+  {
+    "row": "131",
+    "path": "receiver.parser_version",
+    "also_at": ""
+  },
+  {
+    "row": "132",
+    "path": "receiver.normalizations_applied",
+    "also_at": ""
+  },
+  {
+    "row": "133",
+    "path": "receiver.antenna_description",
+    "also_at": ""
+  },
+  {
+    "row": "134",
+    "path": "receiver.antenna_height",
+    "also_at": ""
+  },
+  {
+    "row": "135",
+    "path": "receiver.noise_floor",
+    "also_at": ""
+  },
+  {
+    "row": "136",
+    "path": "receiver.node_record_signature",
+    "also_at": ""
+  },
+  {
+    "row": "N01",
+    "path": "network_information.operating_area_polygon",
+    "also_at": ""
+  },
+  {
+    "row": "N02",
+    "path": "network_information.operating_area_type",
+    "also_at": ""
+  },
+  {
+    "row": "N03",
+    "path": "network_information.operation_area_start",
+    "also_at": ""
+  },
+  {
+    "row": "N04",
+    "path": "network_information.operation_area_end",
+    "also_at": ""
+  }
+]

@@ -10,3 +10,6 @@ pub mod router;
 mod nan;
 pub mod astm;
 pub mod ble;
+
+#[cfg(feature = "wire-v5")]
+pub mod v5;

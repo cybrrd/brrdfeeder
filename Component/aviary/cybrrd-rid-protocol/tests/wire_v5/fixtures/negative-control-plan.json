@@ -1,0 +1,1388 @@
+[
+  {
+    "case": "ratified_altitude_B:location.pressure_altitude:null_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/pressure_altitude/decoded",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:location.pressure_altitude:wrong_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/pressure_altitude/decoded",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:location.pressure_altitude:wrong_arithmetic",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/pressure_altitude/arithmetic_value",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:location.pressure_altitude:known_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/pressure_altitude/status",
+    "value": "known"
+  },
+  {
+    "case": "ratified_altitude_B:location.pressure_altitude:ambiguous_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/pressure_altitude/status",
+    "value": "ambiguous"
+  },
+  {
+    "case": "ratified_altitude_B:location.pressure_altitude:missing_reason",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "delete",
+    "path": "/location/pressure_altitude/reason",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:location.pressure_altitude:changed_raw",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/pressure_altitude/raw",
+    "value": 65534
+  },
+  {
+    "case": "ratified_altitude_B:location.geodetic_altitude_hae:null_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/geodetic_altitude_hae/decoded",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:location.geodetic_altitude_hae:wrong_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/geodetic_altitude_hae/decoded",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:location.geodetic_altitude_hae:wrong_arithmetic",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/geodetic_altitude_hae/arithmetic_value",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:location.geodetic_altitude_hae:known_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/geodetic_altitude_hae/status",
+    "value": "known"
+  },
+  {
+    "case": "ratified_altitude_B:location.geodetic_altitude_hae:ambiguous_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/geodetic_altitude_hae/status",
+    "value": "ambiguous"
+  },
+  {
+    "case": "ratified_altitude_B:location.geodetic_altitude_hae:missing_reason",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "delete",
+    "path": "/location/geodetic_altitude_hae/reason",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:location.geodetic_altitude_hae:changed_raw",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/geodetic_altitude_hae/raw",
+    "value": 65534
+  },
+  {
+    "case": "ratified_altitude_B:location.height:null_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/height/decoded",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:location.height:wrong_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/height/decoded",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:location.height:wrong_arithmetic",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/height/arithmetic_value",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:location.height:known_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/height/status",
+    "value": "known"
+  },
+  {
+    "case": "ratified_altitude_B:location.height:ambiguous_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/height/status",
+    "value": "ambiguous"
+  },
+  {
+    "case": "ratified_altitude_B:location.height:missing_reason",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "delete",
+    "path": "/location/height/reason",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:location.height:changed_raw",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "location_alt_raw_65535",
+    "op": "replace",
+    "path": "/location/height/raw",
+    "value": 65534
+  },
+  {
+    "case": "ratified_altitude_B:system.area_ceiling_hae:null_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_ceiling_hae/decoded",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:system.area_ceiling_hae:wrong_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_ceiling_hae/decoded",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:system.area_ceiling_hae:wrong_arithmetic",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_ceiling_hae/arithmetic_value",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:system.area_ceiling_hae:known_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_ceiling_hae/status",
+    "value": "known"
+  },
+  {
+    "case": "ratified_altitude_B:system.area_ceiling_hae:ambiguous_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_ceiling_hae/status",
+    "value": "ambiguous"
+  },
+  {
+    "case": "ratified_altitude_B:system.area_ceiling_hae:missing_reason",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "delete",
+    "path": "/system/area_ceiling_hae/reason",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:system.area_ceiling_hae:changed_raw",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_ceiling_hae/raw",
+    "value": 65534
+  },
+  {
+    "case": "ratified_altitude_B:system.area_floor_hae:null_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_floor_hae/decoded",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:system.area_floor_hae:wrong_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_floor_hae/decoded",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:system.area_floor_hae:wrong_arithmetic",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_floor_hae/arithmetic_value",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:system.area_floor_hae:known_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_floor_hae/status",
+    "value": "known"
+  },
+  {
+    "case": "ratified_altitude_B:system.area_floor_hae:ambiguous_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_floor_hae/status",
+    "value": "ambiguous"
+  },
+  {
+    "case": "ratified_altitude_B:system.area_floor_hae:missing_reason",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "delete",
+    "path": "/system/area_floor_hae/reason",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:system.area_floor_hae:changed_raw",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/area_floor_hae/raw",
+    "value": 65534
+  },
+  {
+    "case": "ratified_altitude_B:system.operator_altitude_hae:null_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/operator_altitude_hae/decoded",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:system.operator_altitude_hae:wrong_decoded",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/operator_altitude_hae/decoded",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:system.operator_altitude_hae:wrong_arithmetic",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/operator_altitude_hae/arithmetic_value",
+    "value": "31767"
+  },
+  {
+    "case": "ratified_altitude_B:system.operator_altitude_hae:known_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/operator_altitude_hae/status",
+    "value": "known"
+  },
+  {
+    "case": "ratified_altitude_B:system.operator_altitude_hae:ambiguous_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/operator_altitude_hae/status",
+    "value": "ambiguous"
+  },
+  {
+    "case": "ratified_altitude_B:system.operator_altitude_hae:missing_reason",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "delete",
+    "path": "/system/operator_altitude_hae/reason",
+    "value": null
+  },
+  {
+    "case": "ratified_altitude_B:system.operator_altitude_hae:changed_raw",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "system_alt_raw_65535",
+    "op": "replace",
+    "path": "/system/operator_altitude_hae/raw",
+    "value": 65534
+  },
+  {
+    "case": "sentinel_wrongly_known:basic_id_type_0",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "basic_id_type_0",
+    "op": "replace",
+    "path": "/basic_id/uas_id/status",
+    "value": "known"
+  },
+  {
+    "case": "sentinel_wrongly_known:basic_id_type_0_nul_only",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "basic_id_type_0_nul_only",
+    "op": "replace",
+    "path": "/basic_id/uas_id/status",
+    "value": "known"
+  },
+  {
+    "case": "sentinel_wrongly_known:serial_nul_only",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "serial_nul_only",
+    "op": "replace",
+    "path": "/basic_id/uas_id/status",
+    "value": "known"
+  },
+  {
+    "case": "sentinel_wrongly_known:auth_type_0",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "auth_type_0",
+    "op": "replace",
+    "path": "/auth/auth_data_page0/status",
+    "value": "known"
+  },
+  {
+    "case": "sentinel_wrongly_known:self_id_nul_only",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "self_id_nul_only",
+    "op": "replace",
+    "path": "/self_id/description/status",
+    "value": "known"
+  },
+  {
+    "case": "sentinel_wrongly_known:operator_id_nul_only",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "operator_id_nul_only",
+    "op": "replace",
+    "path": "/operator_id/operator_id/status",
+    "value": "known"
+  },
+  {
+    "case": "sentinel_wrongly_known:serial_whitespace",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "serial_whitespace",
+    "op": "replace",
+    "path": "/basic_id/uas_id/status",
+    "value": "known"
+  },
+  {
+    "case": "sentinel_wrongly_known:serial_invalid_text",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "serial_invalid_text",
+    "op": "replace",
+    "path": "/basic_id/uas_id/status",
+    "value": "known"
+  },
+  {
+    "case": "sentinel_wrongly_known:serial_embedded_nul",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "serial_embedded_nul",
+    "op": "replace",
+    "path": "/basic_id/uas_id/status",
+    "value": "known"
+  },
+  {
+    "case": "valid_type4_null_auth_wrongly_unknown",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "auth_type_4",
+    "op": "replace",
+    "path": "/auth/auth_data_page0/status",
+    "value": "unknown"
+  },
+  {
+    "case": "binary_uuid_zero_prefix_treated_as_empty",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "uuid_zero_prefix",
+    "op": "replace",
+    "path": "/basic_id/uas_id/status",
+    "value": "unknown"
+  },
+  {
+    "case": "private_version15_wrong_cell_status",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "header_version_15",
+    "op": "replace",
+    "path": "/header/protocol_version/status",
+    "value": "unsupported_version"
+  },
+  {
+    "case": "continuation_missing_NA:auth_data_page0",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "auth_page_1",
+    "op": "delete",
+    "path": "/auth/auth_data_page0",
+    "value": null
+  },
+  {
+    "case": "continuation_missing_NA:last_page",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "auth_page_1",
+    "op": "delete",
+    "path": "/auth/last_page",
+    "value": null
+  },
+  {
+    "case": "continuation_missing_NA:length",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "auth_page_1",
+    "op": "delete",
+    "path": "/auth/length",
+    "value": null
+  },
+  {
+    "case": "continuation_missing_NA:page0_reserved",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "auth_page_1",
+    "op": "delete",
+    "path": "/auth/page0_reserved",
+    "value": null
+  },
+  {
+    "case": "continuation_missing_NA:timestamp",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "auth_page_1",
+    "op": "delete",
+    "path": "/auth/timestamp",
+    "value": null
+  },
+  {
+    "case": "page0_missing_continuation_NA",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "auth_page_0",
+    "op": "delete",
+    "path": "/auth/auth_data_pages_1_15",
+    "value": null
+  },
+  {
+    "case": "NA_with_invented_value",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "auth_page_1",
+    "op": "replace",
+    "path": "/auth/timestamp/raw",
+    "value": 0
+  },
+  {
+    "case": "NA_without_reason",
+    "phase": "P0",
+    "kind": "message",
+    "seed": "auth_page_1",
+    "op": "delete",
+    "path": "/auth/timestamp/reason",
+    "value": null
+  },
+  {
+    "case": "broadcast_missing_network_information",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/network_information",
+    "value": null
+  },
+  {
+    "case": "network_field_missing:operating_area_polygon",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/network_information/operating_area_polygon",
+    "value": null
+  },
+  {
+    "case": "broadcast_network:operating_area_polygon:not_exposed",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operating_area_polygon/status",
+    "value": "not_exposed"
+  },
+  {
+    "case": "broadcast_network:operating_area_polygon:wrong_reason",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operating_area_polygon/reason",
+    "value": "incorrect"
+  },
+  {
+    "case": "broadcast_network:operating_area_polygon:no_reason",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/network_information/operating_area_polygon/reason",
+    "value": null
+  },
+  {
+    "case": "broadcast_network:operating_area_polygon:fabricated_raw",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operating_area_polygon/raw",
+    "value": "00"
+  },
+  {
+    "case": "broadcast_network:operating_area_polygon:fabricated_decoded",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operating_area_polygon/decoded",
+    "value": 0
+  },
+  {
+    "case": "network_field_missing:operating_area_type",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/network_information/operating_area_type",
+    "value": null
+  },
+  {
+    "case": "broadcast_network:operating_area_type:not_exposed",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operating_area_type/status",
+    "value": "not_exposed"
+  },
+  {
+    "case": "broadcast_network:operating_area_type:wrong_reason",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operating_area_type/reason",
+    "value": "incorrect"
+  },
+  {
+    "case": "broadcast_network:operating_area_type:no_reason",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/network_information/operating_area_type/reason",
+    "value": null
+  },
+  {
+    "case": "broadcast_network:operating_area_type:fabricated_raw",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operating_area_type/raw",
+    "value": "00"
+  },
+  {
+    "case": "broadcast_network:operating_area_type:fabricated_decoded",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operating_area_type/decoded",
+    "value": 0
+  },
+  {
+    "case": "network_field_missing:operation_area_end",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/network_information/operation_area_end",
+    "value": null
+  },
+  {
+    "case": "broadcast_network:operation_area_end:not_exposed",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operation_area_end/status",
+    "value": "not_exposed"
+  },
+  {
+    "case": "broadcast_network:operation_area_end:wrong_reason",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operation_area_end/reason",
+    "value": "incorrect"
+  },
+  {
+    "case": "broadcast_network:operation_area_end:no_reason",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/network_information/operation_area_end/reason",
+    "value": null
+  },
+  {
+    "case": "broadcast_network:operation_area_end:fabricated_raw",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operation_area_end/raw",
+    "value": "00"
+  },
+  {
+    "case": "broadcast_network:operation_area_end:fabricated_decoded",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operation_area_end/decoded",
+    "value": 0
+  },
+  {
+    "case": "network_field_missing:operation_area_start",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/network_information/operation_area_start",
+    "value": null
+  },
+  {
+    "case": "broadcast_network:operation_area_start:not_exposed",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operation_area_start/status",
+    "value": "not_exposed"
+  },
+  {
+    "case": "broadcast_network:operation_area_start:wrong_reason",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operation_area_start/reason",
+    "value": "incorrect"
+  },
+  {
+    "case": "broadcast_network:operation_area_start:no_reason",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/network_information/operation_area_start/reason",
+    "value": null
+  },
+  {
+    "case": "broadcast_network:operation_area_start:fabricated_raw",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operation_area_start/raw",
+    "value": "00"
+  },
+  {
+    "case": "broadcast_network:operation_area_start:fabricated_decoded",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/network_information/operation_area_start/decoded",
+    "value": 0
+  },
+  {
+    "case": "capture_missing_group:bt4_legacy",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/captures/0/transport_fields/bt4_legacy",
+    "value": null
+  },
+  {
+    "case": "capture_missing_group:bt5_primary",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/captures/0/transport_fields/bt5_primary",
+    "value": null
+  },
+  {
+    "case": "capture_missing_group:bt5_secondary",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/captures/0/transport_fields/bt5_secondary",
+    "value": null
+  },
+  {
+    "case": "capture_missing_group:wifi_beacon",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/captures/0/transport_fields/wifi_beacon",
+    "value": null
+  },
+  {
+    "case": "capture_missing_group:wifi_nan_sdf",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/captures/0/transport_fields/wifi_nan_sdf",
+    "value": null
+  },
+  {
+    "case": "capture_missing_group:wifi_nan_sync",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/captures/0/transport_fields/wifi_nan_sync",
+    "value": null
+  },
+  {
+    "case": "NAN_sync_folded_into_SDF",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "wifi_nan",
+    "op": "replace",
+    "path": "/captures/0/transport_fields/wifi_nan_sync/element_id",
+    "value": {
+      "raw": 221,
+      "decoded": 221,
+      "status": "known",
+      "unit": "code",
+      "resolution": "1",
+      "reason": null
+    }
+  },
+  {
+    "case": "combined_capture_events",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "duplicate_first",
+    "path": "/captures",
+    "value": null
+  },
+  {
+    "case": "association_missing_source_id",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "delete",
+    "path": "/captures/0/related_captures/0/source_capture_id",
+    "value": null
+  },
+  {
+    "case": "association_wrong_source_id",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/captures/0/related_captures/0/source_capture_id/observation_id/capture_sequence",
+    "value": "999"
+  },
+  {
+    "case": "association_missing_target_capture",
+    "phase": "P1",
+    "reason": "Cross-observation target custody/reconciliation; candidate capture references may precede their target."
+  },
+  {
+    "case": "association_wrong_receive_order",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/captures/0/related_captures/0/source_receive_order",
+    "value": "999"
+  },
+  {
+    "case": "association_wrong_relationship",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "bt5_long_range",
+    "op": "replace",
+    "path": "/captures/0/related_captures/0/relationship",
+    "value": "nan_sdf_to_sync"
+  },
+  {
+    "case": "lake_missing_list_metadata:auth_assembly.issues.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:auth_assembly.issues.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:auth_assembly.issues[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:auth_assembly.page_refs.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:auth_assembly.page_refs.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:auth_assembly.page_refs[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:parcel.extension_leaves.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:parcel.extension_leaves.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:parcel.extension_leaves[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:parcel.upload_attempts.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:parcel.upload_attempts.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:parcel.upload_attempts[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.captures.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.captures.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.captures[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.captures[].related_captures.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.captures[].related_captures.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.captures[].related_captures[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.issues.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.issues.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.issues[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.network_information.operating_area_polygon.decoded.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.network_information.operating_area_polygon.decoded.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.network_information.operating_area_polygon.decoded[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.decoded.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.decoded.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.decoded[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.raw.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.raw.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.receiver.normalizations_applied.raw[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.rid_units.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.rid_units.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.rid_units[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.rid_units[].basic_ids.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.rid_units[].basic_ids.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.rid_units[].basic_ids[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.rid_units[].messages.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.rid_units[].messages.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "lake_missing_list_metadata:v5.rid_units[].messages[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded.$length",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded[].$ordinal",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded[].$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded[].latitude",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.decoded[].longitude",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.raw",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.reason",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.resolution",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.status",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_polygon.unit",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_type.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_type.decoded",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_type.raw",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_type.reason",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_type.resolution",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_type.status",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operating_area_type.unit",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_end.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_end.decoded",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_end.raw",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_end.reason",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_end.resolution",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_end.status",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_end.unit",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_start.$present",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_start.decoded",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_start.raw",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_start.reason",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_start.resolution",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_start.status",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "network_named_column_missing:v5.network_information.operation_area_start.unit",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "serial_display_truncated",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:0",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:2",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:3",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:4",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:5",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:6",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:7",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:8",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:9",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:10",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:11",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:12",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:13",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:14",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "nonserial_fallback:15",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "silent_conflict_winner",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "wifi_beacon",
+    "op": "delete",
+    "path": "/rid_units/0/basic_ids/0",
+    "value": null
+  },
+  {
+    "case": "lost_repeated_ID",
+    "phase": "P0",
+    "kind": "observation",
+    "seed": "wifi_beacon",
+    "op": "delete",
+    "path": "/rid_units/0/basic_ids/0",
+    "value": null
+  },
+  {
+    "case": "overbroad_Globe_hide:hardware_serial",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "overbroad_Globe_hide:operator_id",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "overbroad_Globe_hide:operator",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  },
+  {
+    "case": "operator_ID_display_missing",
+    "phase": "P2",
+    "reason": "Actual browser or named lake-column behavior; P0 model tests do not establish this later-phase outcome."
+  }
+]

@@ -8,8 +8,8 @@ on `feat/wire-v5-p0`. It specifies future acceptance; it does not claim P0 passe
 
 Engine baseline: `cybrrd/brrdfeeder` main
 `9faae55f53e27cea198401ee34b4c66c1898666a`.
-Design baseline: CYB1 `7efcb75d61f19cae2fb6b391d1a7a7249f69938a`,
-`Standards/CBOS/proposals/wire-v5/` and the wire-v5 program's `DESIGN.md`.
+Design baseline: the ratified internal wire v5 design baseline (its contract,
+semantics, encoding, maps and fixtures are listed below).
 The 2026-11-16 P0 dispatch authorizes this development branch; the design alone
 does not authorize implementation or deployment. The current checkpoint ends
 after registration and reporting, before implementation.
@@ -125,3 +125,10 @@ The two empty doc-test targets provide no coverage and are not counted as passes
 An existing unused-test-helper warning remains. Engine tests were not run at
 this documentation-only checkpoint. P0 implementation tests executed: 0;
 P0 golden families passed: 0/11. These are pending, not successful zero-test runs.
+
+## Post-registration edit
+
+2026-11-16, after implementation: the design-baseline line near the top was
+reworded to remove an internal repository name, commit and path. No acceptance
+criterion, gate, denominator or scope changed. The original wording is in this
+branch's first commit.

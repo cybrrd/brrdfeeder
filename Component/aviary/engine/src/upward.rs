@@ -146,11 +146,33 @@ impl UpdateOutcome {
     }
 }
 
+/// Additive operational diagnostics. Counts are cumulative since process start,
+/// including across controller restarts; long_range resets on controller change.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct BluetoothReport {
+    long_range: crate::rid_ble::LongRange,
+    rejects: std::collections::BTreeMap<String, u64>,
+    unassociated_dropped: u64,
+}
+impl BluetoothReport {
+    fn snapshot() -> Self {
+        Self::from_counts(crate::rid_ble::LongRange::current(),
+            cybrrd_rid_protocol::ble::reject_counts(),
+            cybrrd_rid_protocol::ble::unassociated_dropped_total())
+    }
+    fn from_counts(long_range: crate::rid_ble::LongRange, counts: [u64; 7], unassociated_dropped: u64) -> Self {
+        let names = ["truncated_ad", "no_signature", "bad_payload", "pack_count", "core_decode", "no_location", "unsupported_transport"];
+        Self { long_range, rejects: names.into_iter().zip(counts).map(|(k,v)|(k.into(),v)).collect(), unassociated_dropped }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "schema")]
 enum Message {
     #[serde(rename = "cybrrd.node.operational.v1")]
-    Operational { image_digest: Option<String>, engine_version: Option<String>, build_seq: Option<u64>, health: Health,
+    Operational {
+        #[serde(default, skip_serializing_if = "Option::is_none")] bluetooth: Option<BluetoothReport>,
+        image_digest: Option<String>, engine_version: Option<String>, build_seq: Option<u64>, health: Health,
         #[serde(default, skip_serializing_if = "Option::is_none")] telemetry_gap: Option<crate::telemetry_loss::Gap>,
         #[serde(default, skip_serializing_if = "Option::is_none")] credential_renewal: Option<crate::credential_renewal::Report>,
         #[serde(default, skip_serializing_if = "Option::is_none")] update: Option<UpdateOutcome> },
@@ -495,12 +517,12 @@ impl Handle {
         // Emit one cumulative report per affected boundary. The optional object
         // has the same shape in Red and Silver; existing fields stay unchanged.
         for gap in &gaps {
-            if !self.operational.enqueue(self.record(Message::Operational { image_digest: identity.image_digest.clone(),
+            if !self.operational.enqueue(self.record(Message::Operational { bluetooth: Some(BluetoothReport::snapshot()), image_digest: identity.image_digest.clone(),
                 engine_version:identity.engine_version.clone(),build_seq:identity.build_seq,health:health.clone(),update:update.clone(),
                 credential_renewal:Some(crate::credential_renewal::snapshot()),telemetry_gap:Some(gap.clone())},trusted)) {return false;}
         }
         if !gaps.is_empty() {return true;}
-        self.operational.enqueue(self.record(Message::Operational { image_digest: identity.image_digest.clone(),
+        self.operational.enqueue(self.record(Message::Operational { bluetooth: Some(BluetoothReport::snapshot()), image_digest: identity.image_digest.clone(),
             engine_version: identity.engine_version.clone(), build_seq: identity.build_seq, health, update, telemetry_gap: None, credential_renewal: Some(crate::credential_renewal::snapshot()) }, trusted))
     }
     pub fn alarm(&self, code: Distress, clock_trusted: bool) -> bool {

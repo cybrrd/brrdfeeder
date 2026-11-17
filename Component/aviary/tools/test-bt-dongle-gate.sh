@@ -38,8 +38,15 @@ dry_output=$("$gate" --dry-run 2>&1)
 dry_rc=$?
 set -e
 
-[[ $reject_rc -ne 0 ]] && grep -q 'REJECT 0bda:a728: broken extended scan' <<<"$reject_output"
+[[ $reject_rc -eq 0 ]] && grep -q '^PASS 0bda:a728 hci0 ' <<<"$reject_output"
 [[ $unknown_rc -ne 0 ]] && grep -q -- '--- dmesg btusb/btrtl lines ---' <<<"$unknown_output" && grep -q 'STOP unclassified' <<<"$unknown_output"
 [[ $dry_rc -ne 0 ]] && grep -q 'does not touch the adapter' <<<"$dry_output"
 
-printf 'PASS bt-dongle-gate fixtures: accept=876e,8771 stop=a728 stop=unknown dry-run=no-touch\n'
+# Features do not prove reception, and lack of Coded support does not revoke USB admission.
+grep -q 'long_range=not_yet_observed' <<<"$pass_output"
+sed -i 's/coded_phy=True extended_adv=True/coded_phy=False extended_adv=False/' "$tmp/probe.py"
+legacy_only=$(run_gate "$tmp/rejected.lsusb")
+grep -q '^PASS 0bda:a728 hci0 ' <<<"$legacy_only"
+grep -q 'long_range=not_yet_observed' <<<"$legacy_only"
+
+printf 'PASS bt-dongle-gate fixtures: accept=876e,8771,a728 stop=unknown dry-run=no-touch\n'

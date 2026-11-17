@@ -60,6 +60,7 @@ struct CaptureInterface {
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct BleInventory {
+    pub long_range: crate::rid_ble::LongRange,
     pub bd_addr: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usb_id: Option<String>,
@@ -82,6 +83,7 @@ pub struct BleInventory {
 
 impl BleInventory {
     pub fn refresh(&mut self) {
+        self.long_range = crate::rid_ble::LongRange::current();
         if let Some(health) = &self.health {
             let health = health.load();
             self.state = Some(health.state);
@@ -193,6 +195,7 @@ struct Meaningful {
     capture: Vec<(String, Option<bool>)>,
     rfkill: Option<(bool, bool)>,
     ble_state: Option<crate::sensor::SensorState>,
+    ble_long_range: Option<crate::rid_ble::LongRange>,
     ble_enabled: Option<bool>,
     ble_reason: Option<String>,
     current_rfkill: Option<(bool, bool)>,
@@ -232,6 +235,7 @@ impl StatusPayload<'_> {
                 .and_then(|b| b.rfkill.as_ref())
                 .map(|r| (r.soft_blocked, r.hard_blocked)),
             ble_state: self.inventory.rid_ble.as_ref().and_then(|b| b.state),
+            ble_long_range: self.inventory.rid_ble.as_ref().map(|b| b.long_range),
             ble_enabled: self.inventory.rid_ble.as_ref().and_then(|b| b.enabled),
             ble_reason: self
                 .inventory
@@ -695,6 +699,7 @@ mod tests {
             "inventory.gps.error_count",
             "inventory.gps.detail",
             "inventory.rid_ble",
+            "inventory.rid_ble.long_range",
             "inventory.rid_ble.bd_addr",
             "inventory.rid_ble.usb_id",
             "inventory.rid_ble.observed_at",

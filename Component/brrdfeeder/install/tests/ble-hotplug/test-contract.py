@@ -28,15 +28,15 @@ class Hotplug(unittest.TestCase):
         h=self.hci/f'hci{index}'
         (h/'address').write_text(f'AA:BB:CC:DD:EE:{index:02X}')
     def test_finite_allowlist_admission_and_reason(self):
-        self.assertEqual(set(ble.SUPPORTED), {'0bda:876e','0bda:8771'})
+        self.assertEqual(set(ble.SUPPORTED), {'0bda:876e','0bda:8771','0bda:a728'})
         for index,usb in enumerate(('0bda:876e','0bda:8771','0bda:a728','0bda:ffff','1234:5678','0e8d:7961')):
             with self.subTest(usb=usb):
                 self.adapter(index,usb)
                 for pin in ({'usb_id':usb},{'bd_addr':f'AA:BB:CC:DD:EE:{index:02X}'}):
-                    if usb in ('0bda:876e','0bda:8771'):
+                    if usb in ('0bda:876e','0bda:8771','0bda:a728'):
                         self.assertEqual(ble.selected_controller(pin)[0],index)
                     else:
-                        with self.assertRaisesRegex(ValueError,'broken extended scan.*Coded-PHY' if usb=='0bda:a728' else 'exactly one'):
+                        with self.assertRaisesRegex(ValueError,'exactly one'):
                             ble.selected_controller(pin)
         self.assertFalse(self.receipt.exists());self.assertFalse(self.systemd.calls)
         ble.controller_down.assert_not_called()
@@ -247,7 +247,7 @@ class Wiring(unittest.TestCase):
     def test_udev_exact_allowlist_add_only(self):
         for path in [INSTALL/'brrdfeeder-install.sh',ROOT/'Component/aviary/deploy/udev/99-cybrrd-brrdfeeder.rules']:
             rules=[line for line in path.read_text().splitlines() if 'SYSTEMD_WANTS' in line and 'ble-takeover' in line]
-            self.assertEqual(len(rules),2)
+            self.assertEqual(len(rules),3)
             ids=set()
             for line in rules:
                 self.assertIn('ACTION=="add"',line); self.assertIn('SUBSYSTEM=="bluetooth"',line)
@@ -255,7 +255,7 @@ class Wiring(unittest.TestCase):
                 p=re.search(r'ATTRS\{idProduct\}=="([0-9a-f]{4})"',line)
                 self.assertIsNotNone(v); self.assertIsNotNone(p); ids.add(v[1]+':'+p[1])
                 self.assertNotIn('RUN',line)
-            self.assertEqual(ids,{'0bda:876e','0bda:8771'})
+            self.assertEqual(ids,{'0bda:876e','0bda:8771','0bda:a728'})
     def test_service_timer_mount_and_uninstall(self):
         installer=(INSTALL/'brrdfeeder-install.sh').read_text(); uninstall=(INSTALL/'uninstall.sh').read_text()
         for ext in ['service','timer']:

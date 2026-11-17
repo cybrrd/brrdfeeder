@@ -4,7 +4,7 @@
 
 ## 0.9.1 — Unreleased Bluetooth hotplug candidate
 
-- Correct B16 Bluetooth admission to 0bda:876e/0bda:8771; refuse a728 for broken extended scan (no Coded-PHY RID). 8771 native Coded-PHY capture remains pending.
+- Admit Bluetooth 0bda:876e/0bda:8771/0bda:a728; report observed long-range capability and retain legacy capture after extended-scan refusal. Add cumulative Bluetooth decoder/drop diagnostics to operational reports. 8771 native proof remains pending.
 
 - Missing RID.BLE configuration now means enabled intent with automatic supported
   adapter selection; explicit off remains off. Existing explicit sections keep

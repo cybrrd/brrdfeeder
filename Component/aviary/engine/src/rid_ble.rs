@@ -20,10 +20,33 @@ use crate::audit::{SubstrateAuditEvent, KITTLER_LINEAGE};
 use crate::node_config::{BleAdapterYaml, RidBleYaml};
 use crate::sensor::{now_unix_ms, Sensor, SensorContext, SensorHandle, SensorHealth, SensorState};
 
-const SUPPORTED_USB: [&str; 2] = ["0bda:876e", "0bda:8771"];
+const SUPPORTED_USB: [&str; 3] = ["0bda:876e", "0bda:8771", "0bda:a728"];
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LongRange {
+    #[default]
+    NotYetObserved,
+    Observed,
+    Unavailable,
+}
+static LONG_RANGE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+impl LongRange {
+    pub fn current() -> Self {
+        match LONG_RANGE.load(std::sync::atomic::Ordering::Relaxed) {
+            1 => Self::Observed,
+            2 => Self::Unavailable,
+            _ => Self::NotYetObserved,
+        }
+    }
+    fn publish(self) {
+        LONG_RANGE.store(match self { Self::NotYetObserved => 0, Self::Observed => 1, Self::Unavailable => 2 }, std::sync::atomic::Ordering::Relaxed);
+    }
+    fn observe(&mut self, meta: BleMeta) {
+        if meta.phy == BlePhy::LeCoded { *self = Self::Observed; }
+    }
+}
+
 const RESCAN: Duration = Duration::from_secs(5);
-const A728_REFUSAL: &str =
-    "0bda:a728: broken extended scan (BTUSB_BROKEN_EXT_SCAN); no Coded-PHY RID reception";
 const HCI_SYSFS: &str = "/sys/class/bluetooth";
 const OWNERSHIP_CONFLICT: &str = "/run/brrdfeeder-bluetooth/conflict";
 const CONFLICT_REASON: &str = "Bluetooth ownership conflict: bluetooth.service was started or unmasked after the RID.BLE claim; leave it under operator control. Set sensors.rid_ble.enabled: false, or explicitly reclaim with sudo /usr/local/libexec/brrdfeeder-bluetooth apply.";
@@ -106,6 +129,7 @@ impl Sensor for RidBle {
 
 impl RidBle {
     fn inventory(&self, controller: Option<&Controller>, health: &Arc<ArcSwap<SensorHealth>>) {
+        LongRange::NotYetObserved.publish();
         self.1.store(Some(Arc::new(crate::status::BleInventory {
             enabled: Some(self.0.enabled),
             bd_addr: controller.map(|c| c.address.clone()).unwrap_or_default(),
@@ -255,24 +279,9 @@ impl RidBle {
                 .ok_or_else(|| io::Error::other("short LE features"))?;
             let coded = flags & 0x08 != 0;
             let extended = flags & 0x10 != 0;
-            if coded && !extended {
-                return Err(io::Error::other("Coded RX without extended scanning"));
-            }
-            println!(
-                "[rid_ble] hci{index} detected PHY=1M{}; exclusive passive scan",
-                if coded { "+Coded" } else { "" }
-            );
             socket.command(0x0c01, &[0xff; 8]).await?; // Event mask includes LE Meta.
-            socket
-                .command(
-                    0x2001,
-                    &[2, if extended { 0x10 } else { 0 }, 0, 0, 0, 0, 0, 0],
-                )
-                .await?;
-            let (opcode, params) = scan_parameters(extended, coded);
-            socket.command(opcode, &params).await?;
-            let (enable_op, enable) = scan_enable(extended, true);
-            socket.command(enable_op, &enable).await?;
+            let (extended, range) = configure_scan(&socket, extended, coded).await?;
+            range.publish();
             Ok::<_, io::Error>((socket, extended))
         };
         let (socket, extended) = tokio::select! {
@@ -310,13 +319,17 @@ impl RidBle {
                     if packet.get(..2) == Some(&[4, 0x10]) {
                         return Err(io::Error::other("HCI hardware error"));
                     }
-                    let (seen, reports) = advertising_reports(&packet)?;
+                    let (seen, reports, coded_report) = advertising_reports(&packet)?;
+                    if coded_report { LongRange::Observed.publish(); }
                     if seen > 0 {
                         self.2.record(seen as u64);
                         last_ad = Instant::now();
                         transition(ctx, health, SensorState::Healthy, None, true);
                     }
                     for report in reports {
+                        let mut range = LongRange::current();
+                        range.observe(report.meta);
+                        range.publish();
                         match tx.try_send(report) {
                             Ok(()) => {},
                             Err(mpsc::error::TrySendError::Closed(_)) => return Ok(()),
@@ -376,6 +389,40 @@ fn transition(
 
 // BlueZ monitor/bt.h: scan type 0 = passive, duplicate filtering OFF.
 // Parameters use 0x0060 (60 ms) interval/window, public own address, no filter.
+trait ScanCommands {
+    fn scan_command(&self, opcode: u16, params: &[u8]) -> impl Future<Output = io::Result<Vec<u8>>> + Send;
+}
+impl ScanCommands for HciSocket {
+    async fn scan_command(&self, opcode: u16, params: &[u8]) -> io::Result<Vec<u8>> {
+        self.command(opcode, params).await
+    }
+}
+
+// Feature bits choose commands, never prove reception. A controller that refuses
+// extended setup still gets the unchanged passive legacy scan parameters.
+async fn configure_scan(socket: &impl ScanCommands, extended: bool, coded: bool) -> io::Result<(bool, LongRange)> {
+    async fn start(socket: &impl ScanCommands, extended: bool, coded: bool) -> io::Result<()> {
+        socket.scan_command(0x2001, &[2, if extended { 0x10 } else { 0 }, 0, 0, 0, 0, 0, 0]).await?;
+        let (opcode, params) = scan_parameters(extended, coded);
+        socket.scan_command(opcode, &params).await?;
+        let (opcode, params) = scan_enable(extended, true);
+        socket.scan_command(opcode, &params).await?;
+        Ok(())
+    }
+    if extended {
+        match start(socket, true, coded).await {
+            Ok(()) => return Ok((true, LongRange::NotYetObserved)),
+            Err(error) => {
+                eprintln!("[rid_ble] extended scan unavailable ({error}); continuing with legacy scan");
+                let (opcode, params) = scan_enable(true, false);
+                let _ = socket.scan_command(opcode, &params).await;
+            }
+        }
+    }
+    start(socket, false, false).await?;
+    Ok((false, LongRange::Unavailable))
+}
+
 fn scan_parameters(extended: bool, coded: bool) -> (u16, Vec<u8>) {
     if extended {
         let mut p = vec![0, 0, if coded { 5 } else { 1 }];
@@ -399,20 +446,21 @@ fn scan_enable(extended: bool, enabled: bool) -> (u16, Vec<u8>) {
 
 /// Return ALL advertising-report count for health, plus eligible complete ADs.
 /// Fragmented/truncated extended data is refused (no guessed reassembly).
-fn advertising_reports(packet: &[u8]) -> io::Result<(usize, Vec<Advertisement>)> {
+fn advertising_reports(packet: &[u8]) -> io::Result<(usize, Vec<Advertisement>, bool)> {
     let mut out = Vec::new();
     if packet.get(..2) != Some(&[4, 0x3e]) {
-        return Ok((0, out));
+        return Ok((0, out, false));
     }
     if packet.len() < 5 || usize::from(packet[2]) + 3 != packet.len() {
         return Err(io::Error::other("malformed LE event length"));
     }
     let kind = packet[3];
     if kind != 2 && kind != 0x0d {
-        return Ok((0, out));
+        return Ok((0, out, false));
     }
     let count = usize::from(packet[4]);
     let mut cursor = 5;
+    let mut coded_observed = false;
     for _ in 0..count {
         let header_len = if kind == 2 { 9 } else { 24 };
         let h = packet
@@ -439,7 +487,8 @@ fn advertising_reports(packet: &[u8]) -> io::Result<(usize, Vec<Advertisement>)>
         } else {
             let flags = u16::from_le_bytes([h[0], h[1]]);
             let legacy = flags & 0x10 != 0;
-            let coded = h[10] == 3;
+            let coded = h[9] == 3 || h[10] == 3;
+            coded_observed |= coded;
             (
                 &h[3..9],
                 h[13] as i8,
@@ -466,7 +515,7 @@ fn advertising_reports(packet: &[u8]) -> io::Result<(usize, Vec<Advertisement>)>
     if cursor != packet.len() {
         return Err(io::Error::other("trailing advertising bytes"));
     }
-    Ok((count, out))
+    Ok((count, out, coded_observed))
 }
 
 fn check_ownership(conflict: &Path) -> io::Result<()> {
@@ -536,13 +585,6 @@ fn select_adapter_with(
     identity: &BleAdapterYaml,
     address_of: impl Fn(u16, &Path) -> io::Result<String>,
 ) -> io::Result<Controller> {
-    if identity
-        .usb_id
-        .as_deref()
-        .is_some_and(|id| id.eq_ignore_ascii_case("0bda:a728"))
-    {
-        return Err(io::Error::other(A728_REFUSAL));
-    }
     let entries = match std::fs::read_dir(root) {
         Ok(entries) => Some(entries),
         Err(error) if error.kind() == io::ErrorKind::NotFound => None,
@@ -613,10 +655,7 @@ fn select_adapter_with(
             format!(
                 "hci{} {}",
                 controller.index,
-                match controller.usb_id.as_deref() {
-                    Some("0bda:a728") => A728_REFUSAL,
-                    other => other.unwrap_or("unknown USB identity"),
-                }
+                controller.usb_id.as_deref().unwrap_or("unknown USB identity")
             )
         })
         .collect();
@@ -831,7 +870,7 @@ mod tests {
     #[test]
     fn verify_req_brrd_014_ad_reports_preserve_phy_and_refuse_fragments() {
         let legacy = [4, 0x3e, 13, 2, 1, 3, 0, 6, 5, 4, 3, 2, 1, 1, 0, 200];
-        let (count, ads) = advertising_reports(&legacy).unwrap();
+        let (count, ads, _) = advertising_reports(&legacy).unwrap();
         assert_eq!(count, 1);
         assert_eq!(ads[0].addr, [1, 2, 3, 4, 5, 6]);
         assert_eq!(ads[0].rssi, -56);
@@ -844,10 +883,10 @@ mod tests {
         h[23] = 1;
         ext.extend_from_slice(&h);
         ext.push(0);
-        let (_, ads) = advertising_reports(&ext).unwrap();
+        let (_, ads, _) = advertising_reports(&ext).unwrap();
         assert_eq!(ads[0].meta.phy, BlePhy::LeCoded);
         ext[5] = 0x20;
-        let (count, ads) = advertising_reports(&ext).unwrap();
+        let (count, ads, _) = advertising_reports(&ext).unwrap();
         assert_eq!(count, 1);
         assert!(ads.is_empty());
         for n in 2..legacy.len() {
@@ -904,3 +943,74 @@ mod tests {
 #[cfg(test)]
 #[path = "rid_ble_hotplug_tests.rs"]
 mod hotplug_tests;
+
+#[cfg(test)]
+mod bluetooth_diagnostics_tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    struct Fake { fail: Option<u16>, calls: Mutex<Vec<(u16, Vec<u8>)>> }
+    impl ScanCommands for Fake {
+        async fn scan_command(&self, op: u16, bytes: &[u8]) -> io::Result<Vec<u8>> {
+            self.calls.lock().unwrap().push((op, bytes.to_vec()));
+            if self.fail == Some(op) { Err(io::Error::other("controller refused")) } else { Ok(vec![0]) }
+        }
+    }
+    #[tokio::test]
+    async fn extended_refusals_continue_legacy_capture() {
+        for fail in [None, Some(0x2041), Some(0x2042)] {
+            let socket = Fake { fail, calls: Mutex::new(Vec::new()) };
+            let (extended, range) = configure_scan(&socket, true, true).await.unwrap();
+            assert_eq!(extended, fail.is_none());
+            assert_eq!(range, if extended { LongRange::NotYetObserved } else { LongRange::Unavailable });
+            let calls = socket.calls.lock().unwrap();
+            let expected = if extended { scan_enable(true,true) } else { scan_enable(false,true) };
+            assert_eq!(calls.last(), Some(&expected));
+            if !extended { assert!(calls.contains(&scan_parameters(false,false))); }
+        }
+        // Misleading Coded feature bit without extended support still captures.
+        let socket = Fake { fail: None, calls: Mutex::new(Vec::new()) };
+        assert_eq!(configure_scan(&socket, false, true).await.unwrap(), (false, LongRange::Unavailable));
+        assert_eq!(socket.calls.lock().unwrap().last(), Some(&scan_enable(false,true)));
+        // Loss of the controller is still a real error if legacy also fails.
+        let socket = Fake { fail: Some(0x2001), calls: Mutex::new(Vec::new()) };
+        assert!(configure_scan(&socket, true, true).await.is_err());
+    }
+    #[test]
+    fn long_range_requires_reports_and_resets() {
+        let mut range = LongRange::default();
+        assert_eq!(range, LongRange::NotYetObserved);
+        range.observe(BleMeta { phy: BlePhy::Le1M, extended: false });
+        assert_eq!(range, LongRange::NotYetObserved);
+        range.observe(BleMeta { phy: BlePhy::Le1M, extended: true });
+        assert_eq!(range, LongRange::NotYetObserved);
+        range = LongRange::default();
+        range.observe(BleMeta { phy: BlePhy::LeCoded, extended: false });
+        assert_eq!(range, LongRange::Observed);
+        range = LongRange::Unavailable;
+        range.observe(BleMeta { phy: BlePhy::Le1M, extended: false });
+        assert_eq!(range, LongRange::Unavailable);
+        let inventory = crate::status::BleInventory::default();
+        assert_eq!(serde_json::to_value(inventory).unwrap()["long_range"], "not_yet_observed");
+        let mut ext = vec![4, 0x3e, 27, 0x0d, 1];
+        let mut h = [0u8;24]; h[9]=1; h[10]=1; h[13]=200; h[23]=1;
+        ext.extend(h); ext.push(0);
+        let (_, ads, observed) = advertising_reports(&ext).unwrap();
+        assert!(!observed); assert!(ads.is_empty()); // extended 1M never proves long range
+        for (primary,secondary) in [(1,3),(3,0)] {
+            ext[14]=primary; ext[15]=secondary;
+            assert!(advertising_reports(&ext).unwrap().2);
+        }
+        let empty = [4, 0x3e, 2, 0x0d, 0];
+        assert!(!advertising_reports(&empty).unwrap().2);
+        assert!(advertising_reports(&ext[..ext.len()-1]).is_err());
+        let sensor = RidBle(RidBleYaml::absent(), Arc::new(arc_swap::ArcSwapOption::empty()), Arc::new(crate::status::FrameActivity::default()));
+        let health = Arc::new(ArcSwap::from_pointee(SensorHealth::initializing("rid_ble")));
+        LongRange::Observed.publish();
+        sensor.inventory(None, &health);
+        assert_eq!(LongRange::current(), LongRange::NotYetObserved);
+        LongRange::Unavailable.publish();
+        sensor.inventory(None, &health);
+        assert_eq!(LongRange::current(), LongRange::NotYetObserved);
+    }
+}

@@ -20,7 +20,7 @@ requires actual advertisements, not just a successful takeover. An unsupported
 adapter is named with the recommended IDs; ambiguous matches refuse. A missing
 pin names present hardware and suggests `sensors.rid_ble.adapter: {}` or a new pin.
 
-The HCI ADD rules match only 0bda:876e / 0bda:8771. A system timer repeats the
+The HCI ADD rules match only 0bda:876e / 0bda:8771 / 0bda:a728. A system timer repeats the
 oneshot helper every five seconds to cover delayed setup/missed events and
 observe an operator unmask/start. Helpers serialize apply/restore with a root-only
 runtime lock. A saved receipt plus running/unmasked bluetoothd latches a conflict;
@@ -65,14 +65,14 @@ view and `journalctl -u brrdfeeder-ble-takeover -u brrdfeeder-engine` for eviden
 1. Install without a supported adapter and with bluetooth.service running/unmasked.
    Verify the automatic-activation message, absent key, no receipt and unchanged
    bluetoothd. Capture the config SHA256.
-2. Plug one 0bda:876e (repeat with 0bda:8771). Observe udev/oneshot invocation, receipt
+2. Plug one 0bda:876e (repeat with 0bda:a728; 8771 is remote observation only). Observe udev/oneshot invocation, receipt
    written before stop/disable/mask, and engine binding without InvocationID/PID
    change. Confirm config hash unchanged. With a known legal RID transmitter or
    BLE advertiser, require Healthy plus increasing frames; do not accept bind alone.
 3. Unplug: require waiting/impaired coverage and cleared selected-adapter inventory.
    Replug: require automatic Healthy/frames recovery and the same engine invocation.
 4. Remove supported hardware; insert an unsupported HCI adapter. Require its actual
-   VID:PID and 0bda:876e / 0bda:8771 recommendation. It must not be claimed. Plug a
+   VID:PID and 0bda:876e / 0bda:8771 / 0bda:a728 recommendation. It must not be claimed. Plug a
    supported replacement and verify recovery.
 5. Set `sensors.rid_ble.enabled: false`. Observe receipt-based restoration and engine
    restart; verify Disabled locally. Unplug/replug twice: no claim/mask and BLE stays
@@ -102,8 +102,7 @@ until these steps run on the candidate; hardware-free tests do not replace it.
 
 ## Adapter qualification for 0.9.1
 
-Only 0bda:876e and 0bda:8771 are admitted. 8771 is
-**allowed-pending-native-Coded-PHY-proof**, not listed-supported until actual
-Coded-PHY RID capture on brrdg2s2. 0bda:a728 is refused for broken extended scan
-(`BTUSB_BROKEN_EXT_SCAN`); no Coded-PHY RID reception. A feature-bit probe or
-Healthy/ordinary advertisement is not that proof. See [adapter matrix](specs/evidence/ble-adapters.md).
+Only 0bda:876e, 0bda:8771 and 0bda:a728 are admitted. Long-range reception is
+reported from observed Coded-PHY reports, never from chip identity or feature
+bits. Refused extended scanning falls back to legacy capture. 8771 native proof
+remains pending at its remote site. See the [adapter matrix and diagnostic semantics](specs/evidence/ble-adapters.md).

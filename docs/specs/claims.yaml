@@ -81,7 +81,7 @@
       "id": "H04",
       "section": "requirements",
       "title": "Standard Bluetooth receiver",
-      "value": "USB 0bda:876e; 0bda:8771 allowed-pending-native-Coded-PHY-proof; LE Coded PHY required",
+      "value": "USB 0bda:876e, 0bda:8771, 0bda:a728; long range observed per controller lifetime",
       "unit": "profile",
       "scope": "0.9-beta",
       "status": "target",
@@ -96,7 +96,7 @@
         "scenario": "RF acceptance: record USB identity, firmware, detected PHY and actual legacy/Coded reception.",
         "receipt": null
       },
-      "note": "0.9.1 correction: 8771 is not listed-supported until actual Coded-PHY RID capture on brrdg2s2. a728 is refused: broken extended scan (BTUSB_BROKEN_EXT_SCAN), no Coded-PHY RID. Recognized IDs alone are not reception proof; see evidence/ble-adapters.md.",
+      "note": "0.9.1: all three IDs admitted; 8771 native proof remains pending. Extended-scan refusal retains legacy reception. Recognized IDs alone are not reception proof; see evidence/ble-adapters.md.",
       "semantics": "expectation"
     },
     {

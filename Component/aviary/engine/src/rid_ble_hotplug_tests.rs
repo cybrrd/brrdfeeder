@@ -32,7 +32,7 @@ impl Drop for Tree {
 }
 #[test]
 fn hotplug_finite_allowlist_and_a728_reason() {
-    assert_eq!(SUPPORTED_USB.as_slice(), &["0bda:876e", "0bda:8771"]);
+    assert_eq!(SUPPORTED_USB.as_slice(), &["0bda:876e", "0bda:8771", "0bda:a728"]);
     for usb in [
         "0bda:876e",
         "0bda:8771",
@@ -55,15 +55,11 @@ fn hotplug_finite_allowlist_and_a728_reason() {
             },
         ] {
             let result = select_adapter_at(&t.0, &identity);
-            if matches!(usb, "0bda:876e" | "0bda:8771") {
+            if matches!(usb, "0bda:876e" | "0bda:8771" | "0bda:a728") {
                 assert_eq!(result.unwrap().usb_id.as_deref(), Some(usb));
             } else {
                 let reason = result.unwrap_err().to_string();
                 assert!(reason.contains(usb));
-                if usb == "0bda:a728" {
-                    assert!(reason.contains("broken extended scan"));
-                    assert!(reason.contains("Coded-PHY"));
-                }
             }
         }
     }

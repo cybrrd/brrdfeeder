@@ -173,13 +173,12 @@ class BLE(unittest.TestCase):
         self.adapter(); self.adapter('1-3','0bda:8771')
         with self.assertRaisesRegex(ValueError,'multiple'): ble.apply()
         self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
-    def test_a728_broken_extended_scan_stays_disabled(self):
-        self.adapter(identity='0bda:a728'); before=self.config.read_bytes()
+    def test_a728_admitted_with_ownership_receipt(self):
+        self.adapter(identity='0bda:a728')
         ble.apply()
-        self.assertIn('broken extended scan',self.log.getvalue())
-        self.assertIn('Coded-PHY',self.log.getvalue())
-        self.assertEqual(self.config.read_bytes(),before)
-        self.assertFalse(self.receipt.exists()); self.assertFalse(self.systemd.calls)
+        self.assertTrue(self.receipt.exists())
+        self.assertEqual(yaml.safe_load(self.config.read_text())['sensors']['rid_ble']['adapter'], {'usb_id':'0bda:a728'})
+        self.assertEqual((self.systemd.enabled,self.systemd.active),('masked',False))
     def test_dry_run_no_mutation_and_no_receipt(self):
         self.adapter(); before=self.config.read_bytes(); ble.apply(dry=True)
         self.assertEqual(self.config.read_bytes(),before); self.assertFalse(self.receipt.exists())

@@ -42,10 +42,10 @@ done
 if [[ $dry_run -eq 1 ]]; then
   printf '%s\n' \
     'CHECK bench attestation and refuse an active fleet engine' \
-    'CHECK lsusb Realtek PID: 876e/8771 proceed; all other IDs stop' \
+    'CHECK lsusb Realtek PID: 876e/8771/a728 proceed; all other IDs stop' \
     'CHECK dmesg btusb/btrtl loaded rtl8761bu firmware' \
     'CHECK choose one HCI index and run hci-user-probe.py via USER channel' \
-    'CHECK require coded_phy=True, extended_adv=True, and PROBE OK' \
+    'CHECK record feature diagnostics and require PROBE OK; long range needs observed Coded reports' \
     'STOP dry-run does not touch the adapter and does not certify PASS'
   exit 2
 fi
@@ -76,8 +76,7 @@ accepted=()
 for usb_id in "${realtek_ids[@]}"; do
   pid=${usb_id#0bda:}
   case "$pid" in
-    876e|8771) accepted+=("$usb_id") ;;
-    a728) reject "0bda:a728: broken extended scan (BTUSB_BROKEN_EXT_SCAN); no Coded-PHY RID reception" ;;
+    876e|8771|a728) accepted+=("$usb_id") ;;
     *)
       printf '%s\n' '--- dmesg btusb/btrtl lines ---' >&2
       if [[ -n $dmesg_file && -r $dmesg_file ]]; then
@@ -116,8 +115,6 @@ probe_rc=$?
 set -e
 printf '%s\n' "$probe_output"
 [[ $probe_rc -eq 0 ]] || reject "hci-user-probe.py exited $probe_rc"
-printf '%s\n' "$probe_output" | grep -q 'coded_phy=True' || reject "controller does not report LE Coded PHY"
-printf '%s\n' "$probe_output" | grep -q 'extended_adv=True' || reject "controller does not report extended advertising"
 printf '%s\n' "$probe_output" | grep -q '^PROBE OK$' || reject "probe did not reach PROBE OK"
 
-printf 'PASS %s hci%s rtl8761bu USER-channel feature check only; native Coded-PHY capture PENDING\n' "${accepted[0]}" "$hci_index"
+printf 'PASS %s hci%s rtl8761bu USER-channel feature check only; long_range=not_yet_observed\n' "${accepted[0]}" "$hci_index"

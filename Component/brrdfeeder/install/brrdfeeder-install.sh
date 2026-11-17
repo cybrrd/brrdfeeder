@@ -3478,11 +3478,9 @@ for ble_device in /sys/bus/usb/devices/*; do
   if [[ -r "$ble_device/idVendor" && -r "$ble_device/idProduct" ]]; then
     read -r ble_vendor < "$ble_device/idVendor" || continue
     read -r ble_product < "$ble_device/idProduct" || continue
-    if [[ ${ble_vendor,,}:${ble_product,,} == 0bda:876e || ${ble_vendor,,}:${ble_product,,} == 0bda:8771 ]]; then
+    if [[ ${ble_vendor,,}:${ble_product,,} == 0bda:876e || ${ble_vendor,,}:${ble_product,,} == 0bda:8771 || ${ble_vendor,,}:${ble_product,,} == 0bda:a728 ]]; then
       HAVE_REALTEK=1
       ok "Allowed RID.BLE adapter found: Realtek USB ${ble_vendor,,}:${ble_product,,}; missing config key will be enabled before service startup."
-    elif [[ ${ble_vendor,,}:${ble_product,,} == 0bda:a728 ]]; then
-      warn "0bda:a728: broken extended scan (BTUSB_BROKEN_EXT_SCAN); no Coded-PHY RID reception"
     fi
   fi
 done
@@ -3942,6 +3940,7 @@ KERNEL=="rfkill", SUBSYSTEM=="misc", GROUP="dialout", MODE="0660"
 # BRRDfeeder supported Bluetooth hotplug; never match arbitrary USB adapters.
 ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="876e", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-ble-takeover.service"
 ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="8771", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-ble-takeover.service"
+ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="a728", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-ble-takeover.service"
 EOF
 )
 
@@ -5482,8 +5481,7 @@ RECEIPT = Path('/etc/brrdfeeder/.bluetooth-prior.json')
 USB = Path('/sys/bus/usb/devices')
 HCI = Path('/sys/class/bluetooth')
 DEVICES = Path('/sys/devices')
-SUPPORTED = ('0bda:876e', '0bda:8771')  # finite allowlist; no HCI discovery
-A728_REFUSAL = '0bda:a728: broken extended scan (BTUSB_BROKEN_EXT_SCAN); no Coded-PHY RID reception'
+SUPPORTED = ('0bda:876e', '0bda:8771', '0bda:a728')  # finite allowlist; no HCI discovery
 UNIT = 'bluetooth.service'
 ENGINE = 'brrdfeeder-engine.service'
 STATUS = Path('/var/lib/brrdfeeder-status/status.json')
@@ -5670,12 +5668,10 @@ def inventory():
         if identity in SUPPORTED:
             found.append(identity)
             say('allowed RID.BLE adapter: Realtek USB '+identity)
-        elif identity == '0bda:a728':
-            say(A728_REFUSAL)
     for path in sorted(HCI.glob('hci*')):
         identity = controller_usb_id(path)
         if identity and identity not in SUPPORTED:
-            say('unsupported Bluetooth adapter '+identity+'; '+(A728_REFUSAL+'; ' if identity == '0bda:a728' else '')+'recommended: '+', '.join(SUPPORTED))
+            say('unsupported Bluetooth adapter '+identity+'; '+'recommended: '+', '.join(SUPPORTED))
     if not found:
         say('Bluetooth will activate automatically when a supported adapter is plugged in ('+', '.join(SUPPORTED)+'); no HCI probe performed')
     return found
@@ -5770,7 +5766,6 @@ def controller_address(path, index):
 def selected_controller(adapter):
     """Only sysfs identity, never inquiry, discovery or a guessed hci index."""
     matches = []
-    rejected_a728 = (adapter.get('usb_id') or '').lower() == '0bda:a728'
     for path in sorted(HCI.glob('hci*')):
         if not re.fullmatch(r'hci[0-9]{1,5}',path.name): continue
         index = int(path.name[3:])
@@ -5779,7 +5774,6 @@ def selected_controller(adapter):
             device = (path/'device').resolve(strict=True)
             if not device.is_relative_to(DEVICES): continue
             usb = controller_usb_id(path)
-            if usb == '0bda:a728': rejected_a728 = True
             if usb not in SUPPORTED: continue
             if adapter.get('usb_id') is not None:
                 if usb != adapter['usb_id'].lower(): continue
@@ -5788,7 +5782,7 @@ def selected_controller(adapter):
             matches.append((index, device, path.stat().st_ino))
         except OSError: continue
     if len(matches) != 1:
-        raise ValueError('BLE DOWN refused: sysfs must identify exactly one configured supported USB controller (0bda:876e, 0bda:8771); check driver/connection/identity'+('; '+A728_REFUSAL if rejected_a728 else ''))
+        raise ValueError('BLE DOWN refused: sysfs must identify exactly one configured supported USB controller (0bda:876e, 0bda:8771, 0bda:a728); check driver/connection/identity')
     return matches[0]
 
 

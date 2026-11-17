@@ -90,7 +90,7 @@ impl Drop for Scratch { fn drop(&mut self) { let _ = std::fs::remove_dir_all(&se
 fn record(id: usize, lane: Lane) -> Record {
     Record { message_id: format!("TEST-ONLY:{id}"), node_id: "test-node".into(), observed_unix_ms: 1,
         clock_trusted: false, test_only: true, message: match lane {
-            Lane::Operational => Message::Operational { image_digest: Some(format!("sha256:{}", "a".repeat(64))),
+            Lane::Operational => Message::Operational { bluetooth: None, image_digest: Some(format!("sha256:{}", "a".repeat(64))),
                 engine_version: Some("b".repeat(40)), build_seq: Some(42), health: Health::observe(true, true, false, false, false), update: None, telemetry_gap: None, credential_renewal: None },
             Lane::Red => Message::Algedonic { code: Distress::OperationalDeliveryFailed, operational: Diagnostics::default(), update: None },
         } }
@@ -665,4 +665,41 @@ fn full_red_lane_never_erases_exact_gap_or_threshold_alerts() {
     assert!(handle.operational_update(&crate::identity::RunningIdentity::upward_test_fixture(),Health::observe(true,true,false,false,true),None));
     let report=handle.operational.queue.lock().unwrap().records.back().unwrap().clone();
     match report.message {Message::Operational{telemetry_gap:Some(gap),health,..}=>{assert_eq!(gap.count,137);assert!(!health.healthy);},_=>panic!("missing exact cumulative Silver gap")}
+}
+
+#[test]
+fn bluetooth_operational_diagnostics_are_additive_and_cumulative() {
+    use crate::rid_ble::LongRange;
+    for (range,label) in [(LongRange::NotYetObserved,"not_yet_observed"), (LongRange::Observed,"observed"), (LongRange::Unavailable,"unavailable")] {
+        let diag = BluetoothReport::from_counts(range, [1,2,3,4,5,6,7], 8);
+        let mut record = record(1,Lane::Operational);
+        if let Message::Operational {bluetooth,..} = &mut record.message { *bluetooth=Some(diag); }
+        let value=serde_json::to_value(&record).unwrap();
+        assert_eq!(value["message"]["bluetooth"]["long_range"],label);
+        assert_eq!(value["message"]["bluetooth"]["unassociated_dropped"],8);
+        assert_eq!(value["message"]["bluetooth"]["rejects"]["core_decode"],5);
+        assert_eq!(value["message"]["bluetooth"]["rejects"].as_object().unwrap().len(),7);
+        serde_json::from_value::<Record>(value.clone()).unwrap();
+        let mut old=value; old["message"].as_object_mut().unwrap().remove("bluetooth");
+        let older:Record=serde_json::from_value(old).unwrap();
+        assert!(matches!(older.message,Message::Operational{bluetooth:None,..}));
+    }
+    // Drive the actual decoder, then verify its counters in the enqueued report.
+    let before_drop = cybrrd_rid_protocol::ble::unassociated_dropped_total();
+    let before_reject = cybrrd_rid_protocol::ble::reject_counts()[0];
+    let mut decoder = cybrrd_rid_protocol::ble::BleDecoder::default();
+    let meta = cybrrd_rid_protocol::ble::BleMeta { phy: cybrrd_rid_protocol::ble::BlePhy::Le1M, extended: false };
+    let mut location = vec![30, 0x16, 0xfa, 0xff, 0x0d, 0, 0x12];
+    location.resize(31, 0); // synthetic zero coordinates, intentionally no Basic ID
+    assert!(decoder.ingest(&location, [0x42;6], -40, meta).is_none());
+    assert_eq!(decoder.take_unassociated_dropped(), 1);
+    assert!(decoder.ingest(&[30,0x16], [0x42;6], -40, meta).is_none());
+    let handle = Handle { node: "test-node".into(), nonce: "fixture".into(), sequence: AtomicU64::new(0), operational: Channel::new(Lane::Operational), red: Channel::new(Lane::Red), stop: Arc::new(AtomicBool::new(false)), tasks: vec![] };
+    handle.operational(&crate::identity::RunningIdentity::upward_test_fixture(), Health::observe(true,true,false,false,true));
+    let queue=handle.operational.queue.lock().unwrap();
+    let value=serde_json::to_value(&queue.records.back().unwrap().message).unwrap();
+    assert!(value["bluetooth"]["rejects"]["no_signature"].is_number());
+    assert!(value["bluetooth"]["unassociated_dropped"].as_u64().unwrap() > before_drop);
+    assert!(value["bluetooth"]["rejects"]["truncated_ad"].as_u64().unwrap() > before_reject);
+    assert_eq!(BluetoothReport::from_counts(LongRange::NotYetObserved,[0;7],0).unassociated_dropped,0);
 }

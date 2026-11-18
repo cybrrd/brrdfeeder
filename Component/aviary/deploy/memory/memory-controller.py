@@ -24,10 +24,10 @@ def read(path):
         return value
 
 
-def enabled_cmdline(raw):
+def enabled_cmdline(raw, enable=True):
     # Preserve all unrelated tokens. The boot command line must remain one line.
     text = raw.decode('ascii')
-    if '\n' in text.rstrip('\n') or '\r' in text:
+    if not text.strip() or '\n' in text.removesuffix('\n') or '\r' in text:
         raise ValueError('cmdline must contain one line')
     tokens = text.split()
     updated = []
@@ -39,8 +39,30 @@ def enabled_cmdline(raw):
                 if controllers:
                     updated.append('cgroup_disable=' + ','.join(controllers))
                 continue
+        if enable and token.startswith('cgroup_enable='):
+            controllers = token.split('=', 1)[1].split(',')
+            if 'memory' in controllers:
+                controllers = [item for item in controllers if item != 'memory']
+                if controllers:
+                    updated.append('cgroup_enable=' + ','.join(controllers))
+                continue
         updated.append(token)
+    if enable:
+        updated.append('cgroup_enable=memory')
     return (' '.join(updated) + '\n').encode('ascii') if updated != tokens else raw
+
+
+def runtime_state(root):
+    tokens = read(root / 'proc/cmdline').decode('ascii').split()
+    available = 'memory' in read(root / 'sys/fs/cgroup/cgroup.controllers').decode('ascii').split()
+    flags = []
+    enabled = None
+    for token in tokens:
+        name, _, value = token.partition('=')
+        if name in ('cgroup_enable', 'cgroup_disable') and 'memory' in value.split(','):
+            flags.append(token)
+            enabled = name == 'cgroup_enable'
+    return available, enabled, 'runtime memory flags: ' + (' '.join(flags) or '(none)')
 
 
 def replace(path, raw):
@@ -73,6 +95,9 @@ def edit(root, restore=False):
             return 'not a Raspberry Pi; boot command line unchanged'
         if not model.startswith(b'Raspberry Pi'):
             return 'not a Raspberry Pi; boot command line unchanged'
+        available, enabled, runtime = runtime_state(root)
+        if available:
+            return 'memory controller available; boot command line unchanged; ' + runtime + '; run check to verify engine cap'
     lock_fd = os.open(cmdline.parent / '.brrdfeeder-memory.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     with os.fdopen(lock_fd, 'rb') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -81,13 +106,15 @@ def edit(root, restore=False):
             saved = read(backup)
             if original == saved:
                 return 'original cmdline already restored; reboot required if not yet rebooted'
-            if original != enabled_cmdline(saved):
+            if original not in (enabled_cmdline(saved), enabled_cmdline(saved, enable=False)):
                 raise ValueError('cmdline changed since repair; backup retained, manual reconciliation required')
             replace(cmdline, saved)
             return 'original cmdline restored byte-for-byte; REBOOT REQUIRED'
         updated = enabled_cmdline(original)
         if updated == original:
-            return 'memory is not disabled in boot cmdline; running-controller check still required'
+            if enabled:
+                return 'memory controller absent despite running cgroup_enable=memory; boot command line unchanged; inspect kernel/cgroup support; ' + runtime
+            return 'cgroup_enable=memory already staged; memory controller absent; REBOOT REQUIRED (operator action); ' + runtime
         try:
             saved = read(backup)
         except FileNotFoundError:
@@ -102,21 +129,22 @@ def edit(root, restore=False):
             finally:
                 os.close(directory)
         else:
-            if saved != original:
+            if saved != original and enabled_cmdline(saved, enable=False) != original:
                 raise ValueError('prior backup differs; refusing to overwrite it')
         replace(cmdline, updated)
-        return 'removed cgroup_disable=memory; backup=' + str(backup) + '; REBOOT REQUIRED (operator action)'
+        return 'staged cgroup_enable=memory; backup=' + str(backup) + '; REBOOT REQUIRED (operator action); ' + runtime
 
 
 def check(root):
     base = root / 'sys/fs/cgroup'
-    controllers = read(base / 'cgroup.controllers').decode('ascii').split()
-    if 'memory' not in controllers:
-        raise ValueError('memory controller absent; MemoryMax is NOT enforced; reboot after boot-cmdline repair')
+    available, enabled, runtime = runtime_state(root)
+    if not available:
+        action = 'inspect kernel/cgroup support' if enabled else 'run enable, then reboot after boot-cmdline repair'
+        raise ValueError('memory controller absent; MemoryMax is NOT enforced; ' + runtime + '; ' + action)
     actual = read(base / 'system.slice/brrdfeeder-engine.service/memory.max').strip()
     if actual != str(CAP).encode('ascii'):
         raise ValueError('engine memory.max=' + actual.decode('ascii') + '; expected 268435456; cap NOT verified')
-    return 'memory controller available; engine memory.max=268435456; 256 MiB cap enforced'
+    return 'memory controller available; engine memory.max=268435456; 256 MiB cap enforced; ' + runtime
 
 
 def main():

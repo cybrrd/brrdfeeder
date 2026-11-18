@@ -520,9 +520,9 @@ mod tests {
             .split("\nCFGEOF")
             .next()
             .unwrap();
-        let config: serde_yaml::Value = serde_yaml::from_str(template).unwrap();
+        let config: serde_json::Value = serde_saphyr::from_str(template).unwrap();
         let hunter: HunterYaml =
-            serde_yaml::from_value(config["capture"]["hunter"].clone()).unwrap();
+            serde_json::from_value(config["capture"]["hunter"].clone()).unwrap();
         let plan = HunterPlan::from_yaml(&hunter);
         assert_eq!(plan.preset, HunterPreset::Social);
         assert_eq!(plan.lock_on_duration_ms, 0);
@@ -625,7 +625,7 @@ mod tests {
 
     #[test]
     fn park6_parks_without_rotation() {
-        let yaml: HunterYaml = serde_yaml::from_str("preset: park6").unwrap();
+        let yaml: HunterYaml = serde_saphyr::from_str("preset: park6").unwrap();
         let plan = HunterPlan::from_yaml(&yaml);
         assert!(plan.parked);
         assert_eq!(plan.channel_set, vec![6]);
@@ -639,7 +639,7 @@ mod tests {
 
     #[test]
     fn sweep_preset_reproduces_legacy_values() {
-        let yaml: HunterYaml = serde_yaml::from_str("preset: sweep").unwrap();
+        let yaml: HunterYaml = serde_saphyr::from_str("preset: sweep").unwrap();
         let plan = HunterPlan::from_yaml(&yaml);
         assert_eq!(plan.dwell_social_ms, LEGACY_DWELL_PRIORITY_MS);
         assert_eq!(plan.dwell_other_ms, LEGACY_DWELL_DEFAULT_MS);
@@ -658,7 +658,7 @@ mod tests {
     fn explicit_config_wins_over_preset() {
         // Back-compat: an explicit pre-scheduler config keeps its exact
         // values under the default social preset.
-        let yaml: HunterYaml = serde_yaml::from_str(
+        let yaml: HunterYaml = serde_saphyr::from_str(
             "channel_set: [1, 6, 11]\ndwell_default_ms: 150\ndwell_priority_ms: 333\n\
              priority_channels: [6]\nlock_on_duration_ms: 2500\nlock_on_min_ms: 400",
         )
@@ -702,7 +702,7 @@ mod tests {
         // Operator error class: a duplicated channel silently doubles that
         // channel's scheduled share. The resolved plan must carry each
         // configured channel exactly once.
-        let yaml: HunterYaml = serde_yaml::from_str("channel_set: [6, 11, 11, 149]").unwrap();
+        let yaml: HunterYaml = serde_saphyr::from_str("channel_set: [6, 11, 11, 149]").unwrap();
         let plan = HunterPlan::from_yaml(&yaml);
         let mut seen = std::collections::HashSet::new();
         for ch in &plan.channel_set {
@@ -735,7 +735,7 @@ mod tests {
         // plan silently schedules a dead visit. The plan must never
         // schedule them.
         let yaml: HunterYaml =
-            serde_yaml::from_str("channel_set: [6, 52, 100, 144, 149]").unwrap();
+            serde_saphyr::from_str("channel_set: [6, 52, 100, 144, 149]").unwrap();
         let plan = HunterPlan::from_yaml(&yaml);
         for ch in [52u32, 100, 144] {
             assert!(
@@ -752,7 +752,7 @@ mod tests {
         // Channel numbers outside the supported regulatory range cannot be
         // tuned at all; refusing at plan level replaces opaque per-cycle
         // runtime errors with one actionable startup message.
-        let yaml: HunterYaml = serde_yaml::from_str("channel_set: [1, 15, 166, 300]").unwrap();
+        let yaml: HunterYaml = serde_saphyr::from_str("channel_set: [1, 15, 166, 300]").unwrap();
         let plan = HunterPlan::from_yaml(&yaml);
         for ch in [15u32, 166, 300] {
             assert!(
@@ -768,13 +768,13 @@ mod tests {
     fn hygiene_survivors_are_recorded_for_the_startup_notice() {
         // The dedupe notice and the fail-closed refusal both read from the
         // plan; the records must be exact and the reasons actionable.
-        let yaml: HunterYaml = serde_yaml::from_str("channel_set: [6, 11, 11, 149]").unwrap();
+        let yaml: HunterYaml = serde_saphyr::from_str("channel_set: [6, 11, 11, 149]").unwrap();
         let plan = HunterPlan::from_yaml(&yaml);
         assert_eq!(plan.deduped_channels, vec![11]);
         assert!(plan.refused_channels.is_empty());
 
         let yaml: HunterYaml =
-            serde_yaml::from_str("channel_set: [6, 52, 166, 149]").unwrap();
+            serde_saphyr::from_str("channel_set: [6, 52, 166, 149]").unwrap();
         let plan = HunterPlan::from_yaml(&yaml);
         assert!(plan.deduped_channels.is_empty());
         assert_eq!(plan.channel_set, vec![6, 149]);
@@ -1000,7 +1000,7 @@ mod sim {
     }
 
     fn legacy_plan() -> HunterPlan {
-        let yaml: HunterYaml = serde_yaml::from_str("preset: sweep").unwrap();
+        let yaml: HunterYaml = serde_saphyr::from_str("preset: sweep").unwrap();
         HunterPlan::from_yaml(&yaml)
     }
 

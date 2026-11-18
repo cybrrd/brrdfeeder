@@ -43,7 +43,16 @@ func TestBuildNeedsNoSourceRepository(t *testing.T) {
 	bin := t.TempDir()
 	// Exercise the real helper, stubbing only its external build/export tools.
 	for name, script := range map[string]string{
-		"git":    "#!/bin/sh\ncase \"$*\" in 'rev-parse --verify HEAD') echo " + sourceFixtureRevision + ";; 'rev-parse --is-shallow-repository') echo false;; 'rev-list --count HEAD') echo 123;; 'status --porcelain --untracked-files=all -- .') ;; *) exit 2;; esac\n",
+		"git": `#!/bin/sh
+case "$*" in
+'rev-parse --verify HEAD') echo ` + sourceFixtureRevision + `;;
+'rev-parse --is-shallow-repository') echo false;;
+'rev-list --count HEAD') echo 123;;
+'show HEAD:Component/aviary/engine/Cargo.toml') printf '%s\n' '[package]' 'name="engine"' 'version="1.2.3"';;
+'status --porcelain --untracked-files=all -- .') ;;
+*) exit 2;;
+esac
+`,
 		"podman": "#!/bin/sh\nprintf '%s\\n' \"$@\"\n",
 		"tar":    "#!/bin/sh\nexit 0\n",
 	} {
@@ -61,6 +70,9 @@ func TestBuildNeedsNoSourceRepository(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	if err != nil || strings.Contains(string(out), "SOURCE_REPO_URL") || !strings.Contains(string(out), "SOURCE_REVISION="+sourceFixtureRevision) {
 		t.Fatalf("build without URL: err=%v %s", err, out)
+	}
+	if !strings.Contains(string(out), "PRODUCT_VERSION=1.2.3") {
+		t.Fatal("Product version lost from source-free build helper")
 	}
 	if !strings.Contains(string(out), "BUILD_SEQ=1123") {
 		t.Fatal("Self-Update build sequence lost from source-free build helper")

@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
-## 0.9.1 — Unreleased Bluetooth and GPS hotplug candidate
+## 0.9.1 — Unreleased candidate
 
 - Admit Bluetooth 0bda:876e/0bda:8771/0bda:a728; report observed long-range capability and retain legacy capture after extended-scan refusal. Add cumulative Bluetooth decoder/drop diagnostics to operational reports. 8771 native proof remains pending.
 
@@ -29,6 +29,11 @@
 
 - Late-qualified GPS attachments now reach the first-fix waiter before container
   startup. Optional PMTK initialization waits for confirmed NMEA on each open.
+
+- Proposed OAuth option A (pending decision): enrollment and owner recovery no
+  longer request offline access; the installer no longer stores unused refresh
+  tokens. Credential renewal uses NKey renewal or interactive owner recovery.
+  Existing tokens are untouched; inventory/revocation is a separate migration.
 
 ## 0.9.0 — Unreleased public beta candidate
 

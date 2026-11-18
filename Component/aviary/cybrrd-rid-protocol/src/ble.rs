@@ -3,7 +3,7 @@
 //! BLE AD de-framing only. All ODID fields are decoded by the shared no_std core.
 use crate::astm::telemetry_from_pack;
 use crate::models::{RidTransport, TelemetryData};
-use cybrrd_rid_core::{decode_message_pack, decode_single_message, RidPack};
+use cybrrd_rid_core::{decode_message_pack, decode_single_message, ParseError, RidPack};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
@@ -94,7 +94,10 @@ fn decode_ad(ad: &[u8], meta: BleMeta) -> Result<(RidPack, u8, RidTransport), Re
                     if payload.len() < required {
                         return Err(Reject::BadPayload);
                     }
-                    decode_message_pack(payload).map_err(|_| Reject::CoreDecode)?
+                    decode_message_pack(payload).map_err(|error| match error {
+                        ParseError::NoLocation => Reject::NoLocation,
+                        _ => Reject::CoreDecode,
+                    })?
                 }
                 RidTransport::Bt4Legacy => {
                     if payload.len() != 25 || payload[0] >> 4 > 5 {
@@ -200,7 +203,9 @@ impl BleDecoder {
             UNASSOCIATED_DROPPED.fetch_add(1, Ordering::Relaxed);
             return None;
         }
-        let mut data = telemetry_from_pack(pack, addr, rssi)?;
+        // Successful de-framing need not yield a Location or usable identity
+        // (for example, a standalone Self ID). Count this final rejection too.
+        let mut data = counted(telemetry_from_pack(pack, addr, rssi).ok_or(Reject::NoLocation))?;
         data.transport = Some(transport);
         data.message_counter = Some(counter);
         Some(data)

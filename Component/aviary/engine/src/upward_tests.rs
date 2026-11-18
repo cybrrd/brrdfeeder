@@ -669,6 +669,7 @@ fn full_red_lane_never_erases_exact_gap_or_threshold_alerts() {
 
 #[test]
 fn bluetooth_operational_diagnostics_are_additive_and_cumulative() {
+    let _guard = BLUETOOTH_DECODER_TEST.lock().unwrap();
     use crate::rid_ble::LongRange;
     for (range,label) in [(LongRange::NotYetObserved,"not_yet_observed"), (LongRange::Observed,"observed"), (LongRange::Unavailable,"unavailable")] {
         let diag = BluetoothReport::from_counts(range, [1,2,3,4,5,6,7], 8);
@@ -702,4 +703,86 @@ fn bluetooth_operational_diagnostics_are_additive_and_cumulative() {
     assert!(value["bluetooth"]["unassociated_dropped"].as_u64().unwrap() > before_drop);
     assert!(value["bluetooth"]["rejects"]["truncated_ad"].as_u64().unwrap() > before_reject);
     assert_eq!(BluetoothReport::from_counts(LongRange::NotYetObserved,[0;7],0).unassociated_dropped,0);
+}
+
+// These tests share process-global decoder counters; serialize all engine tests
+// that feed BLE advertisements so exact deltas also hold under parallel cargo test.
+static BLUETOOTH_DECODER_TEST: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn bluetooth_ad(payload: &[u8]) -> Vec<u8> {
+    let mut ad = vec![(payload.len() + 5) as u8, 0x16, 0xfa, 0xff, 0x0d, 0];
+    ad.extend(payload);
+    ad
+}
+
+fn bluetooth_rejection_reaches_queue(
+    ad: &[u8], meta: cybrrd_rid_protocol::ble::BleMeta,
+    reason: cybrrd_rid_protocol::ble::Reject, name: &str,
+) {
+    use cybrrd_rid_protocol::ble::{reject_counts, BleDecoder};
+    let handle = Handle { node: "test-node".into(), nonce: "fixture".into(), sequence: AtomicU64::new(0),
+        operational: Channel::new(Lane::Operational), red: Channel::new(Lane::Red),
+        stop: Arc::new(AtomicBool::new(false)), tasks: vec![] };
+    let enqueue = || {
+        assert!(handle.operational(&crate::identity::RunningIdentity::upward_test_fixture(),
+            Health::observe(true, true, false, false, true)));
+        let q = handle.operational.queue.lock().unwrap();
+        serde_json::to_value(q.records.back().unwrap()).unwrap()["message"]["bluetooth"].clone()
+    };
+    let before_json = enqueue();
+    let before = reject_counts();
+    let mut decoder = BleDecoder::default();
+    // This is main.rs's entry point, which delegates directly to ingest_at.
+    assert!(decoder.ingest(ad, [0x42; 6], -40, meta).is_none(), "{name}");
+    let after = reject_counts();
+    for i in 0..7 {
+        assert_eq!(after[i] - before[i], u64::from(i == reason as usize), "{name}: category {i}");
+    }
+    let after_json = enqueue();
+    let names = ["truncated_ad", "no_signature", "bad_payload", "pack_count", "core_decode", "no_location", "unsupported_transport"];
+    for (i, key) in names.into_iter().enumerate() {
+        assert_eq!(after_json["rejects"][key].as_u64().unwrap() - before_json["rejects"][key].as_u64().unwrap(),
+            u64::from(i == reason as usize), "{name}: queued {key}");
+        assert_eq!(after_json["rejects"][key], after[i]);
+    }
+    assert_eq!(after_json["unassociated_dropped"], before_json["unassociated_dropped"]);
+    assert_eq!(enqueue()["rejects"], after_json["rejects"]); // reads do not drain
+    println!("production decoder -> queued heartbeat: {name} -> {reason:?}");
+}
+
+#[test]
+fn bluetooth_bt4_no_observation_reaches_queue() {
+    use cybrrd_rid_protocol::ble::{BleMeta, BlePhy, Reject};
+    let _guard = BLUETOOTH_DECODER_TEST.lock().unwrap();
+    let mut message = [0; 25]; message[0] = 0x30; // Self ID, no location/identity
+    bluetooth_rejection_reaches_queue(&bluetooth_ad(&message), BleMeta { phy: BlePhy::Le1M, extended: false }, Reject::NoLocation, "BT4 Self ID");
+    message[0] = 0x40; // audit reproducer is a System message, also no observation
+    bluetooth_rejection_reaches_queue(&bluetooth_ad(&message), BleMeta { phy: BlePhy::Le1M, extended: false }, Reject::NoLocation, "BT4 System");
+}
+
+#[test]
+fn bluetooth_bt5_no_observation_reaches_queue() {
+    use cybrrd_rid_protocol::ble::{BleMeta, BlePhy, Reject};
+    let _guard = BLUETOOTH_DECODER_TEST.lock().unwrap();
+    let mut payload = vec![0xf2, 25, 1, 0x30]; payload.resize(28, 0);
+    bluetooth_rejection_reaches_queue(&bluetooth_ad(&payload), BleMeta { phy: BlePhy::LeCoded, extended: true }, Reject::NoLocation, "BT5 Self ID pack");
+}
+
+#[test]
+fn bluetooth_reachable_rejects_reach_queue() {
+    use cybrrd_rid_protocol::ble::{BleMeta, BlePhy, Reject};
+    let _guard = BLUETOOTH_DECODER_TEST.lock().unwrap();
+    for meta in [BleMeta { phy: BlePhy::Le1M, extended: false }, BleMeta { phy: BlePhy::LeCoded, extended: true }] {
+        bluetooth_rejection_reaches_queue(&[30, 0x16], meta, Reject::TruncatedAd, "short AD");
+        bluetooth_rejection_reaches_queue(&[2, 1, 6], meta, Reject::NoSignature, "ordinary flags AD");
+        bluetooth_rejection_reaches_queue(&bluetooth_ad(&[0]), meta, Reject::BadPayload, "short ODID payload");
+    }
+    bluetooth_rejection_reaches_queue(&bluetooth_ad(&[0xf2, 25, 0]),
+        BleMeta { phy: BlePhy::LeCoded, extended: true }, Reject::PackCount, "BT5 zero pack count");
+    for meta in [BleMeta { phy: BlePhy::LeCoded, extended: false }, BleMeta { phy: BlePhy::Le1M, extended: true }] {
+        bluetooth_rejection_reaches_queue(&bluetooth_ad(&[0; 25]), meta, Reject::UnsupportedTransport, "inconsistent transport metadata");
+    }
+    // CoreDecode is unreachable: BT4 checks exact size before the core call;
+    // BT5 checks every structural condition, leaving only core NoLocation.
+    // UnsupportedTransport is reachable here but filtered by HCI in production.
 }

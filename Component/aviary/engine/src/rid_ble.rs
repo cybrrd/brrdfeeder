@@ -444,6 +444,50 @@ fn scan_enable(extended: bool, enabled: bool) -> (u16, Vec<u8>) {
     }
 }
 
+// Bluetooth Core v5.4, Vol 4, Part E, 7.7.65.13 (including Table 7.1)
+// defines report fields; 7.8.53 forbids connectable+scannable extended events.
+// Vol 6, Part B, 2.3.1.5-.6 and 4.4.3.5 constrain primary-only reports and
+// anonymous/connectable/scannable combinations. Address_Type 0xff is anonymous,
+// not reserved. PHY 4 requires Advertising Coding Selection Host Support,
+// which this scanner never enables; it accepts PHY 3 for Coded reception.
+fn valid_extended_metadata(h: &[u8]) -> bool {
+    let flags = u16::from_le_bytes([h[0], h[1]]);
+    let legacy = flags & 0x10 != 0;
+    if flags & !0x7f != 0 || flags & 0x60 == 0x60
+        || !matches!(h[2], 0..=3 | 0xff)
+        || !matches!(h[9], 1 | 3) || !matches!(h[10], 0..=3)
+    {
+        return false;
+    }
+    let interval = u16::from_le_bytes([h[14], h[15]]);
+    let power_valid = |byte: u8| byte == 0x7f || (-127..=20).contains(&(byte as i8));
+    if !matches!(h[11], 0..=0x0f | 0xff)
+        || !power_valid(h[12]) || !power_valid(h[13])
+        || (interval != 0 && interval < 6)
+        || (flags & 4 != 0 && !matches!(h[16], 0..=3 | 0xfe))
+    {
+        return false;
+    }
+    if legacy {
+        return matches!(flags, 0x10 | 0x12 | 0x13 | 0x15 | 0x1a | 0x1b)
+            && h[2] != 0xff && h[9] == 1 && h[10] == 0;
+    }
+    if flags & 3 == 3 || (flags & 8 != 0 && flags & 2 == 0)
+        || (h[2] == 0xff && flags & 3 != 0)
+    {
+        return false;
+    }
+    // Without a secondary packet there is no payload, fragmentation or SID,
+    // and the primary PDU must supply an address. Directed is still possible.
+    if h[10] == 0 && (flags & 0x6b != 0 || h[2] == 0xff
+        || h[11] != 0xff || h[23] != 0 || interval != 0)
+    {
+        return false;
+    }
+    // Periodic advertising cannot be connectable, scannable or anonymous.
+    interval == 0 || (flags & 3 == 0 && h[2] != 0xff)
+}
+
 /// Return ALL advertising-report count for health, plus eligible complete ADs.
 /// Fragmented/truncated extended data is refused (no guessed reassembly).
 fn advertising_reports(packet: &[u8]) -> io::Result<(usize, Vec<Advertisement>, bool)> {
@@ -488,7 +532,9 @@ fn advertising_reports(packet: &[u8]) -> io::Result<(usize, Vec<Advertisement>, 
             let flags = u16::from_le_bytes([h[0], h[1]]);
             let legacy = flags & 0x10 != 0;
             let coded = h[9] == 3 || h[10] == 3;
-            coded_observed |= coded;
+            let valid = valid_extended_metadata(h);
+            // Any valid advertiser proves PHY reception, even without RID/RSSI.
+            coded_observed |= valid && coded;
             (
                 &h[3..9],
                 h[13] as i8,
@@ -496,7 +542,7 @@ fn advertising_reports(packet: &[u8]) -> io::Result<(usize, Vec<Advertisement>, 
                     phy: if coded { BlePhy::LeCoded } else { BlePhy::Le1M },
                     extended: !legacy,
                 },
-                flags & 0x6f == 0 && h[2] <= 1 && ((legacy && h[9] == 1) || (!legacy && coded)),
+                valid && flags & 0x6f == 0 && h[2] <= 1 && ((legacy && h[9] == 1) || (!legacy && coded)),
             )
         };
         if eligible && rssi != 127 {
@@ -949,6 +995,136 @@ mod bluetooth_diagnostics_tests {
     use super::*;
     use std::sync::Mutex;
 
+    fn extended_header() -> [u8; 24] {
+        let mut h = [0; 24];
+        h[9] = 1;
+        h[10] = 3;
+        h[11] = 0xff;
+        h[12] = 0x7f;
+        h[13] = 0x7f;
+        h
+    }
+
+    fn extended_event(headers: &[[u8; 24]]) -> Vec<u8> {
+        let mut event = vec![4, 0x3e, (2 + headers.len() * 24) as u8, 0x0d, headers.len() as u8];
+        for h in headers { event.extend(h); }
+        event
+    }
+
+    #[test]
+    fn coded_evidence_rejects_malformed_metadata() {
+        let good = extended_header();
+        let mut reproducer = good;
+        reproducer[0] = 0xff; reproducer[1] = 0xff;
+        reproducer[2] = 0xff; reproducer[9] = 0xff;
+        let mut cases = vec![("complete malformed reproducer", reproducer)];
+        for (name, index, byte) in [
+            ("reserved event bit 7", 0, 0x80),
+            ("reserved event bit 8", 1, 1),
+            ("reserved data status", 0, 0x60),
+            ("reserved address", 2, 4),
+            ("reserved primary", 9, 0xff),
+            ("zero primary", 9, 0),
+            ("2M primary", 9, 2),
+            ("unnegotiated primary coding selection", 9, 4),
+            ("connectable and scannable", 0, 3),
+            ("response to non-scannable", 0, 8),
+            ("legacy with secondary PHY", 0, 0x10),
+            ("reserved SID", 11, 0x10),
+            ("invalid TX power", 12, 21),
+            ("invalid RSSI", 13, 0x80),
+            ("reserved periodic interval", 14, 1),
+        ] {
+            let mut h = good; h[index] = byte; cases.push((name, h));
+        }
+        for (name, secondary) in [("reserved secondary", 0xff), ("unnegotiated secondary coding selection", 4)] {
+            let mut h = good; h[9] = 3; h[10] = secondary; cases.push((name, h));
+        }
+        for (name, flags, address, secondary) in [
+            ("legacy with Coded primary", 0x10, 0, 0),
+            ("legacy reserved combination", 0x11, 0, 0),
+            ("legacy incomplete", 0x30, 0, 0),
+            ("legacy anonymous", 0x10, 0xff, 0),
+            ("anonymous connectable", 1, 0xff, 3),
+            ("anonymous scannable", 2, 0xff, 3),
+            ("anonymous primary-only", 0, 0xff, 0),
+            ("connectable primary-only", 1, 0, 0),
+            ("scannable primary-only", 2, 0, 0),
+            ("fragmented primary-only", 0x20, 0, 0),
+        ] {
+            let mut h = good; h[0] = flags; h[2] = address; h[9] = 3; h[10] = secondary;
+            cases.push((name, h));
+        }
+        let mut directed = good; directed[0] = 4; directed[16] = 0xff;
+        cases.push(("reserved direct address type", directed));
+        let mut periodic = good; periodic[0] = 1; periodic[14] = 6;
+        cases.push(("connectable periodic", periodic));
+        // Every fixture retains consistent HCI lengths and a Coded byte.
+        for (name, h) in &cases {
+            let (count, ads, observed) = advertising_reports(&extended_event(&[*h])).unwrap();
+            assert_eq!(count, 1, "{name}");
+            assert!(!observed, "malformed metadata proved Coded: {name}");
+            assert!(ads.is_empty(), "malformed metadata entered RID decode: {name}");
+        }
+        println!("{} malformed metadata controls", cases.len());
+    }
+
+    #[test]
+    fn coded_evidence_accepts_valid_metadata_without_rid_or_rssi() {
+        let good = extended_header();
+        let mut cases = vec![];
+        for address in [0, 1, 2, 3, 0xff] {
+            for (primary, secondary) in [(1, 3), (3, 1), (3, 2), (3, 3)] {
+                let mut h = good; h[2] = address; h[9] = primary; h[10] = secondary;
+                cases.push(h);
+            }
+        }
+        for flags in [1, 2, 4, 5, 6, 0x0a, 0x0e, 0x20, 0x40] {
+            let mut h = good; h[0] = flags; cases.push(h);
+        }
+        let mut primary_only = good; primary_only[9] = 3; primary_only[10] = 0;
+        cases.push(primary_only);
+        let mut anonymous_directed = good; anonymous_directed[0] = 4; anonymous_directed[2] = 0xff;
+        cases.push(anonymous_directed);
+        let mut periodic = good; periodic[14] = 6; cases.push(periodic);
+        for h in &cases {
+            let (_, ads, observed) = advertising_reports(&extended_event(&[*h])).unwrap();
+            assert!(observed, "valid Coded metadata refused: {h:?}");
+            assert!(ads.is_empty()); // no RSSI, no RID, still reception evidence
+        }
+        for flags in [0x10, 0x12, 0x13, 0x15, 0x1a, 0x1b] {
+            let mut h = good; h[0] = flags; h[10] = 0;
+            assert!(!advertising_reports(&extended_event(&[h])).unwrap().2);
+        }
+        for secondary in [0, 1, 2] {
+            let mut h = good; h[10] = secondary;
+            assert!(!advertising_reports(&extended_event(&[h])).unwrap().2);
+        }
+        println!("{} valid Coded and 9 non-Coded controls", cases.len());
+    }
+
+    #[test]
+    fn coded_evidence_mixed_reports_are_independent() {
+        let good = extended_header();
+        let mut bad = good; bad[1] = 0x80;
+        let mut one_m = good; one_m[10] = 1;
+        for headers in [[bad, good], [good, bad]] {
+            let (count, _, observed) = advertising_reports(&extended_event(&headers)).unwrap();
+            assert_eq!(count, 2); assert!(observed);
+        }
+        for headers in [[bad, one_m], [one_m, bad]] {
+            assert!(!advertising_reports(&extended_event(&headers)).unwrap().2);
+        }
+        // A malformed report cannot enter the secondary promotion path via ads.
+        bad[13] = (-40i8) as u8;
+        let mut eligible = good; eligible[13] = (-40i8) as u8;
+        for headers in [[bad, eligible], [eligible, bad]] {
+            let (_, ads, observed) = advertising_reports(&extended_event(&headers)).unwrap();
+            assert!(observed); assert_eq!(ads.len(), 1);
+            assert_eq!(ads[0].meta.phy, BlePhy::LeCoded);
+        }
+    }
+
     struct Fake { fail: Option<u16>, calls: Mutex<Vec<(u16, Vec<u8>)>> }
     impl ScanCommands for Fake {
         async fn scan_command(&self, op: u16, bytes: &[u8]) -> io::Result<Vec<u8>> {
@@ -997,7 +1173,7 @@ mod bluetooth_diagnostics_tests {
         ext.extend(h); ext.push(0);
         let (_, ads, observed) = advertising_reports(&ext).unwrap();
         assert!(!observed); assert!(ads.is_empty()); // extended 1M never proves long range
-        for (primary,secondary) in [(1,3),(3,0)] {
+        for (primary,secondary) in [(1,3),(3,1)] {
             ext[14]=primary; ext[15]=secondary;
             assert!(advertising_reports(&ext).unwrap().2);
         }

@@ -11,9 +11,9 @@ import unittest
 import tomllib
 
 ROOT=Path(__file__).resolve().parents[5]
-NOTICE='''Copyright © 2026 Macawi LLC, Iowa, USA.
+NOTICE='''Copyright © 2026 cyBRRD Corporation, Delaware, USA.
 BRRDfeeder and BRRDhouse are licensed under the GNU Affero General Public License v3.0 or later (see LICENSE).
-cyBRRD, BRRDfeeder and BRRDhouse are developed and operated by cyBRRD Corporation, Iowa, USA, under license from Macawi LLC.
+cyBRRD, BRRDfeeder and BRRDhouse are developed and operated by cyBRRD Corporation.
 '''
 
 class Ownership(unittest.TestCase):
@@ -41,10 +41,11 @@ class Ownership(unittest.TestCase):
         # Do not add definitions or headers to those exact bytes; use sidecars.
         for path, digest in {
             'SECURITY.md': '82c87d11c14d44838fb7553e30b20e822cf87a57dbb15a77f020b58041060d00',
-            'CONTRIBUTING.md': '2fb4c4c04700ce09225d7290ab2e5861ea77e9cbb01f8e877125f451cffe8a59',
+            'CONTRIBUTING.md': '3c24771a84eb706f17fe92a81ba4342192afdedeac6e82d9354b0a6bf1cf8879',
         }.items():
             self.assertEqual(hashlib.sha256((ROOT/path).read_bytes()).hexdigest(), digest)
-            self.assertIn('SPDX-FileCopyrightText: 2026 Macawi LLC', (ROOT/(path+'.license')).read_text())
+            owner = 'cyBRRD Corporation' if path == 'CONTRIBUTING.md' else 'Macawi LLC'
+            self.assertIn('SPDX-FileCopyrightText: 2026 '+owner, (ROOT/(path+'.license')).read_text())
 
     def test_gate_is_pinned_and_registered(self):
         setup=(ROOT/'.github/scripts/setup-tests.sh').read_text()

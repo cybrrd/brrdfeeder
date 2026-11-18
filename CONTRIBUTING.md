@@ -8,6 +8,11 @@ If contributions open in the future, a Contributor License Agreement (CLA) will
 be required **before any contribution is considered**. Signing an agreement
 will not guarantee acceptance. No CLA is currently available.
 
+## File headers
+
+Files you create or change substantially carry
+`SPDX-FileCopyrightText: 2026 cyBRRD Corporation`. The licence identifier is unchanged.
+
 Contributor License Agreement (CLA)
 (Note: This text is currently inoperative as contributions are closed. It is provided for future reference and will require active electronic signature should the contribution window open.)
 

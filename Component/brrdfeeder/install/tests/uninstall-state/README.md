@@ -125,3 +125,21 @@ uninstall destination: the projected path set is identical before and after
 the refresh. Existing root-only runtime cleanup remains responsible for the
 state file. The first-fix PTY suite exercises identity handoff and replacement
 refusal; the engine PTY test exercises the PMTK write gate.
+## Helper 5 qualification tools (0.9.1 candidate)
+
+The helper target/diagnostic changes alter string expressions but introduce no
+installed runtime paths. The separately packaged `qualification/helper5` kit is
+also included in the conservative source census. Its only native write surface
+is the six registered helper preimages plus the recognized trial journal. Its
+restore companion reuses the existing root-owned `.host-recover-<8 chars>` atomic
+family in P/E and `/usr/local/libexec`; the projector now follows that companion
+as well as the launcher. P/E acceptance and the explicitly deferred shared-root
+cleanup policy are unchanged. New kit bindings, checksums, health captures and
+archives belong to the operator-selected evidence directory, not new uninstall
+deletion roots. Binding/adapter code only reads credentials and config; it exports
+hashes/metadata. The in-memory preimage tests verify all refusals precede writes
+and that the old launcher is restored last. Native kit execution remains pending.
+
+The Helper 5 packaging baseline is now the released 0.9.0 commit 9faae55f.
+The census change replaces only that immutable Git object ID; projected
+uninstall destinations and deletion policy are unchanged.

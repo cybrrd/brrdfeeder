@@ -94,8 +94,8 @@ neither S5 credentials nor its signing key and never contact S5.
 
 Every history-derived component build sequence remains `1000 + commit count`.
 Never lower the offset/floors, rewrite the public lineage or publish a build from
-the larger private history. The 0.9.0 bootstrap host helper has separate fixed
-build 4, rebuilt with Go 1.27.3. Reproduce its bytes, update the installer helper
+the larger private history. The 0.9.1 candidate bootstrap host helper has separate fixed
+build 5 (released 0.9.0 used build 4), built with Go 1.27.3. Reproduce its bytes, update the installer helper
 pin, then hash that installer and update all three bootstrap installer pins.
 Neither an image update nor an ordinary installer rerun replaces an existing
 valid helper; fleet delivery needs its separately approved host-update path.
@@ -122,14 +122,14 @@ approver explicitly review the alerts and disposition before the cut; successful
 analysis does not mean there are no open findings. A later change to installer
 bytes requires a new reviewed pin chain before anything is published.
 
-After approved publication of the complete 0.9.0 hash chain, the explicit path is:
+After approved publication of the complete candidate hash chain, the explicit path is:
 
 ```sh
 curl -fsSL https://get.cybrrd.com | bash -s -- --upgrade-helper
 ```
 
 The installer flag works with the old installed command and requires no staging
-step. It downloads only the pinned build-4 SHA-addressed artifact (or accepts
+step. It downloads only the pinned build-5 SHA-addressed artifact (or accepts
 `--helper-file PATH` with the same SHA256), preserves identity, credentials and
 all workload pins/floors, and never enrolls. An absent runtime credential is
 accepted only with the configured 0.8.31 system credential path; present runtime
@@ -171,3 +171,8 @@ itself references its versioned v2.4.4 container; review upstream transitive
 dependencies when changing any action pin. Hosted runner OS images still receive
 GitHub maintenance updates. First hosted executions, environment enforcement and
 account settings require operator validation; offline tests cannot prove them.
+
+The helper-5 candidate requires fresh released-0.9.0 4→5 qualification before
+0.9.1 ships. The [qualification kit](../Component/aviary/release-system/qualification/helper5/README.md)
+keeps native fault/reboot/handback evidence pending until a named host and window
+are approved. Offline passes do not close that gate.

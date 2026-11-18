@@ -78,8 +78,8 @@ func newLocalFixture(t *testing.T) *localFixture {
 		machine = 62
 	}
 	binary.LittleEndian.PutUint16(candidate[18:20], machine)
-	f := &localFixture{p: p, candidate: candidate, old: old, hash: contentHash(candidate), oldBuild: "2\n"}
-	files := map[string][]byte{p.binary: old, p.receipt: []byte(contentHash(old) + "  " + p.binary + "\n"), p.config: []byte("node:\n  id: node-one\n"), p.bootstrap: testCreds("node-one", 22), p.active: testCreds("node-one", 23), p.launch: []byte("old launcher"), p.private + "/host-state.json": []byte(`{"build_seq":2,"seen":{"sequence":27,"hash":"keep"},"attempted":{"retained":true},"next_poll":"2026-10-22T00:00:00Z"}`), p.private + "/state.json": []byte(`{"applied_build":8000,"applied_console_build":9000,"seen":{"sequence":345,"hash":"keep"},"running_sequence":300,"attempts":{},"quarantined":{}}`), root + "/engine.container": []byte("Image=engine@sha256:keep\n"), root + "/console.container": []byte("Image=console@sha256:keep\n"), root + "/policy_state.json": []byte(`{"last_applied_build_seq":7900,"last_applied_unix_ms":123456}`)}
+	f := &localFixture{p: p, candidate: candidate, old: old, hash: contentHash(candidate), oldBuild: "4\n"}
+	files := map[string][]byte{p.binary: old, p.receipt: []byte(contentHash(old) + "  " + p.binary + "\n"), p.config: []byte("node:\n  id: node-one\n"), p.bootstrap: testCreds("node-one", 22), p.active: testCreds("node-one", 23), p.launch: []byte("old launcher"), p.private + "/host-state.json": []byte(`{"build_seq":4,"seen":{"sequence":27,"hash":"keep"},"attempted":{"retained":true},"next_poll":"2026-10-22T00:00:00Z"}`), p.private + "/state.json": []byte(`{"applied_build":8000,"applied_console_build":9000,"seen":{"sequence":345,"hash":"keep"},"running_sequence":300,"attempts":{},"quarantined":{}}`), root + "/engine.container": []byte("Image=engine@sha256:keep\n"), root + "/console.container": []byte("Image=console@sha256:keep\n"), root + "/policy_state.json": []byte(`{"last_applied_build_seq":7900,"last_applied_unix_ms":123456}`)}
 	cfg, _ := json.Marshal(Config{Node: "node-one", PrivateDir: p.private})
 	files[p.updater] = cfg
 	for path, b := range files {
@@ -111,7 +111,7 @@ func (f *localFixture) probe(path, verb string) (string, error) {
 	if old {
 		return f.oldBuild, nil
 	}
-	return "4\n", nil
+	return "5\n", nil
 }
 func treeBytes(t *testing.T, root string) map[string]string {
 	t.Helper()
@@ -161,8 +161,8 @@ func TestLocalUpgradeRefusals(t *testing.T) {
 		{"corrupt_receipt", "receipt", func(f *localFixture) {
 			os.WriteFile(f.p.receipt, []byte(strings.Repeat("0", 64)+"  "+f.p.binary+"\n"), 0600)
 		}},
-		{"downgrade", "downgrade", func(f *localFixture) { f.oldBuild = "5\n" }},
-		{"equal_build_different_hash", "equal-build", func(f *localFixture) { f.oldBuild = "4\n" }},
+		{"downgrade", "downgrade", func(f *localFixture) { f.oldBuild = "6\n" }},
+		{"equal_build_different_hash", "equal-build", func(f *localFixture) { f.oldBuild = "5\n" }},
 		{"wrong_arch", "architecture", func(f *localFixture) { f.candidate[18] = 0; f.hash = contentHash(f.candidate) }},
 		{"missing_active", "active", func(f *localFixture) { os.Remove(f.p.active) }},
 		{"bad_active_signature", "credentials", func(f *localFixture) { b, _ := os.ReadFile(f.p.active); b[40] ^= 1; os.WriteFile(f.p.active, b, 0600) }},
@@ -213,7 +213,7 @@ func TestLocalUpgradeSuccess(t *testing.T) {
 	var state map[string]any
 	b, _ = os.ReadFile(f.p.private + "/host-state.json")
 	json.Unmarshal(b, &state)
-	if state["build_seq"] != float64(4) || state["seen"].(map[string]any)["sequence"] != float64(27) || state["attempted"].(map[string]any)["retained"] != true {
+	if state["build_seq"] != float64(5) || state["seen"].(map[string]any)["sequence"] != float64(27) || state["attempted"].(map[string]any)["retained"] != true {
 		t.Fatal("host floor/sequence preservation")
 	}
 	if _, e := os.Stat(f.p.private + "/host-transaction.json"); !os.IsNotExist(e) {

@@ -52,6 +52,8 @@ class HelperDispatch(unittest.TestCase):
             self.assertTrue(Path(argv[0]).is_relative_to(self.root))
             self.assertEqual(argv[1:], ['upgrade-local-helper', '--sha256', self.expected])
             self.assertEqual(Path(argv[0]).read_bytes(), self.raw)
+            self.assertEqual(stat.S_IMODE(Path(argv[0]).stat().st_mode), 0o700)
+            self.assertEqual(stat.S_IMODE(Path(argv[0]).parent.stat().st_mode), 0o700)
         # There is no permitted OAuth/device/Flock/credential-service command.
         for forbidden in ('oauth', 'device', 'enroll', 'hospitality', 'ingest'):
             self.assertNotIn(forbidden, ' '.join(argv).lower())
@@ -82,6 +84,22 @@ class HelperDispatch(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'architecture'):
             upgrade.main([str(self.installer), '--upgrade-helper'])
         self.assertEqual(len(self.calls), 1)
+
+    def test_empty_local_candidate_never_executes(self):
+        local = self.root/'empty'
+        local.write_bytes(b'')
+        self.installer.write_text('readonly RELEASE_HELPER_SHA256="'+hashlib.sha256(b'').hexdigest()+'"\n')
+        with self.assertRaisesRegex(RuntimeError, 'architecture'):
+            upgrade.main([str(self.installer), '--upgrade-helper', '--helper-file', str(local)])
+        self.assertEqual(self.calls, [])
+
+    def test_oversize_local_candidate_never_executes(self):
+        local = self.root/'oversize'
+        with local.open('wb') as stream:
+            stream.truncate((32 << 20)+1)
+        with self.assertRaisesRegex(RuntimeError, 'size limit'):
+            upgrade.main([str(self.installer), '--upgrade-helper', '--helper-file', str(local)])
+        self.assertEqual(self.calls, [])
 
     def test_other_flags_refused_without_commands(self):
         with self.assertRaisesRegex(RuntimeError, 'usage'):

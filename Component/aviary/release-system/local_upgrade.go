@@ -34,6 +34,9 @@ type localPaths struct {
 	boundary string
 }
 
+// This fixed target belongs to the reviewed installer artifact, not caller input.
+const localHelperBuild uint64 = 5
+
 const localSystemCredentials = "/etc/brrdfeeder/secrets/brrdfeeder.creds"
 
 func localHelperCLI(args []string) error {
@@ -69,7 +72,7 @@ func localHelperCLI(args []string) error {
 	if e = upgradeLocal(p, candidate, *hash, probeLocal, func(string) {}); e != nil {
 		return e
 	}
-	fmt.Println("Helper build 4 verified; identity, credentials and workload state preserved. No enrollment performed.")
+	fmt.Printf("Helper build %d verified; identity, credentials and workload state preserved. No enrollment performed.\n", localHelperBuild)
 	return nil
 }
 
@@ -335,10 +338,10 @@ print(json.dumps({'node_id':node,'credentials_path':configured}))`)
 	} else if !os.IsNotExist(e) {
 		return s, e
 	}
-	if s.build > 4 {
+	if s.build > localHelperBuild {
 		return s, errors.New("helper downgrade refused")
 	} // LOCAL MUTATE downgrade
-	if s.build == 4 && contentHash(s.old) != hash {
+	if s.build == localHelperBuild && contentHash(s.old) != hash {
 		return s, errors.New("equal-build different-hash helper refused")
 	} // LOCAL MUTATE equal
 	return s, nil
@@ -409,8 +412,8 @@ func upgradeLocal(p localPaths, candidate []byte, hash string, probe func(string
 			return errors.New("candidate self-test failed")
 		}
 		r, e = probe(path, "build-seq")
-		if e != nil || r != "4\n" {
-			return errors.New("candidate build is not exactly 4")
+		if e != nil || r != strconv.FormatUint(localHelperBuild, 10)+"\n" {
+			return fmt.Errorf("candidate build is not exactly %d", localHelperBuild)
 		}
 		return nil
 	}
@@ -469,7 +472,7 @@ func upgradeLocal(p localPaths, candidate []byte, hash string, probe func(string
 	if len(s.floor) == 0 {
 		s.state = map[string]json.RawMessage{"next_poll": json.RawMessage(`"0001-01-01T00:00:00Z"`), "seen": json.RawMessage(`{"sequence":0,"hash":""}`), "attempted": json.RawMessage(`{}`)}
 	}
-	s.state["build_seq"] = json.RawMessage(`4`)
+	s.state["build_seq"] = json.RawMessage(strconv.FormatUint(localHelperBuild, 10))
 	if e = atomicJSON(filepath.Join(p.private, "host-state.json"), s.state, 0600); e != nil {
 		return rollback(e)
 	}

@@ -46,6 +46,7 @@ func (commands) Run(bin string, args ...string) ([]byte, error) {
 }
 
 type Updater struct {
+	policyTest    *policyEnvironment // Test-only canonical path/probe/activation overrides.
 	cfg           Config
 	state         State
 	keys          []ed25519.PublicKey
@@ -80,6 +81,9 @@ func (u *Updater) execute(mode string) (result error) {
 	if e = u.load(); e != nil {
 		return e
 	}
+	if mode == "authorize-policy-retry" {
+		return u.authorizePolicyRetry()
+	}
 	if mode == "poll" || mode == "apply" {
 		u.attempt = &Attempt{Schema: 1, Mode: mode, Started: u.now().UTC(), Phase: "prepare", HelperBuild: updaterBuild}
 		defer func() { result = errors.Join(result, u.finishAttempt(result)) }()
@@ -95,6 +99,11 @@ func (u *Updater) execute(mode string) (result error) {
 		}
 	} else {
 		if e = removeOptional(u.marker()); e != nil {
+			return e
+		}
+	}
+	if u.state.Active == nil {
+		if e = u.cleanupOrphanPolicyHold(); e != nil {
 			return e
 		}
 	}
@@ -312,10 +321,20 @@ func (u *Updater) poll() error {
 		return e
 	}
 	target := packageTarget(m)
-	if u.state.Quarantined[target] {
+	if u.state.Quarantined[target] && (!contains(im.RepoDigests, repository+"@"+m.Digest) || !contains(console.RepoDigests, consoleRepository+"@"+m.ConsoleDigest)) {
 		return u.outcome("quarantined", target, u.state.Attempts[target])
 	}
-	if contains(im.RepoDigests, repository+"@"+m.Digest) &&
+	// Policy eligibility/capability is checked before staging and before the
+	// equal-release early return. The original signed bytes remain authority.
+	quad, e := readBounded(u.cfg.Quadlet, 65536)
+	if e != nil {
+		return e
+	}
+	policy, e := u.planEnginePolicy(quad, Request{Target: m.Repository + "@" + m.Digest, Version: m.Version, Build: m.BuildSeq, Release: &m}, im, console)
+	if e != nil {
+		return u.policyRefusal(e)
+	}
+	if policy == nil && contains(im.RepoDigests, repository+"@"+m.Digest) &&
 		contains(console.RepoDigests, consoleRepository+"@"+m.ConsoleDigest) &&
 		u.state.RunningSequence == m.Sequence {
 		return nil

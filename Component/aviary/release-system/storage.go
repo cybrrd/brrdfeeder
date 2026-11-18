@@ -43,19 +43,20 @@ type Request struct {
 	Release *Release `json:"release,omitempty"`
 }
 type Transaction struct {
-	FailureCounted  bool        `json:"failure_counted,omitempty"`
-	Request         Request     `json:"request"`
-	Previous        string      `json:"previous"`
-	PreviousID      string      `json:"previous_id"`
-	PreviousDigest  string      `json:"previous_digest"`
-	PreviousBuild   uint64      `json:"previous_build"`
-	PreviousVersion string      `json:"previous_version"`
-	Quadlet         []byte      `json:"quadlet"`
-	Anchor          string      `json:"anchor"`
-	Phase           string      `json:"phase"`
-	Started         time.Time   `json:"started"`
-	EngineChanged   bool        `json:"engine_changed"`
-	Console         *Checkpoint `json:"console,omitempty"`
+	EnginePolicy    *enginePolicyTransaction `json:"engine_policy,omitempty"`
+	FailureCounted  bool                     `json:"failure_counted,omitempty"`
+	Request         Request                  `json:"request"`
+	Previous        string                   `json:"previous"`
+	PreviousID      string                   `json:"previous_id"`
+	PreviousDigest  string                   `json:"previous_digest"`
+	PreviousBuild   uint64                   `json:"previous_build"`
+	PreviousVersion string                   `json:"previous_version"`
+	Quadlet         []byte                   `json:"quadlet"`
+	Anchor          string                   `json:"anchor"`
+	Phase           string                   `json:"phase"`
+	Started         time.Time                `json:"started"`
+	EngineChanged   bool                     `json:"engine_changed"`
+	Console         *Checkpoint              `json:"console,omitempty"`
 }
 type Checkpoint struct {
 	Quadlet  []byte `json:"quadlet"`
@@ -177,6 +178,11 @@ func (u *Updater) load() error {
 	}
 	if e = strictJSONLimit(b, &u.state, 256*1024); e != nil {
 		return e
+	}
+	if u.state.Active != nil {
+		if e = u.validatePolicyTransaction(u.state.Active); e != nil {
+			return e
+		}
 	}
 	if u.state.Attempts == nil || u.state.Quarantined == nil {
 		return errors.New("invalid durable update state")

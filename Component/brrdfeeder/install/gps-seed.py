@@ -362,6 +362,47 @@ def device_matches(fd, device):
         return False
 
 
+RUNTIME_STATE = Path('/run/brrdfeeder-gps/state.json')
+
+
+def open_selected_gps(device, baud):
+    """Consume only a runtime-qualified attachment when the default link is absent.
+
+    Discovery owns probing and its lock/state. The first-fix waiter only consumes
+    the exact qualified inode, and rechecks it after open before accepting data.
+    It never creates a mapping, changes GPS configuration or restarts the unit.
+    """
+    try:
+        return open_gps(device, baud), device
+    except FileNotFoundError:
+        if device != '/dev/cybrrd_gps':
+            raise
+    try:
+        qualified = json.loads(RUNTIME_STATE.read_text()).get('qualified', {})
+        path = qualified.get('path')
+        expected = qualified.get('identity')
+        if (qualified.get('usb_id') != '10c4:ea60' or not isinstance(path, str)
+                or not path.startswith('/dev/') or not isinstance(expected, list)
+                or len(expected) != 4):
+            raise ValueError('no qualified GPS attachment')
+        current = os.stat(path)
+        identity = [current.st_dev, current.st_ino, current.st_rdev, current.st_ctime_ns]
+        if not stat.S_ISCHR(current.st_mode) or identity != expected:
+            raise ValueError('qualified GPS attachment changed')
+    except (OSError, ValueError, TypeError, AttributeError):
+        # Preserve the normal missing-device wait and its diagnostic.
+        raise FileNotFoundError('no current qualified GPS attachment') from None
+    fd = open_gps(path, baud)
+    try:
+        opened = os.fstat(fd)
+        if [opened.st_dev, opened.st_ino, opened.st_rdev, opened.st_ctime_ns] != expected:
+            raise FileNotFoundError('qualified GPS replaced during open')
+        return fd, path
+    except BaseException:
+        close_gps(fd)
+        raise
+
+
 def seed():
     prestart_only()
     config, raw, info = load_config()
@@ -377,7 +418,7 @@ def seed():
         raise ValueError('GPS device must be under /dev')
     while True:
         try:
-            fd = open_gps(device, baud)
+            fd, selected = open_selected_gps(device, baud)
         except FileNotFoundError:
             report('gps-missing', 'GPS not detected: plug in the GPS')
             time.sleep(5)
@@ -392,7 +433,7 @@ def seed():
             diagnostics = NMEADiagnostics()
             last_data = time.monotonic()
             while True:
-                if not device_matches(fd, device):
+                if not device_matches(fd, selected):
                     report('gps-busy', 'GPS disconnected or replaced; closing the old device and retrying')
                     break
                 if time.monotonic()-last_data >= 15:
@@ -425,7 +466,7 @@ def seed():
                             fix = parse_fix(buffer)
                             buffer = b''
                             if fix:
-                                if not device_matches(fd, device):
+                                if not device_matches(fd, selected):
                                     break  # Recheck/reopen in outer loop; never seed a replaced receiver's fix.
                                 current, current_raw, current_info = load_config()
                                 if current_raw != raw or current_info.st_ino != info.st_ino:

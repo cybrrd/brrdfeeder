@@ -3,7 +3,7 @@
 //! BLE AD de-framing only. All ODID fields are decoded by the shared no_std core.
 use crate::astm::telemetry_from_pack;
 use crate::models::{RidTransport, TelemetryData};
-use cybrrd_rid_core::{decode_message_pack, decode_single_message, RidPack};
+use cybrrd_rid_core::{decode_message_pack, decode_single_message, ParseError, RidPack};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
@@ -42,9 +42,17 @@ pub enum Reject {
     UnsupportedTransport,
 }
 
+static UNASSOCIATED_DROPPED: AtomicU64 = AtomicU64::new(0);
+
+/// Cumulative since process start; independent of the interval audit drain.
+pub fn unassociated_dropped_total() -> u64 {
+    UNASSOCIATED_DROPPED.load(Ordering::Relaxed)
+}
+
 static REJECTS: [AtomicU64; 7] = [const { AtomicU64::new(0) }; 7];
 
-/// Counts indexed by `Reject`; a source can publish these in its health surface.
+/// Cumulative since process start, indexed by `Reject`; reads never reset counts.
+/// Includes non-RID advertisements as NoSignature; not all rejects are malformed RID.
 pub fn reject_counts() -> [u64; 7] {
     std::array::from_fn(|i| REJECTS[i].load(Ordering::Relaxed))
 }
@@ -86,7 +94,10 @@ fn decode_ad(ad: &[u8], meta: BleMeta) -> Result<(RidPack, u8, RidTransport), Re
                     if payload.len() < required {
                         return Err(Reject::BadPayload);
                     }
-                    decode_message_pack(payload).map_err(|_| Reject::CoreDecode)?
+                    decode_message_pack(payload).map_err(|error| match error {
+                        ParseError::NoLocation => Reject::NoLocation,
+                        _ => Reject::CoreDecode,
+                    })?
                 }
                 RidTransport::Bt4Legacy => {
                     if payload.len() != 25 || payload[0] >> 4 > 5 {
@@ -189,9 +200,12 @@ impl BleDecoder {
         }
         if pack.operational_status.is_some() && pack.hardware_serial.is_none() && pack.caa_registration.is_none() {
             self.unassociated_dropped = self.unassociated_dropped.saturating_add(1);
+            UNASSOCIATED_DROPPED.fetch_add(1, Ordering::Relaxed);
             return None;
         }
-        let mut data = telemetry_from_pack(pack, addr, rssi)?;
+        // Successful de-framing need not yield a Location or usable identity
+        // (for example, a standalone Self ID). Count this final rejection too.
+        let mut data = counted(telemetry_from_pack(pack, addr, rssi).ok_or(Reject::NoLocation))?;
         data.transport = Some(transport);
         data.message_counter = Some(counter);
         Some(data)
@@ -234,6 +248,25 @@ mod tests {
             out.extend_from_slice(if i == 0 { &loc } else { &id });
         }
         out
+    }
+
+    #[test]
+    fn bluetooth_cumulative_diagnostics_survive_interval_drains() {
+        let before = unassociated_dropped_total();
+        let mut decoder = BleDecoder::default();
+        let mut loc=[0u8;25]; loc[0]=0x12; // synthetic unknown position, no real coordinates
+        for _ in 0..2 { assert!(decoder.ingest(&ad(&loc,0),[0x42;6],-40,BT4).is_none()); }
+        assert_eq!(decoder.take_unassociated_dropped(),2);
+        assert_eq!(decoder.take_unassociated_dropped(),0);
+        assert!(unassociated_dropped_total() >= before+2);
+        let total = unassociated_dropped_total();
+        assert!(unassociated_dropped_total() >= total);
+        let before=reject_counts();
+        assert!(ingest_ad(&[30,0x16], [0;6],-40,BT4).is_none());
+        let after=reject_counts();
+        assert!(after[Reject::TruncatedAd as usize] > before[Reject::TruncatedAd as usize]);
+        let again=reject_counts();
+        for i in 0..7 { assert!(again[i] >= after[i]); }
     }
 
     #[test]

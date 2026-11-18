@@ -350,7 +350,7 @@ class BluetoothBoundaries(unittest.TestCase):
     def test_no_adapter(self):
         fixture,result,before=self.installer('no-adapter')
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
-        self.assertIn('no supported RID.BLE adapter found',result.stdout+result.stderr)
+        self.assertIn('Bluetooth will activate automatically when a supported adapter is plugged in',result.stdout+result.stderr)
         self.assertEqual((fixture.bluetooth/'calls').read_text(),'')
         self.assertFalse(Path('/etc/brrdfeeder/.bluetooth-prior.json').exists())
     def test_supported_active(self):

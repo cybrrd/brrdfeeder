@@ -39,6 +39,8 @@ type status struct {
 			USB           string            `json:"usb_id"`
 			Observed      string            `json:"observed_at"`
 			State         string            `json:"state"`
+			Enabled       *bool             `json:"enabled"`
+			Reason        string            `json:"reason"`
 			CurrentRFKill *blockObservation `json:"current_rfkill"`
 			Rfkill        *struct {
 				Soft     bool   `json:"soft_blocked"`
@@ -155,7 +157,7 @@ func readStatusWithMemory(path string, now time.Time, hostMemory *memoryStatus) 
 	}
 	if b := s.Inventory.BLE; b != nil {
 		b.Address, b.USB, b.Observed = sanitize(b.Address), sanitize(b.USB), sanitize(b.Observed)
-		b.State = sanitize(b.State)
+		b.State, b.Reason = sanitize(b.State), sanitize(b.Reason)
 		if b.CurrentRFKill != nil {
 			b.CurrentRFKill.Observed = sanitize(b.CurrentRFKill.Observed)
 		}
@@ -217,6 +219,11 @@ func readStatusWithMemory(path string, now time.Time, hostMemory *memoryStatus) 
 		case "failed":
 			v.BLE = "Failed"
 		}
+		if b.Enabled != nil && !*b.Enabled {
+			v.BLE = "Disabled in configuration"
+		} else if strings.HasPrefix(b.Reason, "Waiting:") {
+			v.BLE = "Waiting for Bluetooth"
+		}
 		blocked := false
 		if r := b.CurrentRFKill; r != nil && r.Soft != nil && r.Hard != nil {
 			observed, err := time.Parse(time.RFC3339Nano, r.Observed)
@@ -233,6 +240,8 @@ func readStatusWithMemory(path string, now time.Time, hostMemory *memoryStatus) 
 		}
 		if b.State == "failed" && !blocked {
 			add("Bluetooth reception has failed.", "Check the Bluetooth adapter and ask your installer to inspect the engine's current Bluetooth state.")
+		} else if strings.HasPrefix(b.Reason, "Waiting:") && (b.Enabled == nil || *b.Enabled) {
+			add("Bluetooth reception is waiting.", b.Reason)
 		}
 	} else {
 		add("No Bluetooth inventory was reported.", "If Bluetooth reception is expected, check the adapter and ask your installer to verify Bluetooth capture is enabled.")

@@ -559,10 +559,21 @@ def engine_snapshot(context, deadline):
             if heartbeat.get('radio_status') == 'up' and any(
                     item.get('monitor_mode') is True for item in status.get('inventory', {}).get('capture', [])):
                 result['states']['Wi-Fi capture'] = 'OK'
-            # Main's status schema has only historical rfkill, not BLE health.
-            # Never use that pre-unblock snapshot as a current health verdict.
+            # Prefer local lifecycle state/reason; journal is an old-engine
+            # fallback. Historical rfkill never proves current reception.
+            inventory_ble = status.get('inventory', {}).get('rid_ble')
+            if isinstance(inventory_ble, dict) and inventory_ble.get('state') in ('initializing','healthy','degraded','failed'):
+                reason = inventory_ble.get('reason')
+                if inventory_ble.get('enabled') is False:
+                    result['states']['Bluetooth'] = 'disabled in configuration'
+                elif inventory_ble['state'] == 'healthy':
+                    result['states']['Bluetooth'] = 'OK'
+                elif isinstance(reason, str) and reason:
+                    result['states']['Bluetooth'] = json.dumps(reason[:500], ensure_ascii=True)
+                else:
+                    result['states']['Bluetooth'] = inventory_ble['state']
             ble = None
-            if rc == 0:
+            if not isinstance(inventory_ble, dict) and rc == 0:
                 for line in journal.splitlines():
                     match = re.search(r'\[rid_ble\] state=(Initializing|Healthy|Degraded|Failed)\b', line)
                     if match:

@@ -2,6 +2,34 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
+## 0.9.1 — Unreleased Bluetooth and GPS hotplug candidate
+
+- Admit Bluetooth 0bda:876e/0bda:8771/0bda:a728; report observed long-range capability and retain legacy capture after extended-scan refusal. Add cumulative Bluetooth decoder/drop diagnostics to operational reports. 8771 native proof remains pending.
+
+- Missing RID.BLE configuration now means enabled intent with automatic supported
+  adapter selection; explicit off remains off. Existing explicit sections keep
+  their previous enabled/rfkill defaults on engine-only updates. Installer
+  takeover validates selection before ownership changes and cleans up a new
+  receipt after successful rollback. Missing/lost adapters retry,
+  with local status reasons and console display instead of terminal failure.
+- Supported-ID HCI ADD rules and a five-second retry/ownership timer invoke the
+  receipt-guarded Bluetooth helper without rewriting config or stopping an
+  enabled engine. Manual bluetoothd unmask/start is reported, never reclaimed
+  automatically. Uninstall removes the service, timer, rules and runtime state.
+- Native hardware acceptance remains required before release inclusion.
+
+- A CP2102N GPS first attached after installation can be receive-only
+  NMEA-qualified and passed through the existing exact-device transport without
+  a prompt or reinstall. Busy/uncertain ports stay unopened, restore failure
+  refuses adoption, replacement identities require fresh confirmation, and
+  native u-blox behavior remains preferred.
+- GPS hotplug uses an ADD-only systemd trigger plus the existing five-second
+  reconciliation timer. It never rewrites `gps.required`, never starts a
+  deliberately stopped engine and retains the bounded restart budget.
+
+- Late-qualified GPS attachments now reach the first-fix waiter before container
+  startup. Optional PMTK initialization waits for confirmed NMEA on each open.
+
 ## 0.9.0 — Unreleased public beta candidate
 
 - Automatically confirm CP2102N GPS receivers without a prompt, resolve the correct tty, skip busy ports, restore probe settings, and generate a usable confirmed-device udev rule.

@@ -790,10 +790,21 @@ def engine_snapshot(context, deadline):
             if heartbeat.get('radio_status') == 'up' and any(
                     item.get('monitor_mode') is True for item in status.get('inventory', {}).get('capture', [])):
                 result['states']['Wi-Fi capture'] = 'OK'
-            # Main's status schema has only historical rfkill, not BLE health.
-            # Never use that pre-unblock snapshot as a current health verdict.
+            # Prefer local lifecycle state/reason; journal is an old-engine
+            # fallback. Historical rfkill never proves current reception.
+            inventory_ble = status.get('inventory', {}).get('rid_ble')
+            if isinstance(inventory_ble, dict) and inventory_ble.get('state') in ('initializing','healthy','degraded','failed'):
+                reason = inventory_ble.get('reason')
+                if inventory_ble.get('enabled') is False:
+                    result['states']['Bluetooth'] = 'disabled in configuration'
+                elif inventory_ble['state'] == 'healthy':
+                    result['states']['Bluetooth'] = 'OK'
+                elif isinstance(reason, str) and reason:
+                    result['states']['Bluetooth'] = json.dumps(reason[:500], ensure_ascii=True)
+                else:
+                    result['states']['Bluetooth'] = inventory_ble['state']
             ble = None
-            if rc == 0:
+            if not isinstance(inventory_ble, dict) and rc == 0:
                 for line in journal.splitlines():
                     match = re.search(r'\[rid_ble\] state=(Initializing|Healthy|Degraded|Failed)\b', line)
                     if match:
@@ -2134,6 +2145,7 @@ files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
   /usr/local/libexec/brrdfeeder-gps-runtime
   /etc/systemd/system/brrdfeeder-gps-runtime.service
   /etc/systemd/system/brrdfeeder-gps-runtime.timer
+  /etc/systemd/system/brrdfeeder-ble-takeover.service /etc/systemd/system/brrdfeeder-ble-takeover.timer
   /usr/local/libexec/brrdfeeder-bluetooth /etc/brrdfeeder/.bluetooth-prior.json
   /usr/local/bin/brrdfeeder-updater.sh /run/brrdfeeder-engine.cid /run/brrdfeeder-engine.service.cid)
 shopt -s nullglob dotglob
@@ -2194,6 +2206,8 @@ for pair in \
   '/usr/local/libexec/brrdfeeder-gps-runtime|BRRDfeeder GPS runtime transport' \
   '/etc/systemd/system/brrdfeeder-gps-runtime.service|BRRDfeeder GPS runtime transport' \
   '/etc/systemd/system/brrdfeeder-gps-runtime.timer|BRRDfeeder GPS runtime transport' \
+  '/etc/systemd/system/brrdfeeder-ble-takeover.service|BRRDfeeder Bluetooth hotplug ownership' \
+  '/etc/systemd/system/brrdfeeder-ble-takeover.timer|BRRDfeeder Bluetooth hotplug retry and ownership observation' \
   '/usr/local/libexec/brrdfeeder-bluetooth|BRRDfeeder Bluetooth ownership:' \
   '/usr/local/bin/brrdfeeder-updater.sh|# BRRDfeeder signed-update installer.|#185 Drop 2'; do
   file=${pair%%|*}; signature=${pair#*|}
@@ -2271,7 +2285,7 @@ done
 for unit in /etc/systemd/system/brrdfeeder-engine.service /etc/systemd/system/brrdhouse.service; do
   ! exists "$unit" || die "unexpected native override of generated unit: $unit"
 done
-for unit in brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-memory.service brrdfeeder-memory.timer brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
+for unit in brrdfeeder-ble-takeover.timer brrdfeeder-ble-takeover.service brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-memory.service brrdfeeder-memory.timer brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
   ! exists "/etc/systemd/system/$unit.d" || die "unexpected unit overrides: $unit.d"
 done
 console_links=()
@@ -2343,6 +2357,8 @@ progress_phase 'Stopping services'
 stop_unit system brrdfeeder-memory.timer
 stop_unit system brrdfeeder-memory.service
 stop_unit system brrdfeeder-release-poll.timer
+stop_unit system brrdfeeder-ble-takeover.timer
+stop_unit system brrdfeeder-ble-takeover.service
 stop_unit system brrdfeeder-gps-runtime.timer
 stop_unit system brrdfeeder-gps-runtime.service
 stop_unit system brrdfeeder-host-update.timer
@@ -2379,13 +2395,13 @@ remove_file /etc/systemd/system/brrdfeeder-memory.service
 remove_file /etc/systemd/system/brrdfeeder-memory.timer
 for file in /etc/systemd/system/brrdfeeder-updater.path /etc/systemd/system/brrdfeeder-updater.service /etc/containers/systemd/brrdfeeder-engine.container /etc/systemd/system/brrdfeeder-release-poll.timer /etc/systemd/system/brrdfeeder-release-poll.service /etc/systemd/system/brrdfeeder-release-recover.service /etc/systemd/system/brrdfeeder-host-update.service /etc/systemd/system/brrdfeeder-host-update.timer; do remove_file "$file"; done
 for file in "${console_links[@]}"; do remove_file "$file"; done
-for file in /etc/systemd/system/brrdfeeder-gps-runtime.timer /etc/systemd/system/brrdfeeder-gps-runtime.service; do remove_file "$file"; done
+for file in /etc/systemd/system/brrdfeeder-ble-takeover.timer /etc/systemd/system/brrdfeeder-ble-takeover.service /etc/systemd/system/brrdfeeder-gps-runtime.timer /etc/systemd/system/brrdfeeder-gps-runtime.service; do remove_file "$file"; done
 [[ ${#console_links[@]} -gt 0 ]] || absent '/etc/containers/systemd/users/<console-uid>/brrdhouse.container'
 remove_file /etc/brrdfeeder/brrdhouse.container
 act systemctl daemon-reload
 if [[ -n ${uid[brrdhouse]:-} && -S /run/user/${uid[brrdhouse]}/bus ]]; then act user_command systemctl --user daemon-reload;
 else log 'nothing to do: no active console user manager to reload; teardown order requires Quadlet removal before account deletion'; fi
-for unit in brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.timer brrdfeeder-host-update.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-engine.service brrdfeeder-gps-runtime.timer brrdfeeder-gps-runtime.service; do reset_failed_unit system "$unit"; done
+for unit in brrdfeeder-ble-takeover.timer brrdfeeder-ble-takeover.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.timer brrdfeeder-host-update.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-engine.service brrdfeeder-gps-runtime.timer brrdfeeder-gps-runtime.service; do reset_failed_unit system "$unit"; done
 reset_failed_unit user brrdhouse.service
 
 # Only package containers and exclusive package image IDs. Never force rmi/prune.
@@ -2518,7 +2534,7 @@ remove_tree() {
     else find -P "$path" -xdev -depth -delete; log "REMOVED tree: $path"; fi
   else absent "$path"; fi
 }
-for tree in /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do remove_tree "$tree"; done
+for tree in /run/brrdfeeder-bluetooth /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do remove_tree "$tree"; done
 progress_phase 'Removing service accounts'
 for user in brrdhouse brrdfeeder; do
   if [[ -n ${uid[$user]:-} ]]; then
@@ -3462,9 +3478,9 @@ for ble_device in /sys/bus/usb/devices/*; do
   if [[ -r "$ble_device/idVendor" && -r "$ble_device/idProduct" ]]; then
     read -r ble_vendor < "$ble_device/idVendor" || continue
     read -r ble_product < "$ble_device/idProduct" || continue
-    if [[ ${ble_vendor,,}:${ble_product,,} == 0bda:876e || ${ble_vendor,,}:${ble_product,,} == 0bda:a728 ]]; then
+    if [[ ${ble_vendor,,}:${ble_product,,} == 0bda:876e || ${ble_vendor,,}:${ble_product,,} == 0bda:8771 || ${ble_vendor,,}:${ble_product,,} == 0bda:a728 ]]; then
       HAVE_REALTEK=1
-      ok "Supported RID.BLE adapter found: Realtek USB ${ble_vendor,,}:${ble_product,,}; missing config key will be enabled before service startup."
+      ok "Allowed RID.BLE adapter found: Realtek USB ${ble_vendor,,}:${ble_product,,}; missing config key will be enabled before service startup."
     fi
   fi
 done
@@ -3914,12 +3930,19 @@ NEW_UDEV_CONTENT=$(cat <<EOF
 
 # Supported u-blox USB family; one connected GPS, no wildcard clone probing.
 ${GPS_UDEV_RULES}
+# CP2102N is only a candidate: trigger receive-only qualification, never map by ID.
+ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-gps-runtime.service"
 # Operator-declared, NMEA-confirmed non-u-blox GPS (sensors.gps.usb_id).
 ${GPS_DECLARED_RULE}
 
 # Nordic Semiconductor nRF52 Connectivity (BLE)
 SUBSYSTEM=="tty", ATTRS{idVendor}=="${NORDIC_VENDOR}", ATTRS{idProduct}=="${NORDIC_PRODUCT}", SYMLINK+="${BLE_SYMLINK}", GROUP="dialout", MODE="0660"
 KERNEL=="rfkill", SUBSYSTEM=="misc", GROUP="dialout", MODE="0660"
+
+# BRRDfeeder supported Bluetooth hotplug; never match arbitrary USB adapters.
+ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="876e", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-ble-takeover.service"
+ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="8771", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-ble-takeover.service"
+ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="a728", TAG+="systemd", ENV{SYSTEMD_WANTS}+="brrdfeeder-ble-takeover.service"
 EOF
 )
 
@@ -4842,6 +4865,47 @@ def device_matches(fd, device):
         return False
 
 
+RUNTIME_STATE = Path('/run/brrdfeeder-gps/state.json')
+
+
+def open_selected_gps(device, baud):
+    """Consume only a runtime-qualified attachment when the default link is absent.
+
+    Discovery owns probing and its lock/state. The first-fix waiter only consumes
+    the exact qualified inode, and rechecks it after open before accepting data.
+    It never creates a mapping, changes GPS configuration or restarts the unit.
+    """
+    try:
+        return open_gps(device, baud), device
+    except FileNotFoundError:
+        if device != '/dev/cybrrd_gps':
+            raise
+    try:
+        qualified = json.loads(RUNTIME_STATE.read_text()).get('qualified', {})
+        path = qualified.get('path')
+        expected = qualified.get('identity')
+        if (qualified.get('usb_id') != '10c4:ea60' or not isinstance(path, str)
+                or not path.startswith('/dev/') or not isinstance(expected, list)
+                or len(expected) != 4):
+            raise ValueError('no qualified GPS attachment')
+        current = os.stat(path)
+        identity = [current.st_dev, current.st_ino, current.st_rdev, current.st_ctime_ns]
+        if not stat.S_ISCHR(current.st_mode) or identity != expected:
+            raise ValueError('qualified GPS attachment changed')
+    except (OSError, ValueError, TypeError, AttributeError):
+        # Preserve the normal missing-device wait and its diagnostic.
+        raise FileNotFoundError('no current qualified GPS attachment') from None
+    fd = open_gps(path, baud)
+    try:
+        opened = os.fstat(fd)
+        if [opened.st_dev, opened.st_ino, opened.st_rdev, opened.st_ctime_ns] != expected:
+            raise FileNotFoundError('qualified GPS replaced during open')
+        return fd, path
+    except BaseException:
+        close_gps(fd)
+        raise
+
+
 def seed():
     prestart_only()
     config, raw, info = load_config()
@@ -4857,7 +4921,7 @@ def seed():
         raise ValueError('GPS device must be under /dev')
     while True:
         try:
-            fd = open_gps(device, baud)
+            fd, selected = open_selected_gps(device, baud)
         except FileNotFoundError:
             report('gps-missing', 'GPS not detected: plug in the GPS')
             time.sleep(5)
@@ -4872,7 +4936,7 @@ def seed():
             diagnostics = NMEADiagnostics()
             last_data = time.monotonic()
             while True:
-                if not device_matches(fd, device):
+                if not device_matches(fd, selected):
                     report('gps-busy', 'GPS disconnected or replaced; closing the old device and retrying')
                     break
                 if time.monotonic()-last_data >= 15:
@@ -4905,7 +4969,7 @@ def seed():
                             fix = parse_fix(buffer)
                             buffer = b''
                             if fix:
-                                if not device_matches(fd, device):
+                                if not device_matches(fd, selected):
                                     break  # Recheck/reopen in outer loop; never seed a replaced receiver's fix.
                                 current, current_raw, current_info = load_config()
                                 if current_raw != raw or current_info.st_ino != info.st_ino:
@@ -4945,11 +5009,12 @@ if [[ $DRY_RUN -eq 0 ]]; then
 #!/usr/bin/python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Macawi LLC
-"""BRRDfeeder GPS runtime transport: exact device grant, bounded hotplug recovery.
+"""BRRDfeeder GPS runtime transport: safe discovery, exact grant, bounded recovery.
 
-Never opens a serial port or discovers/claims adapters. A stable character inode
-survives USB removal between ExecStartPre and Podman's device stat. /dev/null is
-the absent transport: termios rejects it, so it cannot masquerade as live GPS.
+Native/previously confirmed mappings win. When they are absent, one CP2102N tty
+may be receive-only NMEA-qualified with the install-time ownership and restore
+contract. The exact character device is then passed through the existing stable
+transport; no broad CP210x udev mapping or configuration rewrite is needed.
 """
 import fcntl
 import datetime
@@ -4957,10 +5022,12 @@ import grp
 import json
 import os
 import re
+import select
 from pathlib import Path
 import stat
 import subprocess
 import sys
+import termios
 import time
 import yaml
 
@@ -4969,6 +5036,13 @@ DEVICE = Path('/dev/cybrrd_gps')
 CONFIG = Path('/etc/brrdfeeder/config.yaml')
 UNIT = 'brrdfeeder-engine.service'
 STATUS = Path('/var/lib/brrdfeeder-status')
+SYS_TTY = Path('/sys/class/tty')
+DEV_ROOT = Path('/dev')
+PROC = Path('/proc')
+HOTPLUG_ID = '10c4:ea60'
+UBLOX_IDS = {'1546:'+product for product in ('01a5', '01a6', '01a7', '01a8', '01a9')}
+PROBE_SECONDS = 5.0
+PROBE_RETRY_SECONDS = 60.0
 
 
 def status():
@@ -5012,14 +5086,202 @@ def status():
         print('GPS status is invalid; current GPS state unknown.')
 
 
-def identity():
+def device_identity(path):
     try:
-        value = DEVICE.stat()
+        value = path.stat()
         if stat.S_ISCHR(value.st_mode):
             return [value.st_dev, value.st_ino, value.st_rdev, value.st_ctime_ns]
     except OSError:
         pass
     return None
+
+
+def identity():
+    return device_identity(DEVICE)
+
+
+def tty_inventory():
+    """Return [(usb_id, tty_path)] from tty sysfs metadata without opening ttys."""
+    found = []
+    try:
+        entries = sorted(SYS_TTY.iterdir())
+    except OSError:
+        return found
+    for entry in entries:
+        try:
+            parent = (entry/'device').resolve(strict=True)
+        except OSError:
+            continue
+        while parent != parent.parent:
+            try:
+                vendor = (parent/'idVendor').read_text().strip().lower()
+                product = (parent/'idProduct').read_text().strip().lower()
+            except (FileNotFoundError, NotADirectoryError):
+                parent = parent.parent
+                continue
+            except OSError:
+                break
+            usb_id = vendor+':'+product
+            if re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', usb_id):
+                found.append((usb_id, DEV_ROOT/entry.name))
+            break
+    return found
+
+
+def held_elsewhere(rdev):
+    """Fail closed if another visible process holds any alias of this tty."""
+    try:
+        for process in PROC.iterdir():
+            if not process.name.isdigit() or int(process.name) == os.getpid():
+                continue
+            try:
+                for entry in (process/'fd').iterdir():
+                    try:
+                        info = entry.stat()
+                    except FileNotFoundError:
+                        continue
+                    if stat.S_ISCHR(info.st_mode) and info.st_rdev == rdev:
+                        return 'busy'
+            except FileNotFoundError:
+                continue
+    except OSError:
+        return 'ownership-unknown'
+    return ''
+
+
+def valid_nmea(sentence):
+    if not sentence.startswith(('$GP', '$GN')):
+        return False
+    body, separator, checksum = sentence.strip().rpartition('*')
+    if not separator or len(checksum) != 2:
+        return False
+    value = 0
+    for char in body[1:]:
+        value ^= ord(char)
+    return ('%02X' % value) == checksum.upper()
+
+
+def confirm(device):
+    """Receive-only NMEA confirmation; restore failure overrides all outcomes."""
+    fd, original = None, None
+    try:
+        info = os.stat(device)
+        if not stat.S_ISCHR(info.st_mode):
+            return 'no-nmea'
+        ownership = held_elsewhere(info.st_rdev)
+        if ownership:
+            return ownership
+        fd = os.open(device, os.O_RDONLY | os.O_NOCTTY | os.O_NONBLOCK)
+        if os.fstat(fd).st_rdev != info.st_rdev:
+            return 'no-nmea'
+        ownership = held_elsewhere(info.st_rdev)
+        if ownership:
+            return ownership
+        original = termios.tcgetattr(fd)
+        attrs = termios.tcgetattr(fd)
+        attrs[0] = attrs[1] = attrs[3] = 0
+        attrs[2] = termios.CS8 | termios.CREAD | termios.CLOCAL
+        attrs[4] = attrs[5] = termios.B9600
+        attrs[6][termios.VMIN], attrs[6][termios.VTIME] = 0, 0
+        termios.tcsetattr(fd, termios.TCSANOW, attrs)
+        buffer, seen, deadline = '', 0, time.monotonic()+PROBE_SECONDS
+        while time.monotonic() < deadline and seen < 2:
+            ready, _, _ = select.select([fd], [], [], max(0.0, deadline-time.monotonic()))
+            if not ready:
+                continue
+            try:
+                chunk = os.read(fd, 256)
+            except BlockingIOError:
+                continue
+            if not chunk:
+                break
+            for char in chunk.decode('ascii', 'replace'):
+                if char == '$':
+                    if valid_nmea(buffer):
+                        seen += 1
+                    buffer = '$'
+                elif char in '\r\n':
+                    if valid_nmea(buffer):
+                        seen += 1
+                    buffer = ''
+                elif buffer:
+                    buffer += char
+                    if len(buffer) > 128:
+                        buffer = ''
+        return 'ok' if seen >= 2 else 'no-nmea'
+    except (OSError, termios.error, KeyboardInterrupt):
+        return 'no-nmea'
+    finally:
+        if fd is not None:
+            restore_failed = False
+            try:
+                if original is not None:
+                    termios.tcsetattr(fd, termios.TCSANOW, original)
+                    restore_failed = termios.tcgetattr(fd) != original
+            except (OSError, termios.error):
+                restore_failed = True
+            finally:
+                os.close(fd)
+            if restore_failed:
+                return 'restore-failed'
+
+
+def record_probe(state, identity_value, outcome, now):
+    state['probe'] = {'identity': identity_value, 'outcome': outcome, 'at': now}
+
+
+def discover(state, now=None):
+    """Resolve native GPS first, otherwise safely qualify one late CP2102N."""
+    now = time.monotonic() if now is None else now
+    native = identity()
+    if native is not None:
+        return native
+    if DEVICE != DEV_ROOT/'cybrrd_gps':
+        # A custom configured path is an explicit operator binding. Never
+        # substitute an automatically discovered bridge for it.
+        return None
+    inventory = tty_inventory()
+    if any(usb_id in UBLOX_IDS for usb_id, _ in inventory):
+        # udev owns native u-blox mapping; a following timer tick sees its link.
+        return None
+    candidates = [path for usb_id, path in inventory if usb_id == HOTPLUG_ID]
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        record_probe(state, None, 'ambiguous', now)
+        print('GPS hotplug refused: multiple CP2102N candidates; no port opened', flush=True)
+        return None
+    candidate = candidates[0]
+    candidate_identity = device_identity(candidate)
+    if candidate_identity is None:
+        return None
+    qualified = state.get('qualified', {})
+    if (qualified.get('usb_id') == HOTPLUG_ID and
+            qualified.get('path') == str(candidate) and
+            qualified.get('identity') == candidate_identity):
+        ownership = held_elsewhere(candidate_identity[2])
+        if ownership:
+            record_probe(state, candidate_identity, ownership, now)
+            return None
+        return candidate_identity
+    previous = state.get('probe', {})
+    if previous.get('identity') == candidate_identity:
+        outcome = previous.get('outcome')
+        elapsed = now-previous.get('at', now)
+        if outcome == 'restore-failed' or (outcome == 'no-nmea' and 0 <= elapsed < PROBE_RETRY_SECONDS):
+            return None
+    outcome = confirm(candidate)
+    # Do not authorize an identity that changed during the bounded read.
+    if outcome == 'ok' and device_identity(candidate) != candidate_identity:
+        outcome = 'changed'
+    record_probe(state, candidate_identity, outcome, now)
+    if outcome != 'ok':
+        print('GPS hotplug candidate '+HOTPLUG_ID+' '+outcome+'; no mapping or restart', flush=True)
+        return None
+    state['qualified'] = {'usb_id': HOTPLUG_ID, 'path': str(candidate),
+                          'identity': candidate_identity}
+    print('GPS hotplug candidate '+HOTPLUG_ID+' NMEA-confirmed; exact device qualified', flush=True)
+    return candidate_identity
 
 
 def prepare(state, current):
@@ -5077,7 +5339,8 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX)
         path = ROOT/'state.json'
         state = json.loads(path.read_text()) if path.exists() else {}
-        current = identity()
+        before = json.dumps(state, sort_keys=True)
+        current = discover(state)
         if sys.argv[1:] == ['prepare']:
             prepare(state, current)
             save(state)
@@ -5086,8 +5349,10 @@ def main():
             # Never interrupt a first-fix ExecStartPre, intentional stop, update,
             # or failed service. --no-block avoids waiting on prepare's lock.
             active = subprocess.run(['systemctl', 'is-active', '--quiet', UNIT], timeout=5)
-            if active.returncode == 0 and should_restart(state, current, time.monotonic()):
-                save(state)  # Persist attempt before calling the restart effector.
+            restart = active.returncode == 0 and should_restart(state, current, time.monotonic())
+            if restart or json.dumps(state, sort_keys=True) != before:
+                save(state)  # Persist qualification/attempt before the effector.
+            if restart:
                 print('GPS appeared/replaced: requesting one bounded engine restart to attach the exact device', flush=True)
                 subprocess.run(['systemctl', 'try-restart', '--no-block', UNIT], check=True, timeout=10)
         else:
@@ -5102,22 +5367,28 @@ if __name__ == '__main__':
         raise SystemExit(1)
 GPS_RUNTIME_EOF
   atomic_install 0644 root root /etc/systemd/system/brrdfeeder-gps-runtime.service <<'GPS_RUNTIME_SERVICE_EOF'
-# BRRDfeeder GPS runtime transport
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 [Unit]
-Description=Attach a returned GPS with a bounded engine restart
+Description=BRRDfeeder GPS runtime transport: hotplug discovery and recovery
+ConditionPathExists=/etc/brrdfeeder/config.yaml
+ConditionPathIsExecutable=/usr/local/libexec/brrdfeeder-gps-runtime
+After=systemd-udevd.service
 [Service]
 Type=oneshot
 ExecStart=/usr/local/libexec/brrdfeeder-gps-runtime check
-TimeoutStartSec=20
+TimeoutStartSec=30
 GPS_RUNTIME_SERVICE_EOF
   atomic_install 0644 root root /etc/systemd/system/brrdfeeder-gps-runtime.timer <<'GPS_RUNTIME_TIMER_EOF'
-# BRRDfeeder GPS runtime transport
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 [Unit]
-Description=Check for a returned configured GPS
+Description=BRRDfeeder GPS runtime transport: hotplug retry and recovery observation
 [Timer]
-OnBootSec=15s
+OnBootSec=5s
 OnUnitInactiveSec=5s
 AccuracySec=1s
+Unit=brrdfeeder-gps-runtime.service
 [Install]
 WantedBy=timers.target
 GPS_RUNTIME_TIMER_EOF
@@ -5163,6 +5434,7 @@ StartLimitIntervalSec=0
 Image=${CONTAINER_IMAGE}
 ContainerName=brrdfeeder-engine
 PodmanArgs=--cgroups=split
+Volume=/run/brrdfeeder-bluetooth:/run/brrdfeeder-bluetooth:ro
 Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro
 
 # Rootful container, non-root process. IDs come from the dedicated host account.
@@ -5222,6 +5494,7 @@ RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=no
 ExecStartPre=${GPS_SEED}
 ExecStartPre=/usr/local/libexec/brrdfeeder-gps-runtime prepare
+ExecStartPre=/usr/local/libexec/brrdfeeder-bluetooth prepare
 ExecStartPre=-/usr/local/libexec/brrdfeeder-image-identity prepare %t/brrdfeeder-identity
 ExecStartPost=-/usr/local/libexec/brrdfeeder-image-identity resolve %t/brrdfeeder-identity %t/%N.cid
 Restart=always
@@ -5458,10 +5731,12 @@ RECEIPT = Path('/etc/brrdfeeder/.bluetooth-prior.json')
 USB = Path('/sys/bus/usb/devices')
 HCI = Path('/sys/class/bluetooth')
 DEVICES = Path('/sys/devices')
-SUPPORTED = ('0bda:876e', '0bda:a728')  # finite allowlist; no HCI discovery
+SUPPORTED = ('0bda:876e', '0bda:8771', '0bda:a728')  # finite allowlist; no HCI discovery
 UNIT = 'bluetooth.service'
 ENGINE = 'brrdfeeder-engine.service'
 STATUS = Path('/var/lib/brrdfeeder-status/status.json')
+RUNTIME = Path('/run/brrdfeeder-bluetooth')
+CONFLICT = RUNTIME/'conflict'
 STATES = ('enabled', 'enabled-runtime', 'disabled', 'static', 'indirect',
           'masked', 'masked-runtime', 'absent')
 
@@ -5611,6 +5886,11 @@ def stop_engine():
             try:
                 if service_state() != prior: set_service_state(prior)
                 if saved_receipt is not None and not RECEIPT.exists(): atomic(RECEIPT, saved_receipt, 0o600)
+                elif saved_receipt is None and RECEIPT.exists():
+                    # Ownership was restored successfully; a new claim receipt
+                    # would falsely imply that bluetoothd is still ours.
+                    RECEIPT.unlink()
+                    sync_parent(RECEIPT)
             except Exception:
                 rollback_failed = True
         if attempted and restart:
@@ -5637,9 +5917,27 @@ def inventory():
         if not re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', identity): continue
         if identity in SUPPORTED:
             found.append(identity)
-            say('supported RID.BLE adapter: Realtek USB '+identity)
-    if not found: say('no supported RID.BLE adapter found (automatic selection supports '+', '.join(SUPPORTED)+'); no HCI probe performed')
+            say('allowed RID.BLE adapter: Realtek USB '+identity)
+    for path in sorted(HCI.glob('hci*')):
+        identity = controller_usb_id(path)
+        if identity and identity not in SUPPORTED:
+            say('unsupported Bluetooth adapter '+identity+'; '+'recommended: '+', '.join(SUPPORTED))
+    if not found:
+        say('Bluetooth will activate automatically when a supported adapter is plugged in ('+', '.join(SUPPORTED)+'); no HCI probe performed')
     return found
+
+
+def prepare_runtime():
+    safe(CONFLICT)
+    RUNTIME.mkdir(mode=0o755, exist_ok=True)
+    safe(CONFLICT)
+
+
+def clear_conflict():
+    safe(CONFLICT)
+    if CONFLICT.exists():
+        CONFLICT.unlink()
+        sync_parent(CONFLICT)
 
 
 def load_config():
@@ -5662,32 +5960,57 @@ def load_config():
     return doc, sensors, raw
 
 
-def enabled_config(sensors, found):
+def enabled_config(sensors, found, hotplug=False):
     changed = False
-    if 'rid_ble' not in sensors and found:
+    if not hotplug and 'rid_ble' not in sensors and found:
         if len(found) > 1: raise ValueError('multiple supported BLE adapters; configure one explicit BD_ADDR before retrying')
         sensors['rid_ble'] = dict(enabled=True, unblock_rfkill=True, adapter=dict(usb_id=found[0]))
         changed = True
     ble = sensors.get('rid_ble', {})
     if not isinstance(ble, dict) or set(ble)-{'enabled','adapter','unblock_rfkill','quiet_window_s'}:
         raise ValueError('invalid sensors.rid_ble config keys')
-    enabled = ble.get('enabled', False)
+    enabled = ble.get('enabled', 'rid_ble' not in sensors)
     if type(enabled) is not bool or type(ble.get('unblock_rfkill',False)) is not bool:
         raise ValueError('rid_ble switches must be booleans')
     if enabled:
         a = ble.get('adapter', {})
         if not isinstance(a, dict) or set(a)-{'usb_id','bd_addr'}: raise ValueError('invalid BLE adapter identity')
         identities = [(k,v) for k,v in a.items() if v is not None]
-        if len(identities) != 1: raise ValueError('enabled BLE needs exactly one adapter identity')
-        k,v = identities[0]
-        pattern = r'[0-9a-fA-F]{4}:[0-9a-fA-F]{4}' if k == 'usb_id' else r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}'
-        if not isinstance(v,str) or not re.fullmatch(pattern,v): raise ValueError('invalid BLE adapter identity')
+        if len(identities) > 1: raise ValueError('enabled BLE accepts auto or one adapter identity, never both')
+        if identities:
+            k,v = identities[0]
+            pattern = r'[0-9a-fA-F]{4}:[0-9a-fA-F]{4}' if k == 'usb_id' else r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}'
+            if not isinstance(v,str) or not re.fullmatch(pattern,v): raise ValueError('invalid BLE adapter identity')
         quiet = ble.get('quiet_window_s',30)
         if type(quiet) is not int or not 1 <= quiet <= 2**64-1: raise ValueError('invalid BLE quiet window')
-        if 'unblock_rfkill' not in ble:
+        if not hotplug and 'rid_ble' in sensors and 'unblock_rfkill' not in ble:
             ble['unblock_rfkill'] = True
             changed = True
     return enabled, changed
+
+
+def controller_usb_id(path):
+    try:
+        device = (path/'device').resolve(strict=True)
+        for parent in [device, *device.parents]:
+            if not parent.is_relative_to(DEVICES): break
+            if (parent/'idVendor').is_file() and (parent/'idProduct').is_file():
+                identity = (parent/'idVendor').read_text().strip().lower()+':'+(parent/'idProduct').read_text().strip().lower()
+                return identity if re.fullmatch(r'[0-9a-f]{4}:[0-9a-f]{4}', identity) else None
+    except OSError: pass
+    return None
+
+
+def controller_address(path, index):
+    # Some test/vendor sysfs trees expose address, upstream Linux does not.
+    try: return (path/'address').read_text().strip().lower()
+    except FileNotFoundError: pass
+    with socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW | socket.SOCK_CLOEXEC, socket.BTPROTO_HCI) as channel:
+        info = bytearray(92)
+        struct.pack_into('@H', info, 0, index)
+        fcntl.ioctl(channel.fileno(), 0x800448d3, info, True)
+        if struct.unpack_from('@H', info)[0] != index: raise ValueError('controller index changed')
+        return ':'.join(f'{b:02x}' for b in reversed(info[10:16]))
 
 
 def selected_controller(adapter):
@@ -5700,28 +6023,24 @@ def selected_controller(adapter):
         try:
             device = (path/'device').resolve(strict=True)
             if not device.is_relative_to(DEVICES): continue
-            usb = None
-            for parent in [device,*device.parents]:
-                if not parent.is_relative_to(DEVICES): break
-                if (parent/'idVendor').is_file() and (parent/'idProduct').is_file():
-                    usb = (parent/'idVendor').read_text().strip().lower()+':'+(parent/'idProduct').read_text().strip().lower()
-                    break
+            usb = controller_usb_id(path)
             if usb not in SUPPORTED: continue
             if adapter.get('usb_id') is not None:
                 if usb != adapter['usb_id'].lower(): continue
-            elif (path/'address').read_text().strip().lower() != adapter['bd_addr'].lower(): continue
+            elif adapter.get('bd_addr') is not None:
+                if controller_address(path, index) != adapter['bd_addr'].lower(): continue
             matches.append((index, device, path.stat().st_ino))
         except OSError: continue
     if len(matches) != 1:
-        raise ValueError('BLE DOWN refused: sysfs must identify exactly one configured supported USB controller (0bda:876e, 0bda:a728); check driver/connection/identity')
+        raise ValueError('BLE DOWN refused: sysfs must identify exactly one configured supported USB controller (0bda:876e, 0bda:8771, 0bda:a728); check driver/connection/identity')
     return matches[0]
 
 
-def controller_down(adapter):
+def controller_down(adapter, hotplug=False):
     target = selected_controller(adapter)
     engine = ctl('show', ENGINE, '--property=ActiveState', '--value').strip()
     daemon = service_state()
-    if engine != 'inactive' or daemon['active'] or daemon['enabled'] not in ('masked','masked-runtime'):
+    if (not hotplug and engine != 'inactive') or daemon['active'] or daemon['enabled'] not in ('masked','masked-runtime'):
         raise ValueError('BLE DOWN refused: engine must be inactive and bluetoothd inactive/masked')
     # Linux v6.18 include/net/bluetooth/hci_sock.h ABI: _IOW('H',202,int),
     # _IOR('H',211,int); hci_dev_info is 92 bytes, flags at offset 16 (u32).
@@ -5733,6 +6052,14 @@ def controller_down(adapter):
                 raise ValueError('BLE DOWN refused: controller changed before ioctl')
             try: fcntl.ioctl(channel.fileno(), 0x400448ca, index)  # HCIDEVDOWN only
             except OSError as error:
+                if hotplug and error.errno == errno.EBUSY:
+                    # Linux hci_dev_close refuses HCI_USER_CHANNEL with EBUSY
+                    # before changing it. Never interrupt an existing user-channel
+                    # owner; the engine's exclusive bind remains authoritative.
+                    if selected_controller(adapter) != target:
+                        raise ValueError('BLE controller changed during hotplug')
+                    say(f'hci{index} already has an exclusive user-channel owner; left untouched (not a health verdict)')
+                    return
                 if error.errno != errno.EALREADY: raise
             info = bytearray(92)
             struct.pack_into('@H',info,0,index)
@@ -5757,10 +6084,13 @@ def restore(dry=False):
         set_service_state(prior)
         RECEIPT.unlink()
         sync_parent(RECEIPT)
+        clear_conflict()
         say('restored Bluetooth prior state; removed '+str(RECEIPT))
 
 
-def apply(dry=False):
+def apply(dry=False, hotplug=False):
+    if hotplug:
+        return apply_hotplug(dry)
     import yaml
     found = inventory()
     doc, sensors, raw = load_config()
@@ -5769,8 +6099,13 @@ def apply(dry=False):
     say('rid_ble enabled='+str(enabled).lower()+' config='+('add-missing-key' if changed else 'preserve-explicit-or-absent'))
     if not enabled:
         if prior: restore(dry)
-        else: say('bluetooth.service unchanged: RID.BLE disabled')
+        else: say('RID.BLE explicitly disabled; Bluetooth service left unchanged; load OFF with: sudo systemctl restart brrdfeeder-engine.service')
         return
+    if not found:
+        say('RID.BLE enabled; waiting for a supported adapter; bluetooth.service unchanged')
+        return
+    adapter = sensors.get('rid_ble', {}).get('adapter', {})
+    target = selected_controller(adapter)  # Validate before stopping any service or writing state.
     if prior is None: prior = service_state()
     if prior['enabled'] in ('absent','masked','masked-runtime') and prior['active']:
         raise ValueError('inconsistent Bluetooth service state; refusing takeover')
@@ -5782,6 +6117,9 @@ def apply(dry=False):
         doc, sensors, raw = load_config()
         enabled, changed = enabled_config(sensors, found)
         if not enabled: raise ValueError('BLE config changed during takeover; retry')
+        adapter = sensors.get('rid_ble', {}).get('adapter', {})
+        if selected_controller(adapter) != target:
+            raise ValueError('BLE controller changed during takeover; retry')
         if changed:
             if CONFIG.read_bytes() != raw: raise ValueError('config changed during migration; retry')
             atomic(CONFIG, yaml.safe_dump(doc, sort_keys=False).encode(), stat.S_IMODE(CONFIG.stat().st_mode))
@@ -5796,23 +6134,92 @@ def apply(dry=False):
         now = service_state()
         if now['active'] or now['enabled'] not in ('masked','masked-runtime'):
             raise ValueError('Bluetooth ownership not established; receipt retained')
-        controller_down(sensors['rid_ble']['adapter'])
+        controller_down(sensors.get('rid_ble', {}).get('adapter', {}))
+        clear_conflict()
         say('RID.BLE owns Bluetooth; bluetoothd stopped/masked and adapter DOWN verified. Engine still checks rfkill and exclusive USER bind.')
+
+
+def apply_hotplug(dry=False):
+    """Claim only a configured supported controller; never rewrite intent.
+
+    A saved receipt plus unmasked/running bluetoothd is operator intervention,
+    not permission to take it back. Explicit apply remains the recovery action.
+    """
+    found = inventory()
+    _doc, sensors, raw = load_config()
+    enabled, changed = enabled_config(sensors, found, hotplug=True)
+    if changed: raise ValueError('hotplug must not change configuration')
+    prior = receipt()
+    if not enabled:
+        if prior:
+            was_active = ctl('show', ENGINE, '--property=ActiveState', '--value').strip() in ('active','activating')
+            restore(dry)
+            # Restore must release the HCI user channel. Reload explicit OFF
+            # afterwards so Wi-Fi/GPS are not stranded by a Bluetooth toggle.
+            if was_active and not dry: ctl('start', ENGINE)
+        else: say('RID.BLE explicitly disabled; Bluetooth service left unchanged; load OFF with: sudo systemctl restart brrdfeeder-engine.service')
+        return
+    current = service_state() if prior is not None or found else None
+    if prior is not None and (current['active'] or current['enabled'] not in ('masked','masked-runtime') or CONFLICT.exists()):
+        if not dry:
+            prepare_runtime()
+            atomic(CONFLICT, b'operator-changed-bluetooth.service\n', 0o644)
+        raise ValueError('Bluetooth ownership conflict: prior claim no longer exclusive; no automatic re-mask. Use explicit apply to reclaim or enabled: false to restore')
+    if not found:
+        say('RID.BLE enabled; waiting for a supported adapter; Bluetooth service left unchanged')
+        return
+    adapter = sensors.get('rid_ble', {}).get('adapter', {})
+    target = selected_controller(adapter)  # Refuse absent pins/ambiguity before mutations.
+    if dry:
+        say('WOULD claim the supported controller with a prior-state receipt; preserve config bytes and keep the engine running')
+        return
+    if CONFIG.read_bytes() != raw or selected_controller(adapter) != target:
+        raise ValueError('config or controller changed before hotplug takeover; retry')
+    if prior is None:
+        prior = current
+        atomic(RECEIPT, (json.dumps(prior,sort_keys=True)+'\n').encode(), 0o600)
+        if prior['enabled'] != 'absent': ctl('stop', UNIT)
+        if prior['enabled'] in ('enabled','enabled-runtime'):
+            ctl(*(['--runtime'] if prior['enabled'].endswith('-runtime') else []), 'disable', UNIT)
+        ctl('mask', UNIT)
+    now = service_state()
+    if now['active'] or now['enabled'] not in ('masked','masked-runtime'):
+        raise ValueError('Bluetooth ownership not established; receipt retained')
+    controller_down(adapter, hotplug=True)
+    say('RID.BLE hotplug handover complete; configuration unchanged, engine left running; engine verifies passive reception')
+
+
+def dispatch():
+    if os.geteuid() != 0: raise ValueError('run Bluetooth ownership helper as root')
+    args = sys.argv[1:]
+    if args == ['check']: receipt()
+    elif args in (['apply'], ['apply','--dry-run'], ['apply','--hotplug'], ['apply','--hotplug','--dry-run']):
+        apply('--dry-run' in args, '--hotplug' in args)
+    elif args in (['restore'], ['restore','--dry-run']): restore(len(args)==2)
+    elif args == ['inventory']: inventory()
+    elif args == ['health-summary']: health_summary()
+    elif args == ['prepare']: prepare_runtime()
+    else: raise ValueError('expected apply [--hotplug] [--dry-run], restore [--dry-run], check, inventory, health-summary, or prepare')
 
 
 def main():
     if os.geteuid() != 0: raise ValueError('run Bluetooth ownership helper as root')
-    args = sys.argv[1:]
-    if args == ['check']: receipt()
-    elif args in (['apply'], ['apply','--dry-run']): apply(len(args)==2)
-    elif args in (['restore'], ['restore','--dry-run']): restore(len(args)==2)
-    elif args == ['inventory']: inventory()
-    elif args == ['health-summary']: health_summary()
-    else: raise ValueError('expected apply|restore [--dry-run], check, inventory, or health-summary')
+    # Preview operations must not create runtime directories or lock files.
+    if '--dry-run' in sys.argv[1:] or sys.argv[1:] in (['prepare'], ['inventory'], ['health-summary'], ['check']):
+        return dispatch()
+    prepare_runtime()
+    lock = RUNTIME/'lock'
+    safe(lock)
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        dispatch()
+    finally:
+        os.close(fd)
 
 
 def summarize_health(status, journal, now=None):
-    """D17 has rfkill inventory, NOT BLE lifecycle health. Use current-run journal.
+    """Prefer current local BLE state/reason; retain the old-engine journal fallback.
 
     Freshness proves the engine is still reporting; preflight rfkill observations
     cannot prove unblock success or a Healthy radio. Only engine transitions can.
@@ -5828,6 +6235,13 @@ def summarize_health(status, journal, now=None):
             return 'RID.BLE Unknown: unsupported engine status schema'
     except (KeyError, ValueError, TypeError, AttributeError):
         return 'RID.BLE Unknown: engine status missing or invalid; not verified healthy'
+    ble = status.get('inventory', {}).get('rid_ble')
+    if isinstance(ble, dict) and ble.get('state') in ('initializing','healthy','degraded','failed'):
+        state = 'Disabled' if ble.get('enabled') is False else ble['state'].capitalize()
+        reason = ble.get('reason')
+        if isinstance(reason, str) and reason:
+            return f'RID.BLE {state}: '+json.dumps(reason[:500], ensure_ascii=True)
+        return f'RID.BLE {state}'
     result = 'RID.BLE Unknown: no lifecycle state in current engine invocation; not verified healthy'
     for line in journal.splitlines():
         if line.strip() == '[rid_ble] disabled': result = 'RID.BLE Disabled (engine configuration)'
@@ -5870,7 +6284,35 @@ if __name__ == '__main__':
 BLUETOOTH_EOF
   run chmod 0755 "$BLUETOOTH_HELPER"
   run chown root:root "$BLUETOOTH_HELPER"
+  atomic_install 0644 root root /etc/systemd/system/brrdfeeder-ble-takeover.service <<'BLE_SERVICE_EOF'
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[Unit]
+Description=BRRDfeeder Bluetooth hotplug ownership
+ConditionPathExists=/etc/brrdfeeder/config.yaml
+ConditionPathIsExecutable=/usr/local/libexec/brrdfeeder-bluetooth
+After=systemd-udevd.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/brrdfeeder-bluetooth apply --hotplug
+TimeoutStartSec=120
+BLE_SERVICE_EOF
+  atomic_install 0644 root root /etc/systemd/system/brrdfeeder-ble-takeover.timer <<'BLE_TIMER_EOF'
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[Unit]
+Description=BRRDfeeder Bluetooth hotplug retry and ownership observation
+[Timer]
+OnBootSec=5s
+OnUnitInactiveSec=5s
+AccuracySec=1s
+Unit=brrdfeeder-ble-takeover.service
+[Install]
+WantedBy=timers.target
+BLE_TIMER_EOF
   run_step bluetooth/ownership python3 "$BLUETOOTH_HELPER" apply
+  run systemctl daemon-reload
+  run systemctl enable --now brrdfeeder-ble-takeover.timer
 fi
 # NOTE: do NOT `systemctl enable` — Quadlet-generated units are transient
 # and reject enable ("Unit ... is transient or generated"). Boot-start is

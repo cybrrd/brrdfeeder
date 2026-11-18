@@ -35,7 +35,7 @@ type localPaths struct {
 }
 
 // This fixed target belongs to the reviewed installer artifact, not caller input.
-const localHelperBuild uint64 = 6
+const localHelperBuild uint64 = 7
 
 const localSystemCredentials = "/etc/brrdfeeder/secrets/brrdfeeder.creds"
 

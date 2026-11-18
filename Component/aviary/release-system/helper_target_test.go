@@ -18,18 +18,18 @@ import (
 )
 
 func TestHelperTargetIdentity(t *testing.T) {
-	if policyInitiationEnabled {
-		t.Fatal("bridge build must not initiate migration")
+	if !policyInitiationEnabled {
+		t.Fatal("enabled build must initiate eligible migration")
 	}
-	if updaterBuild != "6" || localHelperBuild != 6 {
-		t.Fatal("helper 6 compiled/local identity mismatch")
+	if updaterBuild != "7" || localHelperBuild != 7 {
+		t.Fatal("helper 7 compiled/local identity mismatch")
 	}
 	b, e := os.ReadFile("build-host.sh")
 	if e != nil {
 		t.Fatal(e)
 	}
-	if !strings.Contains(string(b), "-X main.updaterBuild=6'") {
-		t.Fatal("official artifact must link build 6")
+	if !strings.Contains(string(b), "-X main.updaterBuild=7'") {
+		t.Fatal("official artifact must link build 7")
 	}
 	b, e = os.ReadFile("local_upgrade.go")
 	if e != nil {
@@ -66,7 +66,7 @@ func installedMetadata(t *testing.T, root string) map[string]string {
 }
 
 func TestHelperTargetFloorAndIdempotence(t *testing.T) {
-	for _, prior := range []string{"", `{"build_seq":2}`, ` {"build_seq":4,"extension":{"keep":true}} `, `{"build_seq":5}`} {
+	for _, prior := range []string{"", `{"build_seq":2}`, ` {"build_seq":4,"extension":{"keep":true}} `, `{"build_seq":5}`, `{"build_seq":6}`} {
 		t.Run(prior, func(t *testing.T) {
 			f := newLocalFixture(t)
 			floor := f.p.private + "/host-state.json"
@@ -88,8 +88,8 @@ func TestHelperTargetFloorAndIdempotence(t *testing.T) {
 			if e := json.Unmarshal(raw, &state); e != nil {
 				t.Fatal(e)
 			}
-			if string(state["build_seq"]) != "6" {
-				t.Fatal("expected literal helper floor 6")
+			if string(state["build_seq"]) != "7" {
+				t.Fatal("expected literal helper floor 7")
 			}
 			if strings.Contains(prior, "extension") && string(state["extension"]) != `{"keep":true}` {
 				t.Fatal("extra field lost")
@@ -101,7 +101,7 @@ func TestHelperTargetFloorAndIdempotence(t *testing.T) {
 			if !reflect.DeepEqual(before, installedMetadata(t, f.p.boundary)) {
 				t.Fatal("idempotent invocation changed installed metadata or bytes")
 			}
-			if e := os.WriteFile(floor, []byte(`{"build_seq":7}`), 0600); e != nil {
+			if e := os.WriteFile(floor, []byte(`{"build_seq":8}`), 0600); e != nil {
 				t.Fatal(e)
 			}
 			before = installedMetadata(t, f.p.boundary)
@@ -116,7 +116,7 @@ func TestHelperTargetFloorAndIdempotence(t *testing.T) {
 }
 
 func TestHelperTargetWrongCandidateBuild(t *testing.T) {
-	for _, build := range []string{"4\n", "5\n", "7\n", "6", "06\n"} {
+	for _, build := range []string{"4\n", "5\n", "6\n", "8\n", "7", "07\n"} {
 		t.Run(strings.TrimSpace(build), func(t *testing.T) {
 			f := newLocalFixture(t)
 			before := treeBytes(t, f.p.boundary)
@@ -127,7 +127,7 @@ func TestHelperTargetWrongCandidateBuild(t *testing.T) {
 				return f.probe(path, verb)
 			}
 			e := upgradeLocal(f.p, f.candidate, f.hash, probe, func(string) {})
-			if e == nil || !strings.Contains(e.Error(), "exactly 6") {
+			if e == nil || !strings.Contains(e.Error(), "exactly 7") {
 				t.Fatalf("wrong candidate build accepted: %q %v", build, e)
 			}
 			after := treeBytes(t, f.p.boundary)
@@ -161,7 +161,7 @@ func TestHelperTargetFreshInstallerLayout(t *testing.T) {
 	}
 	assertProtected(t, f, before)
 	if b, _ := os.ReadFile(f.p.binary); !bytes.Equal(b, f.candidate) {
-		t.Fatal("fresh layout did not install helper 6")
+		t.Fatal("fresh layout did not install helper 7")
 	}
 }
 
@@ -225,7 +225,7 @@ func TestHelperTargetAdditionalRefusals(t *testing.T) {
 }
 
 func TestHelperTargetCompiledHostFloor(t *testing.T) {
-	for _, build := range []uint64{5, 6} {
+	for _, build := range []uint64{6, 7} {
 		t.Run(fmt.Sprint(build), func(t *testing.T) {
 			u, h, key := setup(t)
 			m := hostManifest(u)
@@ -244,7 +244,7 @@ func TestHelperTargetCompiledHostFloor(t *testing.T) {
 			}
 			before := installedMetadata(t, dir)
 			e := u.pollHostAt(binary, receipt)
-			if (e != nil) != (build == 5) {
+			if (e != nil) != (build == 6) {
 				t.Fatalf("wrong floor behavior: %v", e)
 			}
 			if calls != 1 || !reflect.DeepEqual(before, installedMetadata(t, dir)) || len(h.events) != 0 {
@@ -252,8 +252,8 @@ func TestHelperTargetCompiledHostFloor(t *testing.T) {
 			}
 			var state HostState
 			b, err := os.ReadFile(filepath.Join(u.cfg.PrivateDir, "host-state.json"))
-			if err != nil || json.Unmarshal(b, &state) != nil || state.Build != 6 {
-				t.Fatal("absent host state lost compiled floor 6")
+			if err != nil || json.Unmarshal(b, &state) != nil || state.Build != 7 {
+				t.Fatal("absent host state lost compiled floor 7")
 			}
 		})
 	}

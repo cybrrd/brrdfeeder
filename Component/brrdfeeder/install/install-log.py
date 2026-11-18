@@ -559,6 +559,8 @@ def engine_snapshot(context, deadline):
             if heartbeat.get('radio_status') == 'up' and any(
                     item.get('monitor_mode') is True for item in status.get('inventory', {}).get('capture', [])):
                 result['states']['Wi-Fi capture'] = 'OK'
+            elif isinstance(status.get('inventory', {}).get('capture_selection', {}).get('reason'), str):
+                result['states']['Wi-Fi capture'] = status['inventory']['capture_selection']['reason']
             # Prefer local lifecycle state/reason; journal is an old-engine
             # fallback. Historical rfkill never proves current reception.
             inventory_ble = status.get('inventory', {}).get('rid_ble')

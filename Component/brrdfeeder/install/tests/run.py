@@ -25,6 +25,7 @@ BASELINES = [
     'image-override/test-contract.py',
     'enrollment-refusal/test-contract.py',
     'ble-hotplug/test-contract.py',
+    'wifi-capture-identity/test-contract.py',
     'credential-renewal/test-contract.py',
     'gps-runtime/test-contract.py',
     'gps-hotplug/test-contract.py',
@@ -62,6 +63,7 @@ BASELINES = [
 MUTATIONS = [
     'ble-hotplug/test-mutations.py',
     'ble-hotplug/test-config-mutations.py',
+    'wifi-capture-identity/test-mutations.py',
     'installer-ux/test-mutations.py',
     'gps-hotplug/test-mutations.py',
     'lock-on/test-mutations.py',

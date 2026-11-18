@@ -596,6 +596,22 @@ pub fn listen_for_owner_rotation(
     Ok(())
 }
 
+fn owner_device_prompt(auth: &serde_json::Value, node: &str) -> Result<String> {
+    let uri = auth["verification_uri"]
+        .as_str()
+        .or(auth["verification_uri_complete"].as_str())
+        .ok_or("invalid_device_response")?;
+    if !uri.starts_with("https://hospitality.cybrrd.com/") {
+        return Err("invalid_device_response".into());
+    }
+    Ok(format!(
+        "Recovering installed node {node}. Open {uri}\nEnter this node's code in the browser: {}\nApprove ONLY if the code shown in the browser exactly matches the code shown on this node.\nIf you did not start this recovery, do not approve.",
+        auth["user_code"]
+            .as_str()
+            .ok_or("invalid_device_response")?
+    ))
+}
+
 /// Runs without radio capabilities inside the installed image, not in the
 /// capture process. The host CLI requires root + synchronized time first.
 pub async fn owner_recover(configured: &str, node: &str, hostname: &str) -> Result<()> {
@@ -635,19 +651,7 @@ pub async fn owner_recover(configured: &str, node: &str, hostname: &str) -> Resu
             .ok_or("invalid_device_response")?
             .to_owned(),
     );
-    let uri = auth["verification_uri_complete"]
-        .as_str()
-        .or(auth["verification_uri"].as_str())
-        .ok_or("invalid_device_response")?;
-    if !uri.starts_with("https://hospitality.cybrrd.com/") {
-        return Err("invalid_device_response".into());
-    }
-    println!(
-        "Recovering installed node {node}. Open {uri}\nConfirm code: {}",
-        auth["user_code"]
-            .as_str()
-            .ok_or("invalid_device_response")?
-    );
+    println!("{}", owner_device_prompt(&auth, node)?);
     let deadline = tokio::time::Instant::now()
         + Duration::from_secs(auth["expires_in"].as_u64().unwrap_or(300).min(900));
     let mut interval = auth["interval"].as_u64().unwrap_or(5).clamp(1, 60);

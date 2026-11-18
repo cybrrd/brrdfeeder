@@ -22,6 +22,13 @@ If the server commits issuance but its response is lost, rejected, or the node l
 
 ## Owner recovery without uninstalling
 
+Open the displayed verification link and enter the code shown on this node.
+Approve ONLY if the code shown in the browser exactly matches the code shown on
+this node. If you did not start this recovery, do not approve. Recovery prefers
+the link without a prefilled code, with a fallback if the server supplies only
+a prefilled link. Always compare the codes before approving.
+
+
 `sudo brrdfeeder renew` checks root and synchronized host time, then runs the capability-free helper already shipped inside the authenticated engine image. It presents the existing device-login approval link/code, calls owner enrollment with `renew_node_id`, verifies returned credentials, atomically installs them and sends SIGUSR1 for controlled reconnect. It does not rewrite node identity, erase captures, uninstall, or print seeds. A success message distinguishes installed/reconnect-requested from broker-confirmed.
 
 Flock must implement the identity-pinning `renew_node_id` extension first. A different owner, renamed hostname, deregistered identity or privileged-remint binding can require operator intervention; identity mismatch is refused before minting. The automatic renewer ships OTA in the image, but the host command **cannot be added by an image-only update**. Existing nodes need the reviewed updated host command delivered separately; no host migration was performed here. The normal bootstrap pins were refreshed for this installer change.

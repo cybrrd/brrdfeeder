@@ -586,3 +586,9 @@ Reads selection reason from existing status JSON into the diagnostic result; no 
 | <code>call status.get ('inventory', {})</code> | 1 → 2 | S: Reads selection reason from existing status JSON into the diagnostic result; no new log/status destination. |
 | <code>call status.get('inventory', {}).get ('capture_selection', {})</code> | 0 → 1 | S: Reads selection reason from existing status JSON into the diagnostic result; no new log/status destination. |
 | <code>call status.get('inventory', {}).get('capture_selection', {}).get ('reason')</code> | 0 → 1 | S: Reads selection reason from existing status JSON into the diagnostic result; no new log/status destination. |
+## Device-code confirmation copy
+
+The owner recovery prompt now prefers the bare verification URI and prints the
+node code with explicit comparison and unsolicited-request warnings. Extracting
+the formatter changes the conservative expression census only; no filesystem
+writer, credential path, ownership, permission or cleanup destination changes.

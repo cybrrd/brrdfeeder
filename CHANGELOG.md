@@ -50,6 +50,8 @@
   and track the temporary nmea Git pin's crates.io exit as DEP-091-NMEA-REGISTRY
   in `docs/nmea-registry-follow-up.md`.
 
+- Defer timer-driven release/host polling with exit 75 while fresh engine clock trust is unavailable; retain the security gate and journal recovery guidance while genuine errors still fail.
+
 ## 0.9.0 — Unreleased public beta candidate
 
 - Automatically confirm CP2102N GPS receivers without a prompt, resolve the correct tty, skip busy ports, restore probe settings, and generate a usable confirmed-device udev rule.

@@ -102,7 +102,7 @@ func TestHostDownloadHTTPFailuresRemainErrors(t *testing.T) {
 				if stage == "executable" {
 					wantCalls++
 				}
-				if err == nil || err.Error() != fmt.Sprintf("host-updater %s HTTP %d", stage, status) || out != "" || calls != wantCalls || len(h.events) != 0 {
+				if exitCode(err) != 1 || err == nil || err.Error() != fmt.Sprintf("host-updater %s HTTP %d", stage, status) || out != "" || calls != wantCalls || len(h.events) != 0 {
 					t.Fatalf("HTTP fault changed semantics: err=%v output=%q calls=%d", err, out, calls)
 				}
 				if files, err := os.ReadDir(dir); err != nil || len(files) != 0 {
@@ -127,7 +127,7 @@ func TestHostDownloadTransportFailuresRemainErrors(t *testing.T) {
 				})
 				dir := t.TempDir()
 				err, out := captureHostPoll(t, func() error { return u.pollHostAt(filepath.Join(dir, "release"), filepath.Join(dir, "receipt")) })
-				if !errors.Is(err, fault) || out != "" {
+				if exitCode(err) != 1 || !errors.Is(err, fault) || out != "" {
 					t.Fatalf("transport fault swallowed: %v, %q", err, out)
 				}
 			})

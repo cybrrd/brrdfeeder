@@ -343,7 +343,7 @@ func (u *Updater) trustedClock() error {
 	u.phase("clock")
 	s, e := u.status()
 	if e != nil || s.Heartbeat.Trusted == nil || !*s.Heartbeat.Trusted {
-		return errors.New("release clock untrusted: require fresh explicit os_clock_trusted=true")
+		return errClockUntrusted
 	}
 	return nil
 }

@@ -63,3 +63,54 @@ compatibility and future core errors. `pack_count` is BT5-only.
 extended metadata; the HCI filter does not emit those combinations, so this is a
 defensive API control, not a claimed radio-origin rejection. The other five
 categories are reachable from eligible HCI reports.
+
+## HCI field-combination matrix
+
+This matrix governs `valid_extended_metadata`; it does not widen RID admission.
+`H` denotes [Core v5.4, Vol 4 Part E](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-54/out/en/host-controller-interface/host-controller-interface-functional-specification.html);
+`L` denotes [Core v5.4, Vol 6 Part B](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-54/out/en/low-energy-controller/link-layer-specification.html).
+Values below are hexadecimal except lengths and statuses. Statuses are 0
+(complete), 1 (continuing), 2 (truncated); 3 and event bits 7–15 are rejected.
+
+| Field | Domain / condition | Source |
+| --- | --- | --- |
+| Address_Type | 00–03 or FF (anonymous); row constraints below | H §7.7.65.13, Address_Type |
+| Primary_PHY / Secondary_PHY | 01/03; 00–03 respectively; legacy primary 01 | H §7.7.65.13, PHY fields and legacy paragraph |
+| Advertising_SID | 00–0F or FF (absent); row constraints below | H §7.7.65.13, Advertising_SID |
+| Periodic_Advertising_Interval | 0 or 0006–FFFF; periodic rows require non-anonymous addressing | H §7.7.65.13; L §4.4.2.12 |
+| Direct_Address_Type | Directed: 00–03/FE; undirected: ignored | H §7.7.65.13, directed-address fields |
+| TX_Power / RSSI | −127…20 dBm or unavailable (7F) | H §7.7.65.13, power fields |
+| Event properties / data status | Only combinations below | H §7.7.65.13, Event_Type / Table 7.1 |
+
+PHY 04 is rejected because this scanner does not enable host coding selection.
+Properties below are event bits 0–4; statuses are checked separately. “Periodic”
+means a nonzero interval is permitted, and “anonymous” means Address_Type FF is
+permitted. The implementation expands these grouped rows into 16 exact rows.
+
+| Report class | Properties | Secondary | SID | Anonymous | Periodic | Statuses | Data length | Sources |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Legacy, ordinary/response | 10,12,13,1A,1B | 00 | absent | no | no | 0 | ≤31 | H §7.7.65.13 Table 7.1, §7.7.65.2; L §2.3.1.1–4, §2.3.2.2 |
+| Legacy directed | 15 | 00 | absent | no | no | 0 | 0 | H Table 7.1; L §2.3.1.2 |
+| Extended primary-only | 00,04 | 00 | absent | no | no | 0 | 0 | L §2.3.1.5 Table 2.4; §4.4.3.5 |
+| Auxiliary nonconnectable/nonscannable | 00,04 | 01–03 | present | yes | yes | 0,1,2 | ≤229 | L §2.3.1.6 Table 2.5; §4.4.2.12; H §7.8.61 |
+| Auxiliary connectable | 01,05 | 01–03 | present | no | no | 0,1 | ≤229 | L Table 2.5; H §7.7.65.13 |
+| Auxiliary scannable advertisement | 02,06 | 01–03 | present | no | no | 0 | 0 | L Table 2.5; H §7.7.65.13 |
+| Auxiliary scan response | 0A,0E | 01–03 | optional | no | no | 0,1,2 | ≤229 | L §2.3.2.3 Table 2.10; H §7.7.65.13 |
+
+The primary-only prohibitions are retained: Table 2.4 requires AdvA and excludes
+ADI, SyncInfo and AdvData in both no-auxiliary rows. No data exists to fragment.
+Connectable auxiliary reports may be split by HCI, but cannot report AUX_CHAIN
+loss because Table 2.5 excludes AuxPtr. Scannable advertisements have no AdvData
+to split. Scan responses may omit ADI; HCI recommends using the original SID,
+which is not treated as a mandatory field-presence guarantee here.
+
+**Directed announcements of periodic advertising are valid.** Table 2.5 permits
+SyncInfo in its directed nonconnectable/nonscannable row. H §7.8.61 excludes
+connectable, scannable, legacy and anonymous sets, not directed sets. This event
+reports the announcement, not an HCI LE Periodic Advertising Report (§7.7.65.15).
+A missing-SID periodic announcement is invalid under L §4.4.2.12 and Tables 2.4–5.
+
+The matrix tests enumerate every meaningful Event_Type bit pattern and every SID
+byte for periodic and nonperiodic auxiliary reports, plus reserved event bits,
+scalar domains, primary-only presence and legacy combinations. They independently
+check metadata validity, parser evidence, mixed-event survival and framing errors.

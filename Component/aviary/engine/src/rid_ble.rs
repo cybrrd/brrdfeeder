@@ -444,48 +444,74 @@ fn scan_enable(extended: bool, enabled: bool) -> (u16, Vec<u8>) {
     }
 }
 
-// Bluetooth Core v5.4, Vol 4, Part E, 7.7.65.13 (including Table 7.1)
-// defines report fields; 7.8.53 forbids connectable+scannable extended events.
-// Vol 6, Part B, 2.3.1.5-.6 and 4.4.3.5 constrain primary-only reports and
-// anonymous/connectable/scannable combinations. Address_Type 0xff is anonymous,
-// not reserved. PHY 4 requires Advertising Coding Selection Host Support,
-// which this scanner never enables; it accepts PHY 3 for Coded reception.
+#[derive(Clone, Copy)]
+enum SidPresence { Absent, Required, Optional }
+
+// Core v5.4, Vol 4 Part E 7.7.65.13/Table 7.1: legacy event encodings.
+// Vol 6 Part B 2.3.1.5/Table 2.4: primary-only address, ADI and data presence.
+// 2.3.1.6/Table 2.5: auxiliary ADI, address, data and SyncInfo presence;
+// 2.3.2.3/Table 2.10: scan-response ADI is optional. HCI 7.7.65.13 recommends
+// using the original advertisement's SID when a scan response has none.
+// HCI 7.7.65.13 defines status 2 as AUX_CHAIN loss; Table 2.5 forbids AuxPtr
+// for connectable/scannable advertising. HCI splitting can still give a
+// connectable report status 1. Scannable advertising has no AdvData to split.
+//
+// Columns: properties, secondary present, SID, anonymous allowed,
+// periodic allowed, maximum data length, allowed data statuses (bit N = N).
+type ReportRule = (u16, bool, SidPresence, bool, bool, u8, u8);
+const REPORT_RULES: [ReportRule; 16] = {
+    use SidPresence::{Absent, Optional, Required};
+    [
+        (0x10, false, Absent,   false, false, 31, 0b001),
+        (0x12, false, Absent,   false, false, 31, 0b001),
+        (0x13, false, Absent,   false, false, 31, 0b001),
+        (0x15, false, Absent,   false, false,  0, 0b001),
+        (0x1a, false, Absent,   false, false, 31, 0b001),
+        (0x1b, false, Absent,   false, false, 31, 0b001),
+        (0x00, false, Absent,   false, false,  0, 0b001),
+        (0x04, false, Absent,   false, false,  0, 0b001),
+        (0x00, true,  Required, true,  true, 229, 0b111),
+        (0x04, true,  Required, true,  true, 229, 0b111),
+        (0x01, true,  Required, false, false,229, 0b011),
+        (0x05, true,  Required, false, false,229, 0b011),
+        (0x02, true,  Required, false, false,  0, 0b001),
+        (0x06, true,  Required, false, false,  0, 0b001),
+        (0x0a, true,  Optional, false, false,229, 0b111),
+        (0x0e, true,  Optional, false, false,229, 0b111),
+    ]
+};
+
+// Core v5.4, Vol 4 Part E 7.7.65.13: scalar ranges, reserved bits, ignored
+// undirected target fields, and legacy PHY. PHY 4 requires host coding-selection
+// support, which is not enabled after this scanner resets its owned controller.
 fn valid_extended_metadata(h: &[u8]) -> bool {
     let flags = u16::from_le_bytes([h[0], h[1]]);
-    let legacy = flags & 0x10 != 0;
-    if flags & !0x7f != 0 || flags & 0x60 == 0x60
-        || !matches!(h[2], 0..=3 | 0xff)
-        || !matches!(h[9], 1 | 3) || !matches!(h[10], 0..=3)
-    {
-        return false;
-    }
     let interval = u16::from_le_bytes([h[14], h[15]]);
     let power_valid = |byte: u8| byte == 0x7f || (-127..=20).contains(&(byte as i8));
-    if !matches!(h[11], 0..=0x0f | 0xff)
+    if flags & !0x7f != 0 || !matches!(h[2], 0..=3 | 0xff)
+        || !matches!(h[9], 1 | 3) || !matches!(h[10], 0..=3)
+        || !matches!(h[11], 0..=0x0f | 0xff)
         || !power_valid(h[12]) || !power_valid(h[13])
         || (interval != 0 && interval < 6)
         || (flags & 4 != 0 && !matches!(h[16], 0..=3 | 0xfe))
+        || (flags & 0x10 != 0 && h[9] != 1)
     {
         return false;
     }
-    if legacy {
-        return matches!(flags, 0x10 | 0x12 | 0x13 | 0x15 | 0x1a | 0x1b)
-            && h[2] != 0xff && h[9] == 1 && h[10] == 0;
-    }
-    if flags & 3 == 3 || (flags & 8 != 0 && flags & 2 == 0)
-        || (h[2] == 0xff && flags & 3 != 0)
-    {
-        return false;
-    }
-    // Without a secondary packet there is no payload, fragmentation or SID,
-    // and the primary PDU must supply an address. Directed is still possible.
-    if h[10] == 0 && (flags & 0x6b != 0 || h[2] == 0xff
-        || h[11] != 0xff || h[23] != 0 || interval != 0)
-    {
-        return false;
-    }
-    // Periodic advertising cannot be connectable, scannable or anonymous.
-    interval == 0 || (flags & 3 == 0 && h[2] != 0xff)
+    let Some(&(_, _, sid, anonymous, periodic, max_data, statuses)) = REPORT_RULES.iter()
+        .find(|&&(properties, secondary, ..)| properties == flags & 0x1f && secondary == (h[10] != 0))
+    else { return false; };
+    let sid_valid = match sid {
+        SidPresence::Absent => h[11] == 0xff,
+        SidPresence::Required => h[11] <= 0x0f,
+        SidPresence::Optional => true, // scalar domain was checked above
+    };
+    // Vol 6 Part B 4.4.2.12 requires identified, non-anonymous announcements.
+    // Directed announcements ARE allowed: Table 2.5 includes SyncInfo in both
+    // nonconnectable/nonscannable rows; Vol 4 Part E 7.8.61 does not forbid them.
+    sid_valid && (anonymous || h[2] != 0xff) && h[23] <= max_data
+        && statuses & (1 << ((flags >> 5) & 3)) != 0
+        && (interval == 0 || (periodic && h[2] != 0xff))
 }
 
 /// Return ALL advertising-report count for health, plus eligible complete ADs.
@@ -999,7 +1025,7 @@ mod bluetooth_diagnostics_tests {
         let mut h = [0; 24];
         h[9] = 1;
         h[10] = 3;
-        h[11] = 0xff;
+        h[11] = 0;
         h[12] = 0x7f;
         h[13] = 0x7f;
         h
@@ -1053,12 +1079,15 @@ mod bluetooth_diagnostics_tests {
             ("fragmented primary-only", 0x20, 0, 0),
         ] {
             let mut h = good; h[0] = flags; h[2] = address; h[9] = 3; h[10] = secondary;
+            if secondary == 0 { h[11] = 0xff; }
             cases.push((name, h));
         }
         let mut directed = good; directed[0] = 4; directed[16] = 0xff;
         cases.push(("reserved direct address type", directed));
         let mut periodic = good; periodic[0] = 1; periodic[14] = 6;
         cases.push(("connectable periodic", periodic));
+        let mut no_sid_periodic = good; no_sid_periodic[11] = 0xff; no_sid_periodic[14] = 6;
+        cases.push(("periodic without SID", no_sid_periodic));
         // Every fixture retains consistent HCI lengths and a Coded byte.
         for (name, h) in &cases {
             let (count, ads, observed) = advertising_reports(&extended_event(&[*h])).unwrap();
@@ -1082,7 +1111,7 @@ mod bluetooth_diagnostics_tests {
         for flags in [1, 2, 4, 5, 6, 0x0a, 0x0e, 0x20, 0x40] {
             let mut h = good; h[0] = flags; cases.push(h);
         }
-        let mut primary_only = good; primary_only[9] = 3; primary_only[10] = 0;
+        let mut primary_only = good; primary_only[9] = 3; primary_only[10] = 0; primary_only[11] = 0xff;
         cases.push(primary_only);
         let mut anonymous_directed = good; anonymous_directed[0] = 4; anonymous_directed[2] = 0xff;
         cases.push(anonymous_directed);
@@ -1093,11 +1122,11 @@ mod bluetooth_diagnostics_tests {
             assert!(ads.is_empty()); // no RSSI, no RID, still reception evidence
         }
         for flags in [0x10, 0x12, 0x13, 0x15, 0x1a, 0x1b] {
-            let mut h = good; h[0] = flags; h[10] = 0;
+            let mut h = good; h[0] = flags; h[10] = 0; h[11] = 0xff;
             assert!(!advertising_reports(&extended_event(&[h])).unwrap().2);
         }
         for secondary in [0, 1, 2] {
-            let mut h = good; h[10] = secondary;
+            let mut h = good; h[10] = secondary; if secondary == 0 { h[11] = 0xff; }
             assert!(!advertising_reports(&extended_event(&[h])).unwrap().2);
         }
         println!("{} valid Coded and 9 non-Coded controls", cases.len());
@@ -1190,3 +1219,7 @@ mod bluetooth_diagnostics_tests {
         assert_eq!(LongRange::current(), LongRange::NotYetObserved);
     }
 }
+
+#[cfg(test)]
+#[path = "rid_ble_metadata_tests.rs"]
+mod metadata_tests;

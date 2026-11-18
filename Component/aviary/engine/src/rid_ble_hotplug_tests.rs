@@ -267,7 +267,7 @@ async fn hotplug_running_auto_to_off_after_documented_restart_without_receipt() 
     let config = tree.0.join("config.yaml");
     std::fs::write(&config, "{}\n").unwrap();
     let load = || {
-        serde_yaml::from_str::<crate::node_config::SensorsYaml>(
+        serde_saphyr::from_str::<crate::node_config::SensorsYaml>(
             &std::fs::read_to_string(&config).unwrap(),
         )
         .unwrap()

@@ -22,6 +22,7 @@ def run(name,cwd,args,expected=0,extra=None):
 
 run('policy-clean',release,['go','test','-count=1','-run','TestPolicy','./...'])
 mutants=[
+ ('previous-capability','engine_policy.go','[]string{p.binary, previous}','[]string{p.binary}','TestPolicyReadinessRefusesBeforeStaging/previous-incapable'),
  ('transform','engine_policy.go','lines[intervalLine] = "StartLimitIntervalSec=0"','lines[intervalLine] = "StartLimitIntervalSec=300"','TestPolicyTransformNarrow'),
  ('same-image-noop','updater.go','if policy == nil && contains(im.RepoDigests','if (policy == nil || policy != nil) && contains(im.RepoDigests','TestPolicySignedFlowMatrix/same-poll'),
  ('policy-restart','package.go','if ec || policy != nil {','if ec {','TestPolicySignedFlowMatrix/same-staged'),

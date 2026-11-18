@@ -30,7 +30,7 @@
 - Late-qualified GPS attachments now reach the first-fix waiter before container
   startup. Optional PMTK initialization waits for confirmed NMEA on each open.
 
-- Proposed OAuth option A (pending decision): enrollment and owner recovery no
+- Enrollment and owner recovery no
   longer request offline access; the installer no longer stores unused refresh
   tokens. Credential renewal uses NKey renewal or interactive owner recovery.
   Existing tokens are untouched; inventory/revocation is a separate migration.

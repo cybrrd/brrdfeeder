@@ -22,7 +22,10 @@ EngineConfig {
         ),
     },
     capture: CaptureYaml {
-        interface: "wlx001122334455",
+        interface: Some(
+            "wlx001122334455",
+        ),
+        adapter_usb_id: None,
         savefile: None,
         hunter: HunterYaml {
             enabled: true,

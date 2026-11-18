@@ -849,12 +849,12 @@ mod tests {
         assert!(cfg.enabled);
         assert!(cfg.unblock_rfkill);
         assert!(cfg.validate().is_ok());
-        let sensors: SensorsYaml = serde_yaml::from_str("{}").unwrap();
+        let sensors: SensorsYaml = serde_saphyr::from_str("{}").unwrap();
         assert!(
             sensors.rid_ble.enabled,
             "absent rid_ble must keep enabled intent"
         );
-        let off: RidBleYaml = serde_yaml::from_str("enabled: false").unwrap();
+        let off: RidBleYaml = serde_saphyr::from_str("enabled: false").unwrap();
         assert!(!off.enabled);
         assert!(off.validate().is_ok());
         for yaml in [

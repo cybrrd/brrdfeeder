@@ -22,7 +22,10 @@ EngineConfig {
         ),
     },
     capture: CaptureYaml {
-        interface: "EDIT-ME-wlanX",
+        interface: Some(
+            "EDIT-ME-wlanX",
+        ),
+        adapter_usb_id: None,
         savefile: None,
         hunter: HunterYaml {
             enabled: true,
@@ -78,8 +81,8 @@ EngineConfig {
             stale_after_secs: 30,
         },
         rid_ble: RidBleYaml {
-            enabled: false,
-            unblock_rfkill: false,
+            enabled: true,
+            unblock_rfkill: true,
             adapter: BleAdapterYaml {
                 bd_addr: None,
                 usb_id: None,

@@ -297,7 +297,7 @@ func TestPolicySignedFlowMatrix(t *testing.T) {
 }
 
 func TestPolicyReadinessRefusesBeforeStaging(t *testing.T) {
-	for _, name := range []string{"no-previous", "previous-hash", "current-hash", "executing-hash", "capability", "host-active", "drop-in", "source", "inactive", "no-pid", "custom", "symlink", "hardlink", "mode", "parent", "bad-health", "budget", "resources"} {
+	for _, name := range []string{"no-previous", "previous-hash", "current-hash", "executing-hash", "capability", "previous-incapable", "host-active", "drop-in", "source", "inactive", "no-pid", "custom", "symlink", "hardlink", "mode", "parent", "bad-health", "budget", "resources"} {
 		t.Run(name, func(t *testing.T) {
 			u, h, key := setupPolicy(t)
 			m := samePolicyManifest(u)
@@ -313,6 +313,13 @@ func TestPolicyReadinessRefusesBeforeStaging(t *testing.T) {
 				p.executable = func() (string, error) { return p.binary + ".previous", nil }
 			case "capability":
 				p.probe = func(string) (string, error) { return selfTestReply, nil }
+			case "previous-incapable":
+				p.probe = func(path string) (string, error) {
+					if path == p.binary+".previous" {
+						return selfTestReply, nil
+					}
+					return policyCapability, nil
+				}
 			case "host-active":
 				_ = os.WriteFile(filepath.Join(u.cfg.PrivateDir, "host-transaction.json"), []byte("{}"), 0600)
 			case "drop-in":

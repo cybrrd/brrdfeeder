@@ -131,6 +131,8 @@ ARG BUILD_DATE=unknown
 # Offset reserves private-history releases before the public snapshot; never lower it.
 # NOTE: no inline comment on the ARG line — Dockerfile parses it as a blank ARG name.
 ARG BUILD_SEQ=0
+ARG PRODUCT_VERSION
+LABEL org.opencontainers.image.version="${PRODUCT_VERSION}"
 LABEL org.opencontainers.image.source="https://github.com/cybrrd/brrdfeeder"
 LABEL org.opencontainers.image.revision="${GIT_SHA}"
 LABEL org.opencontainers.image.ref.name="${GIT_REF}"

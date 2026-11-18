@@ -16,7 +16,10 @@ EngineConfig {
         channel: None,
     },
     capture: CaptureYaml {
-        interface: "wlan1",
+        interface: Some(
+            "wlan1",
+        ),
+        adapter_usb_id: None,
         savefile: None,
         hunter: HunterYaml {
             enabled: true,

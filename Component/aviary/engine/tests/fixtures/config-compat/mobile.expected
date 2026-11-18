@@ -18,7 +18,10 @@ EngineConfig {
         channel: None,
     },
     capture: CaptureYaml {
-        interface: "wlxCHANGEME",
+        interface: Some(
+            "wlxCHANGEME",
+        ),
+        adapter_usb_id: None,
         savefile: None,
         hunter: HunterYaml {
             enabled: true,

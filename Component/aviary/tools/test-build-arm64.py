@@ -28,7 +28,8 @@ def mock(command, args):
         elif args[0] == "rev-parse": print(SHA)
         elif args[0] == "symbolic-ref": print("test/same-ref")
         elif args[0] == "rev-list": print("123")
-        elif args[0] == "show": print(os.environ.get("TEST_COMMIT_EPOCH", "1789936260"))
+        elif args[0] == "show":
+            print('[package]\nname="engine"\nversion="1.2.3"' if "HEAD:Component/aviary/engine/Cargo.toml" in args else os.environ.get("TEST_COMMIT_EPOCH", "1789936260"))
         elif args[0] == "status": print(" M engine/Containerfile" if mode == "dirty" else "")
         elif args[0] == "archive":
             return subprocess.call(["tar", "-cf", "-", "-C", os.environ["TEST_CONTEXT"], "."])
@@ -61,7 +62,7 @@ def mock(command, args):
             else:
                 fmt = args[args.index("--format") + 1]
                 print("arm64" if "Architecture" in fmt else SHA if "revision" in fmt else
-                      "1123" if "build_seq" in fmt else "sha256:" + "a" * 64)
+                      "1.2.3" if "image.version" in fmt else "1123" if "build_seq" in fmt else "sha256:" + "a" * 64)
         elif args[0] == "save":
             if mode == "save-fails": return 7
             Path(args[args.index("--output") + 1]).write_text("mock archive; not a real image\n")
@@ -116,6 +117,7 @@ class BuildContract(unittest.TestCase):
                     for flag in ["--runroot", "--tmpdir", "--timestamp", "--pull=never"]: self.assertIn(flag, build)
                     self.assertNotIn("--target", build)
                     self.assertIn("BUILD_SEQ=1123",build)
+                    self.assertIn("PRODUCT_VERSION=1.2.3",build)
                     self.assertIn("SOURCE_DATE_EPOCH=" + env.get("TEST_COMMIT_EPOCH", "1789936260"), build)
                     pulls = [args for command, args in calls if command == "podman" and "pull" in args]
                     self.assertEqual(len(pulls), 2)

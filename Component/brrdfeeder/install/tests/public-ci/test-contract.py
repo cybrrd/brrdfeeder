@@ -158,11 +158,18 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         ignores=[i for i in cargo['ignore'] if i['dependency-name']=='nmea']
         self.assertTrue(any('version-update:semver-major' in i.get('update-types',[]) for i in ignores))
 
+    def test_both_runtime_images_carry_product_version(self):
+        for path in ('Component/aviary/engine/Containerfile', 'Component/brrdhouse/Containerfile'):
+            runtime = (ROOT/path).read_text().rsplit('FROM ', 1)[1]
+            self.assertIn('ARG PRODUCT_VERSION', runtime)
+            self.assertIn('LABEL org.opencontainers.image.version="${PRODUCT_VERSION}"', runtime)
+
     def test_engine_yaml_dependency_exit(self):
         lock=tomllib.loads((ROOT/'Component/aviary/Cargo.lock').read_text())
         names={p['name'] for p in lock['package']}
         self.assertNotIn('unsafe-libyaml',names)
         self.assertNotIn('serde_yaml',names)
+
     def test_native_engine_fetches_before_offline_build(self):
         container=(ROOT/'Component/aviary/engine/Containerfile').read_text()
         fetch=container.index('cargo fetch --locked')

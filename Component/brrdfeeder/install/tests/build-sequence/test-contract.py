@@ -26,6 +26,8 @@ class BuildSequence(unittest.TestCase):
         repo=root/'repo';repo.mkdir()
         for name in SCRIPTS:
             dst=repo/name;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(ROOT/name,dst)
+        manifest=repo/'Component/aviary/engine/Cargo.toml';manifest.parent.mkdir(parents=True,exist_ok=True)
+        manifest.write_text('[package]\nname="engine"\nversion="0.9.1"\n')
         env=dict(os.environ,GIT_AUTHOR_NAME='Development Team',GIT_AUTHOR_EMAIL='operator@cybrrd.com',
             GIT_COMMITTER_NAME='Development Team',GIT_COMMITTER_EMAIL='operator@cybrrd.com')
         for args in [['init','-b','main'],['add','.'],['commit','-m','Synthetic one-commit sequence fixture']]:
@@ -48,6 +50,7 @@ class BuildSequence(unittest.TestCase):
             self.assertEqual(console.returncode,0,console.stderr)
             calls=(root/'calls').read_text()
             self.assertIn('--build-arg BUILD_SEQ=1001',calls)
+            self.assertIn('--build-arg PRODUCT_VERSION=0.9.1',calls)
             self.assertNotIn('--build-arg BUILD_SEQ=1 ',calls)
             self.assertGreater(1001,824)
     def test_both_build_scripts_refuse_shallow_history(self):

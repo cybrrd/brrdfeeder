@@ -35,6 +35,8 @@
   tokens. Credential renewal uses NKey renewal or interactive owner recovery.
   Existing tokens are untouched; inventory/revocation is a separate migration.
 
+- Stop installer enrollment with exit 77 after an owner-capacity refusal, retaining capacity-help guidance without suggesting manual credential provisioning.
+
 ## 0.9.0 — Unreleased public beta candidate
 
 - Automatically confirm CP2102N GPS receivers without a prompt, resolve the correct tty, skip busy ports, restore probe settings, and generate a usable confirmed-device udev rule.

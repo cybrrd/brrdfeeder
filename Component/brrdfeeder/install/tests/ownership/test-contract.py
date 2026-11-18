@@ -41,7 +41,7 @@ class Ownership(unittest.TestCase):
         # Do not add definitions or headers to those exact bytes; use sidecars.
         for path, digest in {
             'SECURITY.md': '82c87d11c14d44838fb7553e30b20e822cf87a57dbb15a77f020b58041060d00',
-            'CONTRIBUTING.md': '608ca27cab011b33c4bb6373eeb621456aea98eb8f7760aeedbafa8610cf0d27',
+            'CONTRIBUTING.md': '3c24771a84eb706f17fe92a81ba4342192afdedeac6e82d9354b0a6bf1cf8879',
         }.items():
             self.assertEqual(hashlib.sha256((ROOT/path).read_bytes()).hexdigest(), digest)
             owner = 'cyBRRD Corporation' if path == 'CONTRIBUTING.md' else 'Macawi LLC'

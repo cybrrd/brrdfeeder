@@ -2,8 +2,10 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Signed releases and independent host convergence
 
-0.9.0 adds an explicit installer-authorized build-4 upgrade, distinct from the
-signed host channel. See the [operator command and prerequisites](../../brrdfeeder/install/README.md#explicit-helper-only-upgrade-090).
+This draft stacks the 0.9.1 engine-policy chain on helper 5: recovery-only
+bridge build 6, then migration-enabled build 7. See the
+[migration behavior, coverage decision and release gates](docs/engine-policy-091.md).
+The explicit installer-authorized helper remains distinct from the signed host channel. See the [operator command and prerequisites](../../brrdfeeder/install/README.md#explicit-helper-only-upgrade-090).
 The opt-in local operation preserves identity/workload state, verifies existing
 credentials locally, and serializes on `launch.lock` then `lock`.
 It installs the backward-compatible launcher before journaling helper/floor
@@ -14,6 +16,13 @@ as bootstrap and active trust. Present runtime state still requires the strict
 service-owned 0600 layout; unsafe or dangling-symlink state is refused. No
 credential is created or migrated by this operation.
 Ordinary installer reruns still preserve the existing valid helper.
+The [baseline comparison](HELPER5-BASELINE.md) freezes the planning citations
+against released 0.9.0.
+Fresh released-0.9.0 helper 4 → 5 native qualification remains pending; see the
+[new qualification kit](qualification/helper5/README.md). Historical 0.8.31
+layout support remains a separate regression gate. That helper-only baseline does not migrate engine restart policy. Builds 6/7
+retain the helper-only boundary; a later eligible workload poll may migrate
+under the separately documented gates. Release publication remains unauthorized.
 
 AGPL-3.0-or-later. Nodes autonomously PULL. Command and Blue no longer initiate
 software updates. Blue's crypto, pinned Ed25519 public key and applied-build
@@ -33,7 +42,7 @@ installer/bootstrap pins outside the reviewed release workflow.
 
 ```sh
 # From this directory, with the required compiler already available:
-./build-host.sh /path/to/new-artifact-directory
+bash build-host.sh /path/to/new-artifact-directory
 ```
 
 The helper's `publish` subcommand is a **low-level signer client**. It validates
@@ -181,7 +190,7 @@ signing/publication is blocked pending a separately validated S5 endpoint; no
 caller loads the private key. The installed verifier/recovery remains tested.
 Distinct signed domain cybrrd.host-updater.v1, explicit updater_only=true,
 architecture, ring/cohort, sequence/build, expiry and SHA256 are all checked.
-Build the example with -X main.updaterBuild=4; candidate identity must match.
+Build the example with -X main.updaterBuild=5; candidate identity must match.
 Serve its bytes at /releases/v1/updater/<sha256>/linux-arm64/brrdfeeder-release.
 No manifest URL can redirect the artifact downloader. Each failed executable
 retains its attempt receipt; 32-entry history cap then requires operator review.
@@ -246,3 +255,28 @@ An isolated dev proof precedes staging/general. Promote the same proved good
 digests without rebuilding, with a new ring-specific signature and sequence
 under separate approval. The public bootstrap switch is last, after proof and
 review; a GitHub tag or published release alone does not authorize it.
+
+## Clock-trust deferrals
+
+The two timer-driven poll services treat exit **75** as an expected defer via
+`SuccessExitStatus=75`. The journal still explains that the engine has not
+reported a fresh trusted clock. Missing, stale, future, malformed or explicitly
+untrusted status cannot authorize expiry-sensitive release decisions; the
+updater still requires an explicit fresh `os_clock_trusted=true` report.
+OS NTP synchronization alone is not a substitute, and there is no bootstrap
+window exemption. A later timer tick retries after the engine restores trust.
+
+If the engine is not running, re-run the installer to update through the
+operator-driven, hash-pinned recovery path. A closed trust gate cannot deliver
+an update to unstick a dead engine. Independent authenticated time remains a
+separate design, not part of this defer behavior.
+
+The launcher preserves exit 75 for `poll` and `poll-updater`; only those two
+systemd units accept it. Other errors still exit 1 and leave the unit failed,
+including executable download failures and attempt-receipt write failures
+joined with a clock defer. The existing unpublished host-manifest HTTP 404
+no-op remains unchanged. CLI exit 75 is nonzero, not a claim that an update ran.
+
+Both the helper and installed poll units must be updated together through the
+installer's host setup. An engine-only update, or a helper-only replacement
+that leaves old units installed, does not migrate `SuccessExitStatus`.

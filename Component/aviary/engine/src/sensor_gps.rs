@@ -73,7 +73,7 @@ pub struct NmeaGps {
     pub stale_after: Duration,
     /// Optional receiver-init sentences (PMTK etc.), checksummed by the
     /// config layer. Empty (the default) = the reader never writes to the
-    /// port. Sent once per serial open; module ack sentences are ordinary
+    /// port. Sent after two valid GP/GN sentences per serial open; module acks are ordinary
     /// unknown-type NMEA lines the parser skips.
     pub init_sentences: Vec<String>,
 }
@@ -159,17 +159,9 @@ async fn run_ublox_gps(
             }
         };
 
-        // Optional receiver initialization (once per open; logged; the
-        // default empty vec means nothing is ever written).
-        for sentence in &cfg.init_sentences {
-            match port.try_write(format!("{}\r\n", sentence).as_bytes()) {
-                Ok(_) => println!("[gps] init sent: {}", sentence),
-                Err(e) => {
-                    println!("[gps] init write failed (continuing): {}", e);
-                    set_state(&health, SensorState::Degraded, Some(format!("init write: {}", e)));
-                }
-            }
-        }
+        // Qualify every opened attachment before optional writes, including
+        // replacements behind a previously confirmed mapping or custom path.
+        let mut confirmed_sentences = 0u8;
         let mut parser = Nmea::default();
         let mut last_fix_ms: Option<i64> = None;
         let reader = BufReader::new(&mut port);
@@ -187,6 +179,23 @@ async fn run_ublox_gps(
                 line_res = lines.next_line() => {
                     match line_res {
                         Ok(Some(line)) => {
+                            if confirmed_sentences < 2
+                                && (line.starts_with("$GP") || line.starts_with("$GN"))
+                                && nmea::parse_str(line.trim()).is_ok()
+                            {
+                                confirmed_sentences += 1;
+                                if confirmed_sentences == 2 {
+                                    for sentence in &cfg.init_sentences {
+                                        match lines.get_mut().get_mut().try_write(format!("{}\r\n", sentence).as_bytes()) {
+                                            Ok(_) => println!("[gps] init sent: {}", sentence),
+                                            Err(e) => {
+                                                println!("[gps] init write failed (continuing): {}", e);
+                                                set_state(&health, SensorState::Degraded, Some(format!("init write: {}", e)));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             if let Some(fix) = parse_nmea_line(&mut parser, &line) {
                                 last_fix_ms = Some(fix.fix_at_ms);
                                 handle_fresh_fix(&fix, &ctx, &health, &tx).await;
@@ -453,6 +462,55 @@ mod tests {
         std::fs::remove_dir(dir).unwrap();
         assert_eq!(disconnected, SensorState::Failed, "unplug must immediately revoke live GPS health");
         assert!(recovered.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn pmtk_waits_for_confirmed_nmea_and_gn_fix_is_healthy() {
+        use std::io::{Read, Write};
+        use std::os::fd::FromRawFd;
+        let (mut master, mut slave) = (0, 0);
+        let mut name = [0 as libc::c_char; 128];
+        assert_eq!(unsafe { libc::openpty(&mut master, &mut slave, name.as_mut_ptr(), std::ptr::null(), std::ptr::null()) }, 0);
+        let path = unsafe { std::ffi::CStr::from_ptr(name.as_ptr()) }.to_str().unwrap().to_owned();
+        let (mut master, _slave) = unsafe { (std::fs::File::from_raw_fd(master), std::fs::File::from_raw_fd(slave)) };
+        use std::os::fd::AsRawFd;
+        unsafe { libc::fcntl(master.as_raw_fd(), libc::F_SETFL, libc::O_NONBLOCK); }
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let (audit, _events) = mpsc::channel(16);
+        let mut cfg = NmeaGps::new(path);
+        cfg.init_sentences = vec!["$PMTK220,1000*1F".into()];
+        let mut handle = cfg.start(SensorContext {
+            node_id: Arc::from("gps-test"), cancel: cancel.clone(), substrate_audit: audit,
+        });
+        let mut output = [0u8; 1024];
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let silent = master.read(&mut output);
+        assert_eq!(silent.unwrap_err().kind(), std::io::ErrorKind::WouldBlock, "PMTK wrote before any NMEA");
+        master.write_all(b"$GNGGA,bad*00\r\n").unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let invalid = master.read(&mut output);
+        assert_eq!(invalid.unwrap_err().kind(), std::io::ErrorKind::WouldBlock, "PMTK wrote after invalid NMEA");
+        let gga = nmea_with_checksum("GNGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,")+"\r\n";
+        master.write_all(gga.as_bytes()).unwrap();
+        let fix = tokio::time::timeout(Duration::from_secs(2), handle.readings.recv()).await.unwrap().unwrap();
+        let one = master.read(&mut output);
+        assert_eq!(one.unwrap_err().kind(), std::io::ErrorKind::WouldBlock, "PMTK wrote after only one valid sentence");
+        master.write_all(gga.as_bytes()).unwrap();
+        tokio::time::timeout(Duration::from_secs(2), handle.readings.recv()).await.unwrap().unwrap();
+        let written = master.read(&mut output).unwrap();
+        let init = String::from_utf8_lossy(&output[..written]).into_owned();
+        master.write_all(gga.as_bytes()).unwrap();
+        tokio::time::timeout(Duration::from_secs(2), handle.readings.recv()).await.unwrap().unwrap();
+        let repeated = master.read(&mut output);
+        let health = handle.health.load().state;
+        cancel.cancel();
+        for result in [repeated] {
+            assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::WouldBlock,
+                "PMTK must wait for two confirmed sentences and run only once per open");
+        }
+        assert_eq!(init, "$PMTK220,1000*1F\r\n");
+        assert!((fix.lat-48.1173).abs() < 0.0001);
+        assert_eq!(health, SensorState::Healthy);
     }
 
     /// Build a checksum-correct NMEA sentence from its body. NMEA

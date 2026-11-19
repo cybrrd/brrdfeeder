@@ -18,6 +18,7 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo=$(git -C "$script_dir" rev-parse --show-toplevel)
 [[ $(git -C "$repo" rev-parse --is-shallow-repository) == false ]] || die 'shallow checkout: fetch full history before computing BUILD_SEQ'
 sha=$(git -C "$repo" rev-parse HEAD)
+product_version=$(git -C "$repo" show HEAD:Component/aviary/engine/Cargo.toml | python3 -c 'import sys,tomllib; print(tomllib.loads(sys.stdin.read())["package"]["version"])')
 ref=$(git -C "$repo" symbolic-ref --quiet --short HEAD || git -C "$repo" describe --tags --exact-match HEAD 2>/dev/null || printf 'detached-%s' "${sha:0:12}")
 # WHAT: reserve the first 1000 sequence values for pre-snapshot private history.
 # WHY: public history starts at one commit; 1001 must exceed field floors <=824.
@@ -109,9 +110,10 @@ podman build --platform linux/arm64 --timestamp "$epoch" --pull=never \
   --layers --rm=false --jobs=1 --cpu-period=100000 --cpu-quota=400000 --memory=16g --memory-swap=16g \
   --build-arg "BUILDPLATFORM=$build_platform" --build-arg TARGETPLATFORM=linux/arm64 --build-arg TARGETARCH=arm64 \
   --build-arg "GIT_SHA=$sha" --build-arg "GIT_REF=$ref" \
-  --build-arg "BUILD_DATE=$build_date" --build-arg "BUILD_SEQ=$seq" \
+  --build-arg "PRODUCT_VERSION=$product_version" --build-arg "BUILD_DATE=$build_date" --build-arg "BUILD_SEQ=$seq" \
   --build-arg "SOURCE_DATE_EPOCH=$epoch" \
   -f "$containerfile" -t "$image" "$build_tmp/context"
+[[ $(podman image inspect --format '{{index .Labels "org.opencontainers.image.version"}}' "$image") == "$product_version" ]] || die 'product version label mismatch'
 [[ $(podman image inspect --format '{{.Architecture}}' "$image") == arm64 ]] || die 'result is not arm64'
 [[ $(podman image inspect --format '{{index .Labels "org.opencontainers.image.revision"}}' "$image") == "$sha" ]] || die 'revision label mismatch'
 [[ $(podman image inspect --format '{{index .Labels "com.macawi.brrdfeeder.build_seq"}}' "$image") == "$seq" ]] || die 'build sequence label mismatch'

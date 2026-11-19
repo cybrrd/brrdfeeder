@@ -12,7 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[5]
 HOST_ENV_PREFIXES = ('GITHUB_', 'RUNNER_', 'ACTIONS_', 'FIXTURE_')
 MOCK = r'''#!/usr/bin/env python3
-import json, os, sys
+import json, os, sys, tomllib
 from pathlib import Path
 name=Path(sys.argv[0]).name; args=sys.argv[1:]
 with open(os.environ['TRACE'],'a') as f: f.write(json.dumps([name,args])+'\n')
@@ -24,6 +24,7 @@ if name=='skopeo' and args[0]=='inspect':
         key='com.macawi.'+('brrdhouse' if component=='console' else 'brrdfeeder')+'.build_seq'
         print(json.dumps({'architecture':os.environ.get('FIXTURE_ARCH','arm64'),'os':'linux','config':{'Labels':{
             key:os.environ.get('FIXTURE_SEQUENCE','1001'),
+            'org.opencontainers.image.version':os.environ.get('FIXTURE_VERSION',tomllib.loads(Path('Component/aviary/engine/Cargo.toml').read_text())['package']['version']),
             'org.opencontainers.image.revision':os.environ.get('FIXTURE_REVISION',os.environ['GITHUB_SHA'])}}}))
     else:
         value='sha256:'+('c' if component=='console' else 'b')*64

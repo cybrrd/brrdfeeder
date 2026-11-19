@@ -50,6 +50,29 @@ pub fn ensure_capture_interface_is_not_default_route(iface: &str) -> Result<(), 
     Ok(())
 }
 
+/// USB selection must protect the uplink at every new binding, in both IP
+/// families. Absence of the IPv6 table means IPv6 is disabled; other errors
+/// cannot establish safety. Legacy interface-mode startup behavior is retained.
+pub fn ensure_usb_capture_is_not_default_route(iface: &str) -> Result<(), String> {
+    ensure_capture_interface_is_not_default_route(iface)?;
+    match std::fs::read_to_string("/proc/net/ipv6_route") {
+        Ok(table) if ipv6_default_on(&table, iface) => Err(format!(
+            "capture interface {iface} carries an IPv6 default route; refusing to administer the host uplink"
+        )),
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(format!("cannot verify IPv6 routes for capture interface {iface}: {e}")),
+    }
+}
+
+fn ipv6_default_on(table: &str, iface: &str) -> bool {
+    table.lines().any(|line| {
+        let cols: Vec<_> = line.split_whitespace().collect();
+        cols.len() == 10 && cols[0] == "00000000000000000000000000000000"
+            && cols[1] == "00" && cols[9] == iface
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -90,5 +113,14 @@ mod tests {
         let routes = parse_routes(FIXTURE);
         assert!(routes.contains(&("eth0".to_string(), 0)));
         assert!(routes.contains(&("eth0".to_string(), 0x0001A8C0)));
+    }
+
+    #[test]
+    fn wifi_ipv6_uplink_is_refused_independently_of_ipv4() {
+        let default = "00000000000000000000000000000000 00 00000000000000000000000000000000 00 00000000000000000000000000000001 00000001 00000000 00000000 00000003 wlan1\n";
+        assert!(ipv6_default_on(default,"wlan1"));
+        assert!(!ipv6_default_on(default,"wlan2"));
+        assert!(!ipv6_default_on(&default.replacen(" 00 "," 40 ",1),"wlan1"));
+        assert!(iface_carries_default_route("Iface Destination\nwlan1 00000000\n","wlan1"));
     }
 }

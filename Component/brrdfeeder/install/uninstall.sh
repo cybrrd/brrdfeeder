@@ -406,6 +406,11 @@ def validate(path, uid, gid):
     elif path == PRIVATE / 'attempt.json':
         owned_directory(PRIVATE, 0, 0, (0o700,))
         owned_file(path, 0, 0, (0o600,))
+    elif path == STATE / 'engine_policy_outcome.json':
+        owned_file(path, 0, 0, (0o644,))
+    elif path == PRIVATE / 'engine-policy-budget.json':
+        owned_directory(PRIVATE, 0, 0, (0o700,))
+        owned_file(path, 0, 0, (0o600,))
     elif path == STATE / 'credentials':
         owned_directory(path, uid, gid, (0o700,))
         for child in path.iterdir():
@@ -569,6 +574,7 @@ files=(/etc/brrdfeeder/config.yaml /etc/brrdfeeder/brrdhouse.container
   /usr/local/libexec/brrdfeeder-gps-runtime
   /etc/systemd/system/brrdfeeder-gps-runtime.service
   /etc/systemd/system/brrdfeeder-gps-runtime.timer
+  /etc/systemd/system/brrdfeeder-ble-takeover.service /etc/systemd/system/brrdfeeder-ble-takeover.timer
   /usr/local/libexec/brrdfeeder-bluetooth /etc/brrdfeeder/.bluetooth-prior.json
   /usr/local/bin/brrdfeeder-updater.sh /run/brrdfeeder-engine.cid /run/brrdfeeder-engine.service.cid)
 shopt -s nullglob dotglob
@@ -629,6 +635,8 @@ for pair in \
   '/usr/local/libexec/brrdfeeder-gps-runtime|BRRDfeeder GPS runtime transport' \
   '/etc/systemd/system/brrdfeeder-gps-runtime.service|BRRDfeeder GPS runtime transport' \
   '/etc/systemd/system/brrdfeeder-gps-runtime.timer|BRRDfeeder GPS runtime transport' \
+  '/etc/systemd/system/brrdfeeder-ble-takeover.service|BRRDfeeder Bluetooth hotplug ownership' \
+  '/etc/systemd/system/brrdfeeder-ble-takeover.timer|BRRDfeeder Bluetooth hotplug retry and ownership observation' \
   '/usr/local/libexec/brrdfeeder-bluetooth|BRRDfeeder Bluetooth ownership:' \
   '/usr/local/bin/brrdfeeder-updater.sh|# BRRDfeeder signed-update installer.|#185 Drop 2'; do
   file=${pair%%|*}; signature=${pair#*|}
@@ -682,7 +690,7 @@ for entry in /etc/brrdfeeder/secrets/*; do
 done
 for entry in /var/lib/brrdfeeder/*; do
   case ${entry##*/} in policy_state.json|pending_update.json|pending_update.failed|update_outcome.json|update_transaction.json|release_currency.json|*.tmp|.update-*|.pending-*) ;;
-    release_attempt.json|status.json|status.json.tmp.*) safe_added_state "$entry"; continue;;
+    engine_policy_outcome.json|release_attempt.json|status.json|status.json.tmp.*) safe_added_state "$entry"; continue;;
     credentials|capture|outage) safe_tree "$entry"; safe_added_state "$entry"; continue;;
     upward) safe_tree "$entry"; continue;;
     .config|.local|.cache) service_home_residue "$entry"; continue;;
@@ -691,7 +699,7 @@ for entry in /var/lib/brrdfeeder/*; do
 done
 for entry in /var/lib/brrdfeeder-updater/*; do
   case ${entry##*/} in state.json|lock|launch.lock|host-state.json|host-transaction.json|pending.failed.json|rejected.json|.update-*) safe_file "$entry";;
-    attempt.json|pending_update.json|.pending-*|.host-recover-*) safe_added_state "$entry";;
+    engine-policy-budget.json|attempt.json|pending_update.json|.pending-*|.host-recover-*) safe_added_state "$entry";;
     rejected-pending-*) [[ -d $entry ]] && safe_tree "$entry" || die "invalid rejected-pending record: $entry";;
     *) die "unrecognised updater state: $entry";; esac
 done
@@ -706,7 +714,7 @@ done
 for unit in /etc/systemd/system/brrdfeeder-engine.service /etc/systemd/system/brrdhouse.service; do
   ! exists "$unit" || die "unexpected native override of generated unit: $unit"
 done
-for unit in brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-memory.service brrdfeeder-memory.timer brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
+for unit in brrdfeeder-ble-takeover.timer brrdfeeder-ble-takeover.service brrdfeeder-gps-runtime.service brrdfeeder-gps-runtime.timer brrdfeeder-engine.service brrdfeeder-memory.service brrdfeeder-memory.timer brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.service brrdfeeder-host-update.timer; do
   ! exists "/etc/systemd/system/$unit.d" || die "unexpected unit overrides: $unit.d"
 done
 console_links=()
@@ -778,6 +786,8 @@ progress_phase 'Stopping services'
 stop_unit system brrdfeeder-memory.timer
 stop_unit system brrdfeeder-memory.service
 stop_unit system brrdfeeder-release-poll.timer
+stop_unit system brrdfeeder-ble-takeover.timer
+stop_unit system brrdfeeder-ble-takeover.service
 stop_unit system brrdfeeder-gps-runtime.timer
 stop_unit system brrdfeeder-gps-runtime.service
 stop_unit system brrdfeeder-host-update.timer
@@ -814,13 +824,13 @@ remove_file /etc/systemd/system/brrdfeeder-memory.service
 remove_file /etc/systemd/system/brrdfeeder-memory.timer
 for file in /etc/systemd/system/brrdfeeder-updater.path /etc/systemd/system/brrdfeeder-updater.service /etc/containers/systemd/brrdfeeder-engine.container /etc/systemd/system/brrdfeeder-release-poll.timer /etc/systemd/system/brrdfeeder-release-poll.service /etc/systemd/system/brrdfeeder-release-recover.service /etc/systemd/system/brrdfeeder-host-update.service /etc/systemd/system/brrdfeeder-host-update.timer; do remove_file "$file"; done
 for file in "${console_links[@]}"; do remove_file "$file"; done
-for file in /etc/systemd/system/brrdfeeder-gps-runtime.timer /etc/systemd/system/brrdfeeder-gps-runtime.service; do remove_file "$file"; done
+for file in /etc/systemd/system/brrdfeeder-ble-takeover.timer /etc/systemd/system/brrdfeeder-ble-takeover.service /etc/systemd/system/brrdfeeder-gps-runtime.timer /etc/systemd/system/brrdfeeder-gps-runtime.service; do remove_file "$file"; done
 [[ ${#console_links[@]} -gt 0 ]] || absent '/etc/containers/systemd/users/<console-uid>/brrdhouse.container'
 remove_file /etc/brrdfeeder/brrdhouse.container
 act systemctl daemon-reload
 if [[ -n ${uid[brrdhouse]:-} && -S /run/user/${uid[brrdhouse]}/bus ]]; then act user_command systemctl --user daemon-reload;
 else log 'nothing to do: no active console user manager to reload; teardown order requires Quadlet removal before account deletion'; fi
-for unit in brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.timer brrdfeeder-host-update.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-engine.service brrdfeeder-gps-runtime.timer brrdfeeder-gps-runtime.service; do reset_failed_unit system "$unit"; done
+for unit in brrdfeeder-ble-takeover.timer brrdfeeder-ble-takeover.service brrdfeeder-release-poll.timer brrdfeeder-release-poll.service brrdfeeder-release-recover.service brrdfeeder-host-update.timer brrdfeeder-host-update.service brrdfeeder-updater.path brrdfeeder-updater.service brrdfeeder-engine.service brrdfeeder-gps-runtime.timer brrdfeeder-gps-runtime.service; do reset_failed_unit system "$unit"; done
 reset_failed_unit user brrdhouse.service
 
 # Only package containers and exclusive package image IDs. Never force rmi/prune.
@@ -953,7 +963,7 @@ remove_tree() {
     else find -P "$path" -xdev -depth -delete; log "REMOVED tree: $path"; fi
   else absent "$path"; fi
 }
-for tree in /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do remove_tree "$tree"; done
+for tree in /run/brrdfeeder-bluetooth /etc/brrdfeeder/secrets /var/lib/brrdfeeder-status /run/brrdfeeder-identity /run/brrdfeeder-gps /var/lib/brrdfeeder-updater /var/lib/brrdfeeder-memory /run/brrdfeeder-memory; do remove_tree "$tree"; done
 progress_phase 'Removing service accounts'
 for user in brrdhouse brrdfeeder; do
   if [[ -n ${uid[$user]:-} ]]; then

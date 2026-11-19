@@ -39,6 +39,15 @@ class Release(unittest.TestCase):
             for name in ('release-receipt.json', 'release-receipt.sigstore.json'):
                 self.assertTrue(any(arg.endswith('/'+name) for arg in calls[draft][1]))
 
+    def test_wrong_or_missing_image_version_blocks_both_components(self):
+        for component in ('engine', 'console'):
+            for version in ('', '0.0.0'):
+                with self.subTest(component=component, version=version), ReleaseFixture() as f:
+                    p = f.build(component, FIXTURE_VERSION=version)
+                    self.assertNotEqual(p.returncode, 0)
+                    self.assertIn('image product version mismatch', p.stderr)
+                    self.assertFalse(f.writes())
+
     def test_receipt_sign_failure_never_creates_draft(self):
         with ReleaseFixture() as f:
             f.build_both()

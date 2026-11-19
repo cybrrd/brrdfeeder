@@ -101,6 +101,7 @@ def measure(component, directory, dry_run=False):
     require(config.get('architecture') == 'arm64' and config.get('os') == 'linux', 'not Linux ARM64')
     require(labels.get('org.opencontainers.image.revision') == receipt['revision'], 'image revision mismatch')
     require(labels.get(label) == str(receipt['build_seq']), 'image build sequence mismatch')
+    require(labels.get('org.opencontainers.image.version') == receipt['product_version'], 'image product version mismatch')
     receipt['digest'] = digest
     return receipt
 

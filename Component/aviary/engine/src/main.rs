@@ -10,6 +10,7 @@ mod backhaul;
 mod blue_policy; // #185 Phase 3 — E-CNP-001 Blue policy verification (the cryptographic membrane)
 mod capabilities;
 mod capture;
+mod capture_identity;
 mod clock_discipline; // #183 — GPS clock discipline (no-RTC time correctness)
 mod dedup;
 mod credential_renewal;
@@ -126,16 +127,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "[+] Node identity locked: id={} version={} loc=({:.6},{:.6})",
         node.id, node.version, node.location.lat, node.location.lon
     );
-    let interface = cfg.capture.interface.clone();
+    let capture_selector = capture_identity::Selector::parse(
+        cfg.capture.interface.as_deref(), cfg.capture.adapter_usb_id.as_deref(),
+    )?;
+    let interface = capture_selector.label();
     // C5 — device boundary: the engine administers ONLY the designated
     // capture adapter, and only its channel in this slice. If that
     // adapter carries the default route it is the host uplink, not a
     // dedicated capture adapter: fail closed BEFORE any radio
     // administration. Never the built-in Wi-Fi/BT, routes, DNS, or
     // firewall.
-    if let Err(e) = route_guard::ensure_capture_interface_is_not_default_route(&interface) {
+    if let capture_identity::Selector::Interface(_) = &capture_selector {
+      if let Err(e) = route_guard::ensure_capture_interface_is_not_default_route(&interface) {
         eprintln!("[route-guard] FAILING CLOSED: {e}");
         return Err(e.into());
+      }
     }
     // Channel scheduler: resolve the schedule plan once (preset +
     // explicit overrides) and surface the effective schedule — this is
@@ -223,7 +229,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // is a substrate lie waiting to happen). A failed initial resolve
     // is non-fatal — seed 0 and let the capture loop's outer iteration
     // re-resolve once the interface appears.
-    let initial_ifindex = match watchdog::iface_to_ifindex(&interface) {
+    let initial_ifindex = match &capture_selector {
+      capture_identity::Selector::Usb(_) => 0,
+      capture_identity::Selector::Interface(_) => match watchdog::iface_to_ifindex(&interface) {
         Ok(idx) => {
             println!(
                 "[+] Capture interface {} resolved to ifindex {} (initial)",
@@ -239,8 +247,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
             0
         }
+      },
     };
-    let liveness = watchdog::CaptureLiveness::new(initial_ifindex);
+    let liveness = match capture_selector {
+        capture_identity::Selector::Interface(_) => watchdog::CaptureLiveness::new(initial_ifindex),
+        capture_identity::Selector::Usb(wanted) => watchdog::CaptureLiveness::with_identity(capture_identity::Identity::new(wanted)),
+    };
 
     // Audit emitter: 1 Hz drain of drop counters → audit subject. Publishes via
     // the shared multiplexed supervisor (#178); retain each audit window until
@@ -506,6 +518,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&liveness.frames),
             cfg.node.effective_status_interval_secs(heartbeat_interval),
         )
+        .with_capture_identity(liveness.identity.clone())
     });
 
     let status_cleanup = status_source.clone();
@@ -644,13 +657,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // REQ-BRRD-006: source emits raw AD; the shared host decoder owns ODID.
+    // Start even when explicitly off so local status carries the disabled
+    // intent/reason. The disabled sensor exits before inventory or HCI access.
+    let mut ble_handle = rid_ble::RidBle(
+        cfg.sensors.rid_ble.clone(),
+        ble_inventory,
+        Arc::clone(&liveness.frames),
+    )
+    .start(gps_ctx);
     let ble_keeper = if cfg.sensors.rid_ble.enabled {
-        let mut handle = rid_ble::RidBle(
-            cfg.sensors.rid_ble.clone(),
-            ble_inventory,
-            Arc::clone(&liveness.frames),
-        )
-        .start(gps_ctx);
         let mut pipeline = capture::PostParse::new(
             capture::ForwardContext {
                 tx: tx.clone(),
@@ -671,10 +686,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tokio::select! {
                     _ = cancel.cancelled() => {
                         // Wait for the sensor's bounded scan-disable and socket close.
-                        while handle.readings.recv().await.is_some() {}
+                        while ble_handle.readings.recv().await.is_some() {}
                         break;
                     },
-                    reading = handle.readings.recv() => {
+                    reading = ble_handle.readings.recv() => {
                         let Some(ad) = reading else { break; };
                         let keep_running = decoder.ingest(&ad.ad, ad.addr, ad.rssi, ad.meta)
                             .is_none_or(|data| pipeline.forward(data));
@@ -686,7 +701,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Dropping the receiver also terminates a failed/closed sensor path.
         }))
     } else {
-        println!("[rid_ble] disabled");
         None
     };
 

@@ -15,6 +15,8 @@ FROM scratch
 ARG GIT_SHA=unknown
 ARG SOURCE_REVISION="${GIT_SHA}"
 ARG BUILD_SEQ=0
+ARG PRODUCT_VERSION
+LABEL org.opencontainers.image.version="${PRODUCT_VERSION}"
 LABEL org.opencontainers.image.revision="${SOURCE_REVISION}" \
       com.macawi.brrdhouse.build_seq="${BUILD_SEQ}"
 LABEL org.opencontainers.image.title="BRRDhouse" \

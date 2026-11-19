@@ -25,7 +25,10 @@ that one-time reinstall. See the [Friday runbook](../../../governance/reviews/d4
 
 ### Explicit helper-only upgrade (0.9.0)
 
-After approved publication of the 0.9.0 bootstrap/installer/helper hash chain,
+This operation was introduced in 0.9.0 with helper 4. This 0.9.1 draft stacks recovery-only helper 6 then migration-enabled helper 7
+on the helper-5 baseline. Native qualification and publication remain pending.
+See the [two-step chain and skipped-bridge behavior](../../aviary/release-system/docs/engine-policy-091.md).
+After approved publication of the candidate bootstrap/installer/helper hash chain,
 an already provisioned ARM64 Self-Update installation can run:
 
 ```sh
@@ -34,7 +37,7 @@ curl -fsSL https://get.cybrrd.com | bash -s -- --upgrade-helper
 
 An ordinary rerun still preserves the existing valid helper. The installer flag
 works even when the old installed command lacks this operation. No manual
-staging is needed: only the exact pinned build-4 SHA-addressed artifact is
+staging is needed: only the exact pinned build-7 SHA-addressed artifact is
 downloaded. Optionally append `--helper-file /absolute/path/brrdfeeder-release`
 to use local bytes; the same SHA256 is required and a root-private copy executes.
 
@@ -54,7 +57,7 @@ renewal or other identity-service calls. Python 3/PyYAML and curl must already
 be installed; this mode does not install dependencies or change accounts/services.
 
 Config, existing credential bundles, workload image pins and workload build/sequence
-floors are not written. The independent helper floor may only advance to 4.
+floors are not written. The independent helper floor may only advance to 7.
 Higher floors, equal-build/different-hash replacements, busy locks and pending
 updater work are refused. Finish/recover pending work before retrying; do not
 uninstall or re-enroll to bypass a refusal.
@@ -109,6 +112,12 @@ warnings, errors, GPS/BLE status, final instructions and Device Flow's code/link
 remain visible. The redacted log always captures all output in either mode.
 The code is displayed to you but redacted before any log write. Time estimates
 are approximate, not deadlines for slow storage or downloads.
+
+Open the displayed verification link and enter the code shown on this node.
+Approve ONLY if the code shown in the browser exactly matches the code shown on
+this node. If you did not start this install, do not approve. The installer
+prefers the link without a prefilled code; if the server supplies only a
+prefilled link, the same comparison is required.
 
 ```sh
 curl -fsSL https://get.cybrrd.com | bash -s -- --no-verbose
@@ -245,7 +254,10 @@ UID/GID are allocated locally. Existing service accounts must be non-root system
 accounts with a dedicated group and non-login shell; their home is read from
 passwd. The engine gets the numeric dialout supplementary group, service-writable
 state, and read-only service-group access to root-owned NATS credentials. The
-refresh token remains root-only. The identity helper is embedded, installed by
+installer does not request or store OAuth refresh tokens. Automatic credential
+renewal uses the engine's NKey challenge/complete protocol; owner recovery uses
+interactive device login. Previously stored refresh tokens are left untouched;
+inventory and provider revocation require a separately authorized migration. The identity helper is embedded, installed by
 this script, and equality-checked against the canonical repo helper by the guard.
 
 After both pinned Quadlets exist, rerun without either image argument or the
@@ -387,7 +399,7 @@ is uploaded. Review the archive and choose whether to email it to support.
 D42 does not prove the release image is appropriate, hardware works, OAuth/NATS
 enrollment succeeds, or the engine runs under the rendered contract. No customer
 deployment approval is implied. Journald ordering, partial-install rollback,
-updater deduplication, refresh-token renewal, atomic writes and stronger verify
+updater deduplication, atomic writes and stronger verify
 semantics remain follow-ups. See the
 [D42 report](../../../governance/reviews/2026-09-21-D42-installer-customer-blockers-REPORT.md).
 See also the [package acceptance report](../../../governance/reviews/2026-09-22-package-console-REPORT.md)
@@ -409,13 +421,20 @@ Default rating thresholds and operator tuning flags are in the
 
 ## RID.BLE controller ownership
 
-BRRDfeeder includes Wi-Fi and Bluetooth RID. Passive USB inventory names the supported
-Realtek **0bda:876e** and **0bda:a728** receivers without sending HCI commands. On fresh installs
+**0.9.1 qualification:** 876e, 8771 and a728 are admitted. Long range is proven
+only by observed reports during the current controller lifetime. Refused extended
+scanning falls back to legacy capture. 8771 native proof remains pending at its
+remote site. See the [adapter matrix](../../../docs/specs/evidence/ble-adapters.md).
+
+BRRDfeeder includes Wi-Fi and Bluetooth RID. Passive USB inventory admits only
+Realtek **0bda:876e**, **0bda:8771** and **0bda:a728** receivers without sending HCI commands. On fresh installs
 and reruns, **only a missing `sensors.rid_ble` key** is added when exactly one
 supported receiver is present, as `enabled: true`, `unblock_rfkill: true` with
 `adapter.usb_id` set to the detected receiver's actual USB ID. Reruns also add only an absent `unblock_rfkill` field
 to an already-enabled, validated RID.BLE configuration. Explicit true/false wins.
-No supported receiver means no automatic enablement (including `0bda:8771`). Multiple supported receivers, including one of each ID, require
+No supported receiver leaves the key absent: this means enabled-auto intent,
+not disabled. The installer prints “Bluetooth will activate automatically when a
+supported adapter is plugged in” and names unsupported HCI adapters. Multiple allowed receivers, including one of each ID, require
 an explicit BD_ADDR selection. Explicit existing config (including `enabled:
 false`) is preserved, not silently changed; config migration may reformat YAML
 comments but preserves existing values. The engine, not the installer, performs
@@ -424,7 +443,7 @@ stock Pi OS/systemd-rfkill restoring a blocked state after reboot. Hard blocks
 still require physical/operator attention. No CHANGE_ALL or installer rfkill
 write is used. This is not a claim every Bluetooth USB adapter supports RID.
 
-When RID.BLE is enabled the installer stops the engine/waiter, records the prior
+When a supported receiver is claimed the installer stops the engine/waiter, records the prior
 `bluetooth.service` enablement and active state in root-only
 `/etc/brrdfeeder/.bluetooth-prior.json`, then stops/disables/masks bluetoothd before
 restarting the engine. Bluetooth keyboards/audio on that host will not be served
@@ -436,7 +455,7 @@ receipt for retry; legacy installations without a receipt leave bluetoothd alone
 
 Realtek RID.BLE uses a raw HCI USER socket; `/dev/cybrrd_ble` is the separate
 legacy Nordic serial symlink and is not required for either Realtek USB ID.
-A 0.8.22 installation with an a728 receiver and no `rid_ble` section receives
+An older installation with an 8771 receiver and no `rid_ble` section receives
 the same configuration and recorded Bluetooth handover when this installer is rerun.
 The one-liner retains already installed engine/console digests during host repair;
 signed Self-Update remains responsible for workload upgrades. Direct installer
@@ -452,11 +471,25 @@ also requires its existing login-history/process audit. Nonempty mismatched
 receipts, nonempty foreign commands and human accounts still refuse; ambiguous
 nonempty truncations require operator review. Atomic-write temporary files are
 removed by uninstall only from the finite package directories after validation.
-Disabling RID.BLE explicitly and rerunning also restores a recorded prior state.
+The hotplug helper leaves absent intent implicit and never writes config. Exact
+supported-ID HCI ADD rules start `brrdfeeder-ble-takeover.service`; its timer retries
+every five seconds, covering driver readiness, boot and operator unmask detection.
+Enabled hotplug never stops the engine. `HCIDEVDOWN` returning EBUSY leaves the
+existing exclusive USER owner untouched. The engine alone reports reception.
+An engine-only update preserves omitted `unblock_rfkill: false` in existing
+explicit sections; only an absent section opts into enabled-auto with targeted
+unblock. After saving explicit OFF without a receipt, run
+`sudo systemctl restart brrdfeeder-engine.service` and require Disabled in fresh
+status. Disabling RID.BLE explicitly restores a recorded prior state at the next helper
+run; the engine is stopped for this ownership handback and restarted if it was
+running, so Wi-Fi/GPS continue with BLE off. A prior claim followed by manual
+bluetoothd unmask/start latches a conflict under `/run/brrdfeeder-bluetooth`, mounted
+read-only into the engine. Only explicit helper `apply` clears/reclaims it.
+See [hotplug limits and native checks](../../../docs/ble-hotplug.md).
 Dry-run only describes these actions. After engine stop and bluetoothd stop/mask,
 the helper identifies the configured **supported USB** controller through sysfs
 (`hciN/device` ancestry to `idVendor`/`idProduct`; optional configured BD_ADDR is
-matched against sysfs too). It sends only **HCIDEVDOWN** to that index, reads
+matched against a read-only HCIGETDEVINFO snapshot when sysfs lacks address). It sends only **HCIDEVDOWN** to that index, reads
 **HCIGETDEVINFO** flags, and refuses if it remains UP or its identity changes.
 Zero/multiple matches refuse; no guessed hci0, discovery tools, inquiry, reset,
 device-UP or global rfkill writes. Uninstall restores bluetoothd; it need not
@@ -476,3 +509,7 @@ The engine's targeted unblock may be retained by systemd-rfkill in
 radio choices; installer/uninstaller never write that shared OS state. The
 uninstall summary discloses this persistent effect. Native cold boot, rfkill and
 real-air BLE reception still require the release approver's test; agent Pi runs = 0.
+
+Option A for 0.9.1 is proposed pending release approval. If selected, the OAuth
+refresh-grant gate S5.6 becomes permanently N/A, not PASS. This patch does not
+claim a provider-backed refresh-grant test.

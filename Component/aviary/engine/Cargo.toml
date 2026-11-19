@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 [package]
 name = "engine"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2021"
 license.workspace = true
 rust-version.workspace = true
@@ -17,7 +17,8 @@ async-nats = "0.50" # Keep the patched rustls-webpki resolution in the workspace
 bytes = "1" # #178: opaque pre-serialized payloads in the multiplexed NATS supervisor
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
+# 1.2+ requires Rust 1.89; keep the tested 1.1 line on our Rust 1.88 floor.
+serde-saphyr = { version = "~1.1.0", default-features = false, features = ["deserialize"] }
 sha2 = "0.11" # D32: hash exactly the loaded config bytes.
 ed25519-dalek = "3"   # #185 Phase 3 — E-CNP-001 Blue policy signature verification
 hex = "0.4"           # #185 Phase 3 — decode the 64-byte Ed25519 sig
@@ -32,7 +33,9 @@ neli = "0.7"  # Wave 7.1 Inc 4: direct netlink for CMD_GET_SURVEY (not exposed b
 # Wave 7.2 (2026-05-26) — Sensor trait + UbloxGps. First non-Wi-Fi
 # producer in the Anastomotic Reticulum. BLE + SDR will land next as
 # additional `Sensor` impls.
-nmea = "0.7"           # NMEA 0183 parser for u-blox GPS over CDC-ACM
+# 0.8.0 still pins vulnerable serde_with ~3.11; use upstream fix until its next release.
+# Tracked exit: docs/nmea-registry-follow-up.md (DEP-091-NMEA-REGISTRY).
+nmea = { git = "https://github.com/AeroRust/nmea", rev = "b2e7e4f6c1d6b21a0aae787adac35b6baee7c018" }
 chrono = "0.4"         # #183: assemble GPS UTC (RMC date + time) → epoch ms
 libc = "0.2"           # #183: clock_settime(CLOCK_REALTIME) for GPS clock-discipline
 tokio-serial = "5.4"   # Async serial port (CDC-ACM /dev/ttyACM1)

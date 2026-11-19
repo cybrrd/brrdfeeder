@@ -13,6 +13,7 @@ esac
 tag="ghcr.io/cybrrd/brrdhouse:d44-$arch"
 # Build provenance stays in the OCI label, never in the console page.
 revision=$(git rev-parse --verify HEAD)
+product_version=$(git show HEAD:Component/aviary/engine/Cargo.toml | python3 -c 'import sys,tomllib; print(tomllib.loads(sys.stdin.read())["package"]["version"])')
 if [ -n "$(git status --porcelain --untracked-files=all -- .)" ]; then
   echo 'Refusing revision label for uncommitted console files; commit them first.' >&2
   exit 2
@@ -33,7 +34,7 @@ sequence=$((BUILD_SEQ_OFFSET + commit_count))
 podman build --no-cache --network=none --arch "$arch" --timestamp 0 \
   --build-arg "BUILDPLATFORM=$build_platform" \
   --build-arg "TARGETARCH=$arch" --build-arg "SOURCE_REVISION=$revision" \
-  --build-arg "BUILD_SEQ=$sequence" --format oci -f Containerfile -t "$tag" .
+  --build-arg "PRODUCT_VERSION=$product_version" --build-arg "BUILD_SEQ=$sequence" --format oci -f Containerfile -t "$tag" .
 podman image inspect "$tag" --format '{{.Digest}} {{.Architecture}} {{.Config.User}}'
 podman save --format oci-archive -o "brrdhouse-$arch.oci.tar" "$tag"
 printf 'OCI archive manifest (compressed transport digest):\n'

@@ -2,6 +2,56 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # Changelog
 
+## 0.9.1 — Unreleased candidate
+
+- Admit Bluetooth 0bda:876e/0bda:8771/0bda:a728; report observed long-range capability and retain legacy capture after extended-scan refusal. Add cumulative Bluetooth decoder/drop diagnostics to operational reports. 8771 native proof remains pending.
+
+- Missing RID.BLE configuration now means enabled intent with automatic supported
+  adapter selection; explicit off remains off. Existing explicit sections keep
+  their previous enabled/rfkill defaults on engine-only updates. Installer
+  takeover validates selection before ownership changes and cleans up a new
+  receipt after successful rollback. Missing/lost adapters retry,
+  with local status reasons and console display instead of terminal failure.
+- Supported-ID HCI ADD rules and a five-second retry/ownership timer invoke the
+  receipt-guarded Bluetooth helper without rewriting config or stopping an
+  enabled engine. Manual bluetoothd unmask/start is reported, never reclaimed
+  automatically. Uninstall removes the service, timer, rules and runtime state.
+- Native hardware acceptance remains required before release inclusion.
+
+- A CP2102N GPS first attached after installation can be receive-only
+  NMEA-qualified and passed through the existing exact-device transport without
+  a prompt or reinstall. Busy/uncertain ports stay unopened, restore failure
+  refuses adoption, replacement identities require fresh confirmation, and
+  native u-blox behavior remains preferred.
+- GPS hotplug uses an ADD-only systemd trigger plus the existing five-second
+  reconciliation timer. It never rewrites `gps.required`, never starts a
+  deliberately stopped engine and retains the bounded restart budget.
+
+- Late-qualified GPS attachments now reach the first-fix waiter before container
+  startup. Optional PMTK initialization waits for confirmed NMEA on each open.
+
+- Enrollment and owner recovery no
+  longer request offline access; the installer no longer stores unused refresh
+  tokens. Credential renewal uses NKey renewal or interactive owner recovery.
+  Existing tokens are untouched; inventory/revocation is a separate migration.
+
+- Stop installer enrollment with exit 77 after an owner-capacity refusal, retaining capacity-help guidance without suggesting manual credential provisioning.
+
+- Replace serde_yaml/unsafe-libyaml with serde-saphyr. Installer-generated
+  configuration retains identical typed values and defaults. Hand-edited YAML
+  accepts yes/no/on/off in boolean fields, 011 as decimal 11, and 1_000 as 1000
+  in numeric fields; typed string IDs retain these exact spellings. Merge keys are expanded
+  with explicit values taking precedence, and literal blocks preserve their
+  trailing newline unless `|-` is used. Non-finite coordinates remain refused.
+  See `docs/yaml-configuration-semantics.md` for compatibility and safety decisions.
+
+- Native engine builds explicitly fetch locked registry and Git dependencies
+  before offline compilation. Document disconnected-builder cache preparation
+  and track the temporary nmea Git pin's crates.io exit as DEP-091-NMEA-REGISTRY
+  in `docs/nmea-registry-follow-up.md`.
+
+- Defer timer-driven release/host polling with exit 75 while fresh engine clock trust is unavailable; retain the security gate and journal recovery guidance while genuine errors still fail.
+
 ## 0.9.0 — Unreleased public beta candidate
 
 - Automatically confirm CP2102N GPS receivers without a prompt, resolve the correct tty, skip busy ports, restore probe settings, and generate a usable confirmed-device udev rule.

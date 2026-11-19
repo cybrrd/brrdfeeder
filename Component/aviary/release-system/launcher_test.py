@@ -9,6 +9,9 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
+import stat
 
 spec = importlib.util.spec_from_file_location("launcher", Path(__file__).with_name("launcher.py"))
 launcher = importlib.util.module_from_spec(spec)
@@ -80,6 +83,24 @@ class LauncherTests(unittest.TestCase):
         self.binary.write_bytes(self.old)
         with self.assertRaisesRegex(RuntimeError, "unsafe host path"):
             launcher.trusted(self.binary, 0)
+
+    def test_poll_exit_status_reaches_systemd_unchanged(self):
+        class Private:
+            def lstat(inner):
+                return SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=0)
+            def __truediv__(inner, name):
+                return self.root / name
+        private = Private()
+        paths = {'/var/lib/brrdfeeder-updater': private,
+                 '/usr/local/libexec/brrdfeeder-release': self.binary,
+                 '/etc/brrdfeeder/.updater-helper.sha256': self.receipt}
+        for mode in ('poll', 'poll-updater'):
+            for code in (0, 75, 1):
+                with self.subTest(mode=mode, code=code):
+                    self.binary.write_text('#!/bin/sh\nexit ' + str(code) + '\n')
+                    self.binary.chmod(0o755)
+                    with patch.object(launcher, 'Path', side_effect=lambda p: paths[p]), patch.object(launcher.os, 'geteuid', return_value=0), patch.object(launcher, 'recover'):
+                        self.assertEqual(launcher.main([mode]), code)
 
     def test_no_network_or_container_dependency(self):
         source = Path(launcher.__file__).read_text()

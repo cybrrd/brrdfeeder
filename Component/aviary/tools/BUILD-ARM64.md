@@ -2,6 +2,47 @@
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # ARM64 engine archive build
 
+## Dependency preparation and disconnected builders
+
+The native/cross ARM64 Containerfile explicitly runs `cargo fetch --locked`
+before `cargo auditable build --offline --locked` and the offline dependency
+trees. Fetch has no target filter because the provenance step also inspects the
+host tree. It fetches the pinned AeroRust/nmea Git revision as well as registry
+crates. The hosted test setup separately runs `cargo fetch --locked` before its
+offline proofs. A registry-only cache is insufficient for this Git dependency.
+
+The normal archive wrapper is an online provisioning/build route: it starts a
+fresh isolated image store, pulls bases, installs OS packages/tooling and exports
+only committed source. It is **not** a cold air-gapped build command. To prepare
+a disconnected source build on an approved builder, provision the exact Rust
+toolchain, target, cargo-auditable, linker, native libraries and build environment
+first. In an isolated Cargo home on a connected preparation machine run:
+
+```sh
+# From Component/aviary, using the same committed manifest and Cargo.lock:
+cargo fetch --locked
+cargo metadata --locked --offline --format-version 1 > dependency-metadata.json
+```
+
+Transfer that Cargo home's `registry` **and `git`** directories, the source and
+lockfile, and the provisioned toolchain/build environment. Record checksums for
+the transfer; do not transfer Cargo credential files. On the disconnected
+builder, use the prepared Cargo home and run `cargo metadata --locked --offline`
+then `cargo auditable build --offline --locked --release --target
+aarch64-unknown-linux-gnu --package engine`. Fetch must precede disconnection;
+an offline cache miss is a failure, never permission to relax `--locked` or
+replace the pinned source. `cargo vendor --locked` plus its generated source
+replacement configuration is an alternative that must include the Git source.
+
+For a fully disconnected container build, also stage pinned base images, OS
+package inputs and builder tooling. The existing archive wrapper deliberately
+does not import this cache bundle into its fresh context; use a separately
+reviewed disconnected build recipe. Native runtime/OCI qualification remains
+required. Offline dependency tests alone are not proof of a native ARM64 image.
+
+The temporary nmea Git source has a tracked exit in
+[`docs/nmea-registry-follow-up.md`](../../../docs/nmea-registry-follow-up.md).
+
 Run as the **dedicated unprivileged build identity on an approved sandbox**
 (currently worldport's `brrdbuild`), from a full CYB1 checkout. **Resonance is
 out of bounds for build work, including cleanup.** The development team and release approver handle deployment separately.

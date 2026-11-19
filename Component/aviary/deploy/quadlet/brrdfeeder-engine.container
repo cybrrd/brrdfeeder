@@ -17,6 +17,7 @@ Wants=brrdfeeder-blackbox.timer
 Image=localhost/brrdfeeder-engine:verified
 ContainerName=brrdfeeder-engine
 PodmanArgs=--cgroups=split
+Volume=/run/brrdfeeder-bluetooth:/run/brrdfeeder-bluetooth:ro
 Volume=/run/brrdfeeder-memory:/run/brrdfeeder-memory:ro
 User=1001:20
 Network=host
@@ -32,7 +33,7 @@ Volume=/var/lib/brrdfeeder/credentials:/var/lib/brrdfeeder/credentials:rw,Z
 AddDevice=/run/brrdfeeder-gps/device:/dev/cybrrd_gps:rw
 Environment=BRRDFEEDER_GPS_TRANSPORT=/dev/cybrrd_gps
 # Remove this mapping if rfkill support is not provisioned. It does not enable
-# unblock: sensors.rid_ble.unblock_rfkill remains explicitly false by default.
+# unblock: sensors.rid_ble.unblock_rfkill: false opts out of targeted unblock.
 AddDevice=/dev/rfkill:/dev/rfkill:rw
 Environment=BRRDFEEDER_ENABLE_AIRSPACE_PUBLISHER=true
 # D33: only this startup's host-inspected container can supply image identity.
@@ -55,6 +56,7 @@ ReadOnly=true
 
 [Service]
 ExecStartPre=/usr/local/libexec/brrdfeeder-gps-runtime prepare
+ExecStartPre=/usr/local/libexec/brrdfeeder-bluetooth prepare
 MemoryAccounting=yes
 MemoryMax=256M
 MemorySwapMax=0

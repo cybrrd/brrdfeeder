@@ -28,7 +28,7 @@ var launcher []byte
 func main() {
 	if e := cli(os.Args[1:]); e != nil {
 		fmt.Fprintln(os.Stderr, "brrdfeeder-release:", e)
-		os.Exit(1)
+		os.Exit(exitCode(e))
 	}
 }
 func cli(args []string) error {
@@ -43,6 +43,10 @@ func cli(args []string) error {
 	}
 	if args[0] == "publish-updater" {
 		return publishHost(args[1:])
+	}
+	if len(args) == 1 && args[0] == "recovery-capabilities" {
+		fmt.Print(policyCapability)
+		return nil
 	}
 	if len(args) == 1 && args[0] == "self-test" {
 		fmt.Print(selfTestReply)

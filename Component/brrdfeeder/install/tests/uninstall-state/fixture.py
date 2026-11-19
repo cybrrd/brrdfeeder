@@ -122,9 +122,9 @@ if name != 'find' or '-delete' in sys.argv:
         file(E/'updater.json')
         file(E/'secrets/brrdfeeder.creds',0o640,0,GID,'synthetic bootstrap credential\n')
         file(E/'secrets/oauth_refresh.token',data='synthetic refresh token\n')
-        for name in ('policy_state.json','release_attempt.json','release_currency.json','update_transaction.json','update_outcome.json'):
+        for name in ('engine_policy_outcome.json','policy_state.json','release_attempt.json','release_currency.json','update_transaction.json','update_outcome.json'):
             file(S/name,0o644)
-        for name in ('state.json','attempt.json','pending_update.json','lock','launch.lock','host-state.json','host-transaction.json'):
+        for name in ('engine-policy-budget.json','state.json','attempt.json','pending_update.json','lock','launch.lock','host-state.json','host-transaction.json'):
             file(P/name)
         directory(S/'upward',0o700,UID,GID)
         for lane in ('operational','red'):

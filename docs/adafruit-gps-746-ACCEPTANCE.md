@@ -10,6 +10,16 @@ identity assigned at merge).
 
 ## Acceptance criteria
 
+**Historical criteria, superseded for USB recognition in 0.9.1:** the opt-in-only
+flow and its tests below (AC1, AC5, AC6 and amendment 1) describe the original
+proposal. With a lone CP2102N `10c4:ea60`, no supported u-blox receiver and no
+existing USB-ID selection, the installer automatically considers the candidate.
+A new mapping requires a clear ownership check, receive-only NMEA confirmation
+and verified tty-setting restoration. Explicit `--gps-usb-id` selection remains
+available; no blanket PPS qualification. See
+[current behavior](gps-runtime.md#receiver-discovery-and-serial-ownership) and the
+[installer source](https://github.com/cybrrd/brrdfeeder/blob/174d23cef5374d04177d1af96991add91df345f5/Component/brrdfeeder/install/brrdfeeder-install.sh#L3308-L3539).
+
 - AC1 **Recognition is opt-in and explicit (the director-amended):** the CP2102N (`10c4:ea60`) maps
   to `/dev/cybrrd_gps` ONLY via (a) interactive prompt, default **No**, read through the
   installer's existing tty discipline (`BRRDFEEDER_TTY_FD`/`/dev/tty`; pipe-with-tty prompts

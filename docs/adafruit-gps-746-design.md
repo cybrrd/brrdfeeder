@@ -64,7 +64,16 @@ on brrdg3s3.
 
 ## 2. Requirement 1 — recognition + `/dev/cybrrd_gps` mapping
 
-**Design: VID:PID match restricted by explicit opt-in, recorded in config, rendered into the
+**Historical design, superseded for USB recognition in 0.9.1:** with a lone CP2102N
+`10c4:ea60`, no supported u-blox receiver and no existing USB-ID selection, the
+installer automatically considers the candidate. A new mapping requires a clear
+ownership check, receive-only NMEA confirmation and verified tty-setting restoration.
+Explicit `--gps-usb-id` selection remains available; no blanket PPS qualification.
+See [current behavior](gps-runtime.md#receiver-discovery-and-serial-ownership) and the
+[installer source](https://github.com/cybrrd/brrdfeeder/blob/174d23cef5374d04177d1af96991add91df345f5/Component/brrdfeeder/install/brrdfeeder-install.sh#L3308-L3539).
+The original proposal below records the earlier opt-in flow, not the current USB contract.
+
+**Original design: VID:PID match restricted by explicit opt-in, recorded in config, rendered into the
 udev rule. Never "every CP210x is a GPS"** (CP2102N is the single most common USB-serial
 bridge on earth — Arduinos, consoles, SDRs).
 

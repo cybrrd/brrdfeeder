@@ -109,7 +109,8 @@
       "status": "target",
       "evidence_kind": "source",
       "source_ref": [
-        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/brrdfeeder/install/README.md"
+        "https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/brrdfeeder/install/README.md",
+        "https://github.com/cybrrd/brrdfeeder/blob/174d23cef5374d04177d1af96991add91df345f5/Component/brrdfeeder/install/brrdfeeder-install.sh#L3308-L3539"
       ],
       "public": true,
       "sanitization_review": "Public product facts only; no operational identifiers or private endpoints.",
@@ -118,7 +119,7 @@
         "scenario": "Hardware acceptance: cold start, measured fix, disconnect/reconnect and unsupported receiver cases.",
         "receipt": null
       },
-      "note": "Use a supported u-blox receiver. Adafruit Ultimate GPS requires explicit opt-in and passive NMEA confirmation; no blanket PPS qualification.",
+      "note": "Use a supported u-blox receiver. In 0.9.1, with a lone CP2102N 10c4:ea60 (including Adafruit Ultimate GPS), no supported u-blox receiver and no existing USB-ID selection, the installer automatically considers the candidate. A new mapping requires a clear ownership check, receive-only NMEA confirmation and verified tty-setting restoration. Explicit --gps-usb-id selection remains available; no blanket PPS qualification.",
       "semantics": "expectation"
     },
     {

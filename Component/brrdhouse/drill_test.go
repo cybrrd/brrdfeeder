@@ -11,7 +11,7 @@ func TestReleaseConsoleHealth(t *testing.T) {
 	c, path := testConsole(t)
 	fixture(t, path, time.Second, 30, false)
 	got := render(c, "/status")
-	if got.Code != 200 || got.Header().Get("X-BRRDhouse-Release") != "0.9.0" {
+	if got.Code != 200 || got.Header().Get("X-BRRDhouse-Release") != "0.9.1" {
 		t.Fatalf("healthy release response: HTTP %d, headers %v", got.Code, got.Header())
 	}
 	assertState(t, got.Body.String(), "healthy")

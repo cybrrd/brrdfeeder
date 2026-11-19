@@ -3,9 +3,9 @@
 # Known limits
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-30**.
+Applies to: **0.9-beta** · Product: **0.9.1** · Specification revision: **2026-11-19**.
 
-**0.9.0 beta release specifications; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
+**0.9.1 beta release specifications; release tag pending.** Source baseline: [174d23ce](https://github.com/cybrrd/brrdfeeder/tree/174d23cef5374d04177d1af96991add91df345f5). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
 
 [Back to the information sheet](README.md). This list distinguishes absent
@@ -50,7 +50,7 @@ remain scoped to their evidence. The registry does not close open tests.
 
 ## Unmeasured beta behavior
 
-These limits ship with the 0.9.0 specifications. Each remains **unverified**:
+These limits ship with the 0.9.1 specifications. Each remains **unverified**:
 the reviewed evidence lacks the stated instrument or measurement. They do not
 establish a safe load, successful restore, delivered alert, or zero-loss envelope.
 The [acceptance-gap review](evidence/acceptance-gaps.md) explains what the existing

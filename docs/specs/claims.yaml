@@ -2,10 +2,10 @@
 # SPDX-FileCopyrightText: 2026 Macawi LLC
 {
   "specification": {
-    "product_version": "0.9.0",
+    "product_version": "0.9.1",
     "applies_to": "0.9-beta",
-    "revision": "2026-10-30",
-    "source_sha": "d6130a208f92a275db3fe11a52a4f21dcdbeaf63",
+    "revision": "2026-11-19",
+    "source_sha": "174d23cef5374d04177d1af96991add91df345f5",
     "release_tag": null
   },
   "claims": [

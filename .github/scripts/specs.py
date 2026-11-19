@@ -96,7 +96,7 @@ def validate(data, root=ROOT):
     require(isinstance(meta, dict) and set(meta) == {
         "product_version", "applies_to", "revision", "source_sha", "release_tag"},
         "invalid specification metadata")
-    require(meta["product_version"] == "0.9.0" and meta["applies_to"] == "0.9-beta",
+    require(meta["product_version"] == "0.9.1" and meta["applies_to"] == "0.9-beta",
             "unscoped or unexpected product specification")
     date.fromisoformat(meta["revision"])
     require(bool(re.fullmatch(r"[0-9a-f]{40}", meta["source_sha"])), "source SHA must be full length")

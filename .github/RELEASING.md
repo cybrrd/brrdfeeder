@@ -172,7 +172,8 @@ dependencies when changing any action pin. Hosted runner OS images still receive
 GitHub maintenance updates. First hosted executions, environment enforcement and
 account settings require operator validation; offline tests cannot prove them.
 
-The helper-5 candidate requires fresh released-0.9.0 4→5 qualification before
-0.9.1 ships. The [qualification kit](../Component/aviary/release-system/qualification/helper5/README.md)
+The helper-7 candidate retains the fresh released-0.9.0 4→5 baseline qualification
+gate and the [bridge-6/enabled-7 release gates](../Component/aviary/release-system/docs/engine-policy-091.md#evidence-and-remaining-release-gate)
+before 0.9.1 ships. The [qualification kit](../Component/aviary/release-system/qualification/helper5/README.md)
 keeps native fault/reboot/handback evidence pending until a named host and window
 are approved. Offline passes do not close that gate.

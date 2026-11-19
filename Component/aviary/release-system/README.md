@@ -181,7 +181,7 @@ executable stage and numeric status. This does not enable host publication.
 ```sh
 ./brrdfeeder-release publish-updater --updater-only \
   --ring dev --architecture arm64 \
-  --sha256 <standalone-executable-sha256> --build-seq 4 --sequence 1 \
+  --sha256 <standalone-executable-sha256> --build-seq 7 --sequence 1 \
   --salt updater-three --out updater.unsigned.json
 ```
 
@@ -190,7 +190,7 @@ signing/publication is blocked pending a separately validated S5 endpoint; no
 caller loads the private key. The installed verifier/recovery remains tested.
 Distinct signed domain cybrrd.host-updater.v1, explicit updater_only=true,
 architecture, ring/cohort, sequence/build, expiry and SHA256 are all checked.
-Build the example with -X main.updaterBuild=5; candidate identity must match.
+Build the example with `build-host.sh` (`main.updaterBuild=7`); candidate identity must match.
 Serve its bytes at /releases/v1/updater/<sha256>/linux-arm64/brrdfeeder-release.
 No manifest URL can redirect the artifact downloader. Each failed executable
 retains its attempt receipt; 32-entry history cap then requires operator review.

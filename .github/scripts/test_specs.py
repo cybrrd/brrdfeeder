@@ -135,8 +135,15 @@ class ClaimGate(unittest.TestCase):
         self.data["specification"]["release_tag"] = "v0.8.31"
         self.rejects(self.data, "tag/version mismatch")
 
+    def test_product_version_binding(self):
+        for version in ("0.9.0", "0.9.2", "future", None):
+            with self.subTest(version=version):
+                data = deepcopy(self.data)
+                data["specification"]["product_version"] = version
+                self.rejects(data, "unscoped or unexpected product specification")
+
     def test_release_tag_binding(self):
-        self.data["specification"]["release_tag"] = "v0.9.0"
+        self.data["specification"]["release_tag"] = "v0.9.1"
         specs.validate(self.data)
         with tempfile.TemporaryDirectory(prefix="specs-release-") as tmp:
             root = Path(tmp)
@@ -145,7 +152,7 @@ class ClaimGate(unittest.TestCase):
             specs.update_pages(self.data, root, check=True)
             for name in specs.PAGES:
                 text = (root / "docs/specs" / name).read_text()
-                self.assertIn("Release tag: `v0.9.0`.", text)
+                self.assertIn("Release tag: `v0.9.1`.", text)
                 self.assertNotIn("release tag pending", text)
 
     def test_stale_views_and_missing_markers(self):

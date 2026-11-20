@@ -52,7 +52,7 @@
 
 - Defer timer-driven release/host polling with exit 75 while fresh engine clock trust is unavailable; retain the security gate and journal recovery guidance while genuine errors still fail.
 
-## 0.9.0 — Unreleased public beta candidate
+## 0.9.0 — Released 2026-11-03
 
 - Automatically confirm CP2102N GPS receivers without a prompt, resolve the correct tty, skip busy ports, restore probe settings, and generate a usable confirmed-device udev rule.
 - Installer reruns refuse conflicting explicit image pins instead of silently retaining installed images; fresh-install overrides remain last-wins.

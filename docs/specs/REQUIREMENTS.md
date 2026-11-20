@@ -3,9 +3,9 @@
 # Hardware and system requirements
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-30**.
+Applies to: **0.9-beta** · Product: **0.9.1** · Specification revision: **2026-11-19**.
 
-**0.9.0 beta release specifications; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
+**0.9.1 beta release specifications; release tag pending.** Source baseline: [174d23ce](https://github.com/cybrrd/brrdfeeder/tree/174d23cef5374d04177d1af96991add91df345f5). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
 
 [Back to the information sheet](README.md). These are declared installation
@@ -21,7 +21,7 @@ not qualification of every board, receiver, firmware or storage combination.
 | **H02 — Power supply class** | 27 W | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#hardware) Installation guidance, not a measured power draw or universal supply qualification. |
 | **H03 — Capture Wi-Fi** | ALFA AWUS036AXML or AWUS036AXM; external monitor-mode adapter | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#hardware) [source 2](https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/aviary/capabilities.toml) Capture radio is separate from the network uplink. Other chipsets need their own evidence. |
 | **H04 — Standard Bluetooth receiver** | USB 0bda:876e, 0bda:8771, 0bda:a728; long range observed per controller lifetime | 0.9-beta / **target** (source) | [source 1](evidence/ble-adapters.md) 0.9.1: all three IDs admitted; 8771 native proof remains pending. Extended-scan refusal retains legacy reception. Recognized IDs alone are not reception proof; see evidence/ble-adapters.md. |
-| **H05 — GPS receiver** | 1 receiver | 0.9-beta / **target** (source) | [source 1](https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/brrdfeeder/install/README.md) Use a supported u-blox receiver. Adafruit Ultimate GPS requires explicit opt-in and passive NMEA confirmation; no blanket PPS qualification. |
+| **H05 — GPS receiver** | 1 receiver | 0.9-beta / **target** (source) | [source 1](https://github.com/cybrrd/brrdfeeder/blob/6eed7b81a15415a4f9f9564cdb85341b886520cb/Component/brrdfeeder/install/README.md) [source 2](https://github.com/cybrrd/brrdfeeder/blob/174d23cef5374d04177d1af96991add91df345f5/Component/brrdfeeder/install/brrdfeeder-install.sh#L3308-L3539) Use a supported u-blox receiver. In 0.9.1, with a lone CP2102N 10c4:ea60 (including Adafruit Ultimate GPS), no supported u-blox receiver and no existing USB-ID selection, the installer automatically considers the candidate. A new mapping requires a clear ownership check, receive-only NMEA confirmation and verified tty-setting restoration. Explicit --gps-usb-id selection remains available; no blanket PPS qualification. |
 | **H06 — Storage planning baseline** | 64 GB | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#hardware) High-endurance media; USB SSD or high-endurance storage recommended for sustained writes. Guidance, not a signup or observation cap. Media life is unverified. |
 | **H07 — Power-loss protection** | Strongly recommended, not required | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#power) An inexpensive UPS or battery/DC supply can help. Protection alone does not establish a tested zero-loss envelope. |
 | **H08 — Network** | Internet over Ethernet or Wi-Fi; measure the actual link | 0.9-beta / **target** (source) | [source 1](evidence/design-basis.md#hardware) Capture Wi-Fi and backhaul have different roles. No carrier, coverage, or narrow-link hardware support guarantee. |

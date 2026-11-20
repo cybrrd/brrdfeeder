@@ -3,15 +3,15 @@
 # Product Technical and Operational Specifications
 
 <!-- BEGIN GENERATED: metadata -->
-Applies to: **0.9-beta** · Product: **0.9.0** · Specification revision: **2026-10-30**.
+Applies to: **0.9-beta** · Product: **0.9.1** · Specification revision: **2026-11-19**.
 
-**0.9.0 beta release specifications; release tag pending.** Source baseline: [d6130a20](https://github.com/cybrrd/brrdfeeder/tree/d6130a208f92a275db3fe11a52a4f21dcdbeaf63). Future-v5 rows are separate design targets, not beta features.
+**0.9.1 beta release specifications; release tag pending.** Source baseline: [174d23ce](https://github.com/cybrrd/brrdfeeder/tree/174d23cef5374d04177d1af96991add91df345f5). Future-v5 rows are separate design targets, not beta features.
 <!-- END GENERATED: metadata -->
 
 BRRDfeeder receives broadcast Remote ID on your own hardware. Start with
 [Install](https://get.cybrrd.com) and [hardware requirements](REQUIREMENTS.md).
 This sheet explains what to expect, what is still being tested, and where to
-find evidence for a release. These specifications are part of the **0.9.0 beta
+find evidence for a release. These specifications are part of the **0.9.1 beta
 release**. The release tag and acceptance receipts remain pending; including
 the specifications does not establish measured behavior for their targets.
 
@@ -95,7 +95,7 @@ native acceptance of the beta or proof of the currently deployed platform.
 
 [claims.yaml](claims.yaml) is the source for values, scopes, evidence labels,
 verification scenarios and owners. Its JSON-compatible YAML syntax lets the
-small generator run with the Python standard library. The 0.9.0 release source
+small generator run with the Python standard library. The 0.9.1 release source
 must include this registry: the installation-page renderer reads hardware values
 from it and links to the same release's specifications and known limits.
 Tables and page metadata are generated; edit claims, then run

@@ -72,12 +72,18 @@ existing installations in a later release:
 - Updates to the locally installed `brrdfeeder` command and its diagnostics,
   enrollment and owner-linking behavior. The command stays at its installed
   revision during an image-only update.
-- The updater helper upgrade: fresh installations use build 7; existing
-  installations stay on build 4 with this image-only update.
+- The updater helper upgrade: fresh installations use build 7; installations
+  from the 0.9.0 release keep build 4, while earlier installations may run build 2.
 
 Existing host helpers, ownership handling and restart policy are not upgraded
 by replacing the images. An image version of 0.9.1 therefore does not mean the
 host has all the changes provided by a fresh 0.9.1 installation.
+
+With no host update published (HTTP 404), helper-2 installations report
+`host-updater download unavailable` on each eligible host-update poll and show
+a failed unit; helpers 4 and 7 treat that response as a no-op. Image updates
+are unaffected: helper 2 applies the same 0.9.1 image pair
+([helper-2 source](https://github.com/cybrrd/brrdfeeder/blob/10a647389a8dd2af9b790dd5907b2463d18ca9e5/Component/aviary/release-system/host_update.go#L104-L157)).
 
 ## Trusted time comes from GPS
 

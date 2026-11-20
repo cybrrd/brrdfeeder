@@ -48,6 +48,71 @@ See [radio evidence](REQUIREMENTS.md#what-the-radios-can-hear),
 [existing acceptance catalogue](../../ACCEPTANCE.md). Existing source claims
 remain scoped to their evidence. The registry does not close open tests.
 
+## Image-only update from 0.9.0
+
+Existing 0.9.0 installations receive only the 0.9.1 engine and console images,
+through the updater they already run: helper build 4. This update does not
+install the 0.9.1 host-side changes. Fresh installations use the full 0.9.1
+installer. The following changes apply to fresh installations and will reach
+existing installations in a later release:
+
+- Bluetooth adapter ownership/conflict reporting and hotplug takeover.
+  An image-only node may not report a host Bluetooth ownership conflict;
+  a successful update health check does not establish Bluetooth reception.
+- GPS runtime helper updates, including the newer hotplug handling.
+- Memory-controller detection and boot repair changes. The image update does
+  not alter boot settings; existing memory limits depend on the host's
+  already-enabled memory controller and units.
+- Disabling MPTCP for the console service.
+- Clean clock-defer exit handling for release and host update polls. On a
+  0.9.0 host, a poll deferred while waiting for trusted time appears as a failed
+  unit run; updating the images does not change that unit behavior.
+- Automatic USB adapter selection and installer configuration changes.
+  Existing explicit interface and channel/lock-on settings remain in place.
+- Updates to the locally installed `brrdfeeder` command and its diagnostics,
+  enrollment and owner-linking behavior. The command stays at its installed
+  revision during an image-only update.
+- The updater helper upgrade: fresh installations use build 7; existing
+  installations stay on build 4 with this image-only update.
+
+Existing host helpers, ownership handling and restart policy are not upgraded
+by replacing the images. An image version of 0.9.1 therefore does not mean the
+host has all the changes provided by a fresh 0.9.1 installation.
+
+## Trusted time comes from GPS
+
+The engine trusts the system clock only after consistent GPS fixes provide UTC
+and the clock is confirmed or corrected against that time. NTP synchronization
+alone does not establish engine clock trust. With the default GPS-required
+configuration, a node starting without a GPS fix (for example, indoors without
+sky view) does not publish detections. While it waits, the engine continues
+heartbeats and local status updates; the console reports the untrusted clock.
+The configured alert channel also raises a clock-untrusted alert after the
+startup grace period.
+These signals do not mean detection publishing has started.
+
+See the [GPS clock discipline](https://github.com/cybrrd/brrdfeeder/blob/174d23cef5374d04177d1af96991add91df345f5/Component/aviary/engine/src/clock_discipline.rs#L88-L129)
+and [startup gate](https://github.com/cybrrd/brrdfeeder/blob/174d23cef5374d04177d1af96991add91df345f5/Component/aviary/engine/src/main.rs#L552-L597).
+
+## Operation without an RTC
+
+A battery-backed real-time clock (RTC) is recommended, never required. A board
+without one can start with stale time until NTP or GPS corrects it. On affected
+systems where chrony replaced systemd-timesyncd, an old saved clock file can
+leave the boot clock near the installation date. Correcting the clock through
+NTP still requires GPS confirmation before the engine trusts it.
+
+Release and host update polls wait until the engine reports trusted time;
+an NTP-synchronized host alone does not satisfy that update gate.
+With the default clock policy, if the clock is more than 7 days off when GPS
+time first becomes usable, the engine refuses to step it and detection
+publishing stays blocked. An operator must correct the host time or explicitly
+enable `sensors.gps.clock.allow_large_step` to permit that large GPS correction;
+consistent GPS fixes are still required. The RTC is not a substitute for this
+GPS time check.
+
+See the [default clock policy](https://github.com/cybrrd/brrdfeeder/blob/174d23cef5374d04177d1af96991add91df345f5/Component/aviary/engine/src/node_config.rs#L633-L648).
+
 ## Unmeasured beta behavior
 
 These limits ship with the 0.9.1 specifications. Each remains **unverified**:

@@ -24,3 +24,6 @@ repository = "https://github.com/cybrrd/brrdfeeder"
 [dependencies]
 # const-generic fixed-capacity collections; no_std, no allocator required.
 heapless = "0.9"
+
+[features]
+wire-v5 = []

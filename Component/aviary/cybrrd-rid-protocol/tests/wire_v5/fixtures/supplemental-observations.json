@@ -1,0 +1,1753 @@
+{
+  "fixtures": [
+    {
+      "name": "receiver_optional_model_homes",
+      "record": {
+        "wire_format_version": 5,
+        "schema_revision": 0,
+        "observation_id": {
+          "node_id": "synthetic-node",
+          "boot_id": "synthetic-boot",
+          "capture_sequence": "2"
+        },
+        "source": {
+          "adapter": "synthetic-contract",
+          "adapter_version": "rev2",
+          "kind": "synthetic"
+        },
+        "receiver": {
+          "source_MAC": {
+            "raw": null,
+            "decoded": null,
+            "status": "not_exposed",
+            "unit": "byte",
+            "resolution": "1",
+            "reason": "synthetic fixture does not expose this receiver capability"
+          },
+          "RSSI_dbm": {
+            "raw": "0",
+            "decoded": "0",
+            "status": "known",
+            "unit": "dBm",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "wifi_rx_channel_and_source": {
+            "raw": {
+              "channel": 0,
+              "frequency_mhz": "0",
+              "source": "synthetic"
+            },
+            "decoded": {
+              "channel": 0,
+              "frequency_mhz": "0",
+              "source": "synthetic"
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "bluetooth_advertising_channel": {
+            "raw": 0,
+            "decoded": 0,
+            "status": "known",
+            "unit": "channel",
+            "resolution": "1",
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "transport": {
+            "raw": "bt5_long_range",
+            "decoded": "bt5_long_range",
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": null
+          },
+          "host_receive_timestamp_ns": {
+            "raw": "0",
+            "decoded": "0",
+            "status": "known",
+            "unit": "ns_since_Unix_epoch",
+            "resolution": "1",
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "radio_timestamp_and_clock_domain": {
+            "raw": {
+              "ticks": "0",
+              "unit": "synthetic",
+              "domain": "synthetic",
+              "wrap_bits": 1
+            },
+            "decoded": {
+              "ticks": "0",
+              "unit": "synthetic",
+              "domain": "synthetic",
+              "wrap_bits": 1
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "clock_source_and_estimated_error": {
+            "raw": {
+              "source": "synthetic",
+              "error_ns": "0",
+              "estimated_at_host_ns": "0"
+            },
+            "decoded": {
+              "source": "synthetic",
+              "error_ns": "0",
+              "estimated_at_host_ns": "0"
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "clock_model_parameters_offset_drift": {
+            "raw": {
+              "offset_ns": "0",
+              "drift_ppb": "0",
+              "reference_host_ns": "0",
+              "model_version": "synthetic",
+              "uncertainty_ns": "0"
+            },
+            "decoded": {
+              "offset_ns": "0",
+              "drift_ppb": "0",
+              "reference_host_ns": "0",
+              "model_version": "synthetic",
+              "uncertainty_ns": "0"
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "upload_ingest_time": {
+            "raw": null,
+            "decoded": null,
+            "status": "not_exposed",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic fixture does not expose this receiver capability"
+          },
+          "node_id": {
+            "raw": "synthetic-node",
+            "decoded": "synthetic-node",
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": null
+          },
+          "node_software_version": {
+            "raw": "synthetic",
+            "decoded": "synthetic",
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "node_latitude": {
+            "raw": "0",
+            "decoded": "0",
+            "status": "known",
+            "unit": "degree",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "node_longitude": {
+            "raw": "0",
+            "decoded": "0",
+            "status": "known",
+            "unit": "degree",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "node_altitude": {
+            "raw": {
+              "value_m": "0",
+              "datum": "synthetic",
+              "source": "synthetic"
+            },
+            "decoded": {
+              "value_m": "0",
+              "datum": "synthetic",
+              "source": "synthetic"
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "hardware_model_adapter_dongle_GPS": {
+            "raw": {
+              "adapter_model": "synthetic",
+              "chipset": "synthetic",
+              "usb_id": "synthetic",
+              "bluetooth_model": "synthetic",
+              "gps_model": "synthetic"
+            },
+            "decoded": {
+              "adapter_model": "synthetic",
+              "chipset": "synthetic",
+              "usb_id": "synthetic",
+              "bluetooth_model": "synthetic",
+              "gps_model": "synthetic"
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "enrollment_credential_ID": {
+            "raw": "synthetic",
+            "decoded": "synthetic",
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "receiver_GPS_fix_type": {
+            "raw": "synthetic",
+            "decoded": "synthetic",
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "receiver_GPS_HDOP": {
+            "raw": "0",
+            "decoded": "0",
+            "status": "known",
+            "unit": "dimensionless",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "receiver_GPS_satellite_count": {
+            "raw": 0,
+            "decoded": 0,
+            "status": "known",
+            "unit": "satellite",
+            "resolution": "1",
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "receiver_GPS_fix_age": {
+            "raw": "0",
+            "decoded": "0",
+            "status": "known",
+            "unit": "ns",
+            "resolution": "1",
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "mobile_or_fixed": {
+            "raw": "mobile",
+            "decoded": "mobile",
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "receiver_dwell_channel_and_schedule": {
+            "raw": {
+              "channel": 0,
+              "frequency_mhz": "0",
+              "schedule_id": "synthetic",
+              "interval_index": "0",
+              "start_mono_ns": "0",
+              "end_mono_ns": "0",
+              "state": "synthetic"
+            },
+            "decoded": {
+              "channel": 0,
+              "frequency_mhz": "0",
+              "schedule_id": "synthetic",
+              "interval_index": "0",
+              "start_mono_ns": "0",
+              "end_mono_ns": "0",
+              "state": "synthetic"
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "PHY_data_rate": {
+            "raw": {
+              "phy": "synthetic",
+              "bitrate_bps": "0",
+              "mcs": 0,
+              "coding": "synthetic"
+            },
+            "decoded": {
+              "phy": "synthetic",
+              "bitrate_bps": "0",
+              "mcs": 0,
+              "coding": "synthetic"
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "antenna_index": {
+            "raw": 0,
+            "decoded": 0,
+            "status": "known",
+            "unit": "index",
+            "resolution": "1",
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "frame_length": {
+            "raw": {
+              "captured_bytes": 0,
+              "original_bytes": 0
+            },
+            "decoded": {
+              "captured_bytes": 0,
+              "original_bytes": 0
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "FCS_status": {
+            "raw": "verified_good",
+            "decoded": "verified_good",
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "raw_frame_bytes": {
+            "raw": "07f21908020253594e5448455449432d49442d4f4e4c59000000010203021253594e5448455449432d49442d4f4e4c59000000010203120000003f0000000000000000000000000000000000000000221101010101010101010101010101010101010101010101012210afff7b000000000102030405060708090a0b0c0d0e0f10320053594e5448455449432d4445534352495054494f4e000042000000000000000000000000d007d00700d0070000000000520053594e5448455449432d4f50455241544f520000000000",
+            "decoded": "07f21908020253594e5448455449432d49442d4f4e4c59000000010203021253594e5448455449432d49442d4f4e4c59000000010203120000003f0000000000000000000000000000000000000000221101010101010101010101010101010101010101010101012210afff7b000000000102030405060708090a0b0c0d0e0f10320053594e5448455449432d4445534352495054494f4e000042000000000000000000000000d007d00700d0070000000000520053594e5448455449432d4f50455241544f520000000000",
+            "status": "known",
+            "unit": "byte",
+            "resolution": "1",
+            "reason": null
+          },
+          "extended_advertising_fields": {
+            "raw": {
+              "raw_hex": "00",
+              "adi_data_id": 0,
+              "adi_set_id": 0,
+              "aux_offset_raw": 0,
+              "aux_offset_unit_us": 0,
+              "aux_channel": 0,
+              "primary_secondary_link_status": "synthetic",
+              "fec_term1_hex": "00",
+              "fec_term2_hex": "00",
+              "secondary_coding_indication": 0,
+              "extended_header_length": 0,
+              "advertising_mode": 0,
+              "primary_adv_data_hex": "00"
+            },
+            "decoded": {
+              "raw_hex": "00",
+              "adi_data_id": 0,
+              "adi_set_id": 0,
+              "aux_offset_raw": 0,
+              "aux_offset_unit_us": 0,
+              "aux_channel": 0,
+              "primary_secondary_link_status": "synthetic",
+              "fec_term1_hex": "00",
+              "fec_term2_hex": "00",
+              "secondary_coding_indication": 0,
+              "extended_header_length": 0,
+              "advertising_mode": 0,
+              "primary_adv_data_hex": "00"
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "parser_version": {
+            "raw": "synthetic",
+            "decoded": "synthetic",
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "normalizations_applied": {
+            "raw": [
+              {
+                "rule_id": "synthetic",
+                "version": "synthetic",
+                "input_path": "synthetic",
+                "output_path": "synthetic",
+                "reason": "synthetic"
+              }
+            ],
+            "decoded": [
+              {
+                "rule_id": "synthetic",
+                "version": "synthetic",
+                "input_path": "synthetic",
+                "output_path": "synthetic",
+                "reason": "synthetic"
+              }
+            ],
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "antenna_description": {
+            "raw": "synthetic",
+            "decoded": "synthetic",
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "antenna_height": {
+            "raw": {
+              "height_m": "0",
+              "reference": "synthetic",
+              "source": "synthetic"
+            },
+            "decoded": {
+              "height_m": "0",
+              "reference": "synthetic",
+              "source": "synthetic"
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "noise_floor": {
+            "raw": "0",
+            "decoded": "0",
+            "status": "known",
+            "unit": "dBm",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          },
+          "node_record_signature": {
+            "raw": {
+              "algorithm": "synthetic",
+              "credential_id": "synthetic",
+              "scope": "node_observation_without_receiver_signature",
+              "covered_canonical_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "signature_hex": "00"
+            },
+            "decoded": {
+              "algorithm": "synthetic",
+              "credential_id": "synthetic",
+              "scope": "node_observation_without_receiver_signature",
+              "covered_canonical_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "signature_hex": "00"
+            },
+            "status": "known",
+            "unit": "code",
+            "resolution": null,
+            "reason": "synthetic model coverage; no hardware or verification assertion"
+          }
+        },
+        "network_information": {
+          "operating_area_polygon": {
+            "raw": null,
+            "decoded": null,
+            "status": "not_applicable",
+            "unit": "degree",
+            "resolution": "0.0000001",
+            "reason": "not_applicable_to_broadcast"
+          },
+          "operating_area_type": {
+            "raw": null,
+            "decoded": null,
+            "status": "not_applicable",
+            "unit": "area_kind",
+            "resolution": null,
+            "reason": "not_applicable_to_broadcast"
+          },
+          "operation_area_start": {
+            "raw": null,
+            "decoded": null,
+            "status": "not_applicable",
+            "unit": "date_time",
+            "resolution": null,
+            "reason": "not_applicable_to_broadcast"
+          },
+          "operation_area_end": {
+            "raw": null,
+            "decoded": null,
+            "status": "not_applicable",
+            "unit": "date_time",
+            "resolution": null,
+            "reason": "not_applicable_to_broadcast"
+          }
+        },
+        "captures": [
+          {
+            "index": 0,
+            "capture_id": {
+              "observation_id": {
+                "node_id": "synthetic-node",
+                "boot_id": "synthetic-boot",
+                "capture_sequence": "2"
+              },
+              "capture_index": 0
+            },
+            "transport_kind": "bt5_secondary",
+            "related_captures": [
+              {
+                "index": 0,
+                "source_capture_id": {
+                  "observation_id": {
+                    "node_id": "synthetic-node",
+                    "boot_id": "synthetic-boot",
+                    "capture_sequence": "2"
+                  },
+                  "capture_index": 0
+                },
+                "target_capture_id": {
+                  "observation_id": {
+                    "node_id": "synthetic-node",
+                    "boot_id": "synthetic-boot",
+                    "capture_sequence": "1"
+                  },
+                  "capture_index": 0
+                },
+                "relationship": "bt5_secondary_to_primary",
+                "source_receive_order": "2",
+                "target_receive_order": "1",
+                "order_basis": "receiver_capture_sequence",
+                "association_status": "candidate",
+                "evidence": "Synthetic two-event recipe; RF association requires adapter evidence.",
+                "provenance_version": "design-association-rev1"
+              }
+            ],
+            "format": "synthetic_rid_service_data",
+            "raw_hex": "07f21908020253594e5448455449432d49442d4f4e4c59000000010203021253594e5448455449432d49442d4f4e4c59000000010203120000003f0000000000000000000000000000000000000000221101010101010101010101010101010101010101010101012210afff7b000000000102030405060708090a0b0c0d0e0f10320053594e5448455449432d4445534352495054494f4e000042000000000000000000000000d007d00700d0070000000000520053594e5448455449432d4f50455241544f520000000000",
+            "captured_length": 204,
+            "original_length": null,
+            "completeness": "synthetic_contract_fixture",
+            "unavailable_reason": "contract fixture, not full RF frame",
+            "transport_fields": {
+              "bt4_legacy": {
+                "preamble": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "access_address": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "pdu_header": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "ad_info": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "app_code": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "odid_message": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "crc": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "message_counter": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "ad_addr": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                }
+              },
+              "bt5_primary": {
+                "preamble": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "access_address": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "coding_indication": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "pdu_header": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "ext_header_ADI_AuxPtr": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "crc": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                }
+              },
+              "bt5_secondary": {
+                "preamble": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_exposed",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "synthetic capture boundary does not expose this field"
+                },
+                "access_address": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_exposed",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "synthetic capture boundary does not expose this field"
+                },
+                "pdu_header": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_exposed",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "synthetic capture boundary does not expose this field"
+                },
+                "ext_header_ADI": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_exposed",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "synthetic capture boundary does not expose this field"
+                },
+                "ad_info": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_exposed",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "synthetic capture boundary does not expose this field"
+                },
+                "app_code": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_exposed",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "synthetic capture boundary does not expose this field"
+                },
+                "odid_message_pack": {
+                  "raw": "f21908020253594e5448455449432d49442d4f4e4c59000000010203021253594e5448455449432d49442d4f4e4c59000000010203120000003f0000000000000000000000000000000000000000221101010101010101010101010101010101010101010101012210afff7b000000000102030405060708090a0b0c0d0e0f10320053594e5448455449432d4445534352495054494f4e000042000000000000000000000000d007d00700d0070000000000520053594e5448455449432d4f50455241544f520000000000",
+                  "decoded": "f21908020253594e5448455449432d49442d4f4e4c59000000010203021253594e5448455449432d49442d4f4e4c59000000010203120000003f0000000000000000000000000000000000000000221101010101010101010101010101010101010101010101012210afff7b000000000102030405060708090a0b0c0d0e0f10320053594e5448455449432d4445534352495054494f4e000042000000000000000000000000d007d00700d0070000000000520053594e5448455449432d4f50455241544f520000000000",
+                  "status": "known",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": null
+                },
+                "crc": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_exposed",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "synthetic capture boundary does not expose this field"
+                },
+                "AdvA": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_exposed",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "synthetic capture boundary does not expose this field"
+                },
+                "message_counter": {
+                  "raw": 7,
+                  "decoded": 7,
+                  "status": "known",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": null
+                }
+              },
+              "wifi_nan_sync": {
+                "element_id": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "length": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "oui": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "oui_type": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "master_indication_attr": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "cluster_attr": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                }
+              },
+              "wifi_nan_sdf": {
+                "oui": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "oui_type": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "service_descriptor_attr": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "service_info_message_pack": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "sdea_instance_control_update": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "message_counter": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "addr3_bssid": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                }
+              },
+              "wifi_beacon": {
+                "element_id": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "length": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "oui": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "vendor_type": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "message_pack": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                },
+                "message_counter": {
+                  "raw": null,
+                  "decoded": null,
+                  "status": "not_applicable",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": "different_transport_frame_kind"
+                }
+              }
+            }
+          }
+        ],
+        "rid_units": [
+          {
+            "index": 0,
+            "capture_index": 0,
+            "capture_offset": 1,
+            "raw_hex": "f21908020253594e5448455449432d49442d4f4e4c59000000010203021253594e5448455449432d49442d4f4e4c59000000010203120000003f0000000000000000000000000000000000000000221101010101010101010101010101010101010101010101012210afff7b000000000102030405060708090a0b0c0d0e0f10320053594e5448455449432d4445534352495054494f4e000042000000000000000000000000d007d00700d0070000000000520053594e5448455449432d4f50455241544f520000000000",
+            "kind": "message_pack",
+            "messages": [
+              {
+                "index": 0,
+                "raw_hex": "020253594e5448455449432d49442d4f4e4c59000000010203",
+                "header": {
+                  "message_type": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "protocol_version": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                },
+                "parse_status": "complete",
+                "basic_id": {
+                  "id_type": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "unknown",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "ua_type": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "uas_id": {
+                    "raw": "53594e5448455449432d49442d4f4e4c59000000",
+                    "decoded": "53594e5448455449432d49442d4f4e4c59000000",
+                    "status": "unknown",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": "id_type_none_with_bytes"
+                  },
+                  "reserved": {
+                    "raw": "010203",
+                    "decoded": "010203",
+                    "status": "reserved",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                }
+              },
+              {
+                "index": 1,
+                "raw_hex": "021253594e5448455449432d49442d4f4e4c59000000010203",
+                "header": {
+                  "message_type": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "protocol_version": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                },
+                "parse_status": "complete",
+                "basic_id": {
+                  "id_type": {
+                    "raw": 1,
+                    "decoded": 1,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "ua_type": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "uas_id": {
+                    "raw": "53594e5448455449432d49442d4f4e4c59000000",
+                    "decoded": "SYNTHETIC-ID-ONLY",
+                    "status": "known",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "reserved": {
+                    "raw": "010203",
+                    "decoded": "010203",
+                    "status": "reserved",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                }
+              },
+              {
+                "index": 2,
+                "raw_hex": "120000003f0000000000000000000000000000000000000000",
+                "header": {
+                  "message_type": {
+                    "raw": 1,
+                    "decoded": 1,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "protocol_version": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                },
+                "parse_status": "complete",
+                "location": {
+                  "operational_status": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "unknown",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "status_reserved": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "reserved",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "height_type": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "ew_direction_segment": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "speed_multiplier": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "track_direction": {
+                    "raw": 0,
+                    "decoded": "0",
+                    "status": "known",
+                    "unit": "degree_true",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "speed": {
+                    "raw": 0,
+                    "decoded": "0",
+                    "status": "known",
+                    "unit": "m/s",
+                    "resolution": "0.25 or 0.75 by speed_multiplier",
+                    "reason": null
+                  },
+                  "vertical_speed": {
+                    "raw": 63,
+                    "decoded": "31.5",
+                    "status": "known",
+                    "unit": "m/s",
+                    "resolution": "0.5",
+                    "reason": null
+                  },
+                  "latitude": {
+                    "raw": 0,
+                    "decoded": "0",
+                    "status": "unknown",
+                    "unit": "degree",
+                    "resolution": "0.0000001",
+                    "reason": null
+                  },
+                  "longitude": {
+                    "raw": 0,
+                    "decoded": "0",
+                    "status": "unknown",
+                    "unit": "degree",
+                    "resolution": "0.0000001",
+                    "reason": null
+                  },
+                  "pressure_altitude": {
+                    "raw": 0,
+                    "decoded": "-1000",
+                    "status": "unknown",
+                    "unit": "m_pressure_29.92_inHg",
+                    "resolution": "0.5",
+                    "reason": null,
+                    "arithmetic_value": "-1000"
+                  },
+                  "geodetic_altitude_hae": {
+                    "raw": 0,
+                    "decoded": "-1000",
+                    "status": "unknown",
+                    "unit": "m_WGS84_HAE",
+                    "resolution": "0.5",
+                    "reason": null,
+                    "arithmetic_value": "-1000"
+                  },
+                  "height": {
+                    "raw": 0,
+                    "decoded": "-1000",
+                    "status": "unknown",
+                    "unit": "m_per_height_type",
+                    "resolution": "0.5",
+                    "reason": null,
+                    "arithmetic_value": "-1000"
+                  },
+                  "vertical_accuracy": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "unknown",
+                    "unit": "95_percent_bound_code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "horizontal_accuracy": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "unknown",
+                    "unit": "95_percent_bound_code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "baro_altitude_accuracy": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "unknown",
+                    "unit": "95_percent_bound_code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "speed_accuracy": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "unknown",
+                    "unit": "95_percent_bound_code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "timestamp": {
+                    "raw": 0,
+                    "decoded": "0",
+                    "status": "known",
+                    "unit": "s_since_UTC_hour",
+                    "resolution": "0.1",
+                    "reason": null
+                  },
+                  "timestamp_accuracy": {
+                    "raw": 0,
+                    "decoded": "0",
+                    "status": "unknown",
+                    "unit": "s",
+                    "resolution": "0.1",
+                    "reason": null
+                  },
+                  "timestamp_reserved": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "reserved",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "reserved": {
+                    "raw": "00",
+                    "decoded": "00",
+                    "status": "reserved",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                }
+              },
+              {
+                "index": 3,
+                "raw_hex": "22110101010101010101010101010101010101010101010101",
+                "header": {
+                  "message_type": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "protocol_version": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                },
+                "parse_status": "complete",
+                "auth": {
+                  "auth_type": {
+                    "raw": 1,
+                    "decoded": 1,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "data_page_number": {
+                    "raw": 1,
+                    "decoded": 1,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "auth_data_pages_1_15": {
+                    "raw": "0101010101010101010101010101010101010101010101",
+                    "decoded": "0101010101010101010101010101010101010101010101",
+                    "status": "known",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "page0_reserved": {
+                    "raw": null,
+                    "decoded": null,
+                    "status": "not_applicable",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": "opposite_authentication_page_shape"
+                  },
+                  "last_page": {
+                    "raw": null,
+                    "decoded": null,
+                    "status": "not_applicable",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": "opposite_authentication_page_shape"
+                  },
+                  "length": {
+                    "raw": null,
+                    "decoded": null,
+                    "status": "not_applicable",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": "opposite_authentication_page_shape"
+                  },
+                  "timestamp": {
+                    "raw": null,
+                    "decoded": null,
+                    "status": "not_applicable",
+                    "unit": "s_since_2019_01_01",
+                    "resolution": "1",
+                    "reason": "opposite_authentication_page_shape"
+                  },
+                  "auth_data_page0": {
+                    "raw": null,
+                    "decoded": null,
+                    "status": "not_applicable",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": "opposite_authentication_page_shape"
+                  }
+                }
+              },
+              {
+                "index": 4,
+                "raw_hex": "2210afff7b000000000102030405060708090a0b0c0d0e0f10",
+                "header": {
+                  "message_type": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "protocol_version": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                },
+                "parse_status": "complete",
+                "auth": {
+                  "auth_type": {
+                    "raw": 1,
+                    "decoded": 1,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "data_page_number": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "page0_reserved": {
+                    "raw": 10,
+                    "decoded": 10,
+                    "status": "reserved",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "last_page": {
+                    "raw": 15,
+                    "decoded": 15,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "length": {
+                    "raw": 255,
+                    "decoded": 255,
+                    "status": "known",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "timestamp": {
+                    "raw": 123,
+                    "decoded": "123",
+                    "status": "known",
+                    "unit": "s_since_2019_01_01",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "auth_data_page0": {
+                    "raw": "000102030405060708090a0b0c0d0e0f10",
+                    "decoded": "000102030405060708090a0b0c0d0e0f10",
+                    "status": "known",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "auth_data_pages_1_15": {
+                    "raw": null,
+                    "decoded": null,
+                    "status": "not_applicable",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": "opposite_authentication_page_shape"
+                  }
+                }
+              },
+              {
+                "index": 5,
+                "raw_hex": "320053594e5448455449432d4445534352495054494f4e0000",
+                "header": {
+                  "message_type": {
+                    "raw": 3,
+                    "decoded": 3,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "protocol_version": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                },
+                "parse_status": "complete",
+                "self_id": {
+                  "description_type": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "description": {
+                    "raw": "53594e5448455449432d4445534352495054494f4e0000",
+                    "decoded": "SYNTHETIC-DESCRIPTION",
+                    "status": "known",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                }
+              },
+              {
+                "index": 6,
+                "raw_hex": "42000000000000000000000000d007d00700d0070000000000",
+                "header": {
+                  "message_type": {
+                    "raw": 4,
+                    "decoded": 4,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "protocol_version": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                },
+                "parse_status": "complete",
+                "system": {
+                  "flags_reserved": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "reserved",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "classification_type": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "unknown",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "operator_location_altitude_source_type": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "operator_latitude": {
+                    "raw": 0,
+                    "decoded": "0",
+                    "status": "unknown",
+                    "unit": "degree",
+                    "resolution": "0.0000001",
+                    "reason": null
+                  },
+                  "operator_longitude": {
+                    "raw": 0,
+                    "decoded": "0",
+                    "status": "unknown",
+                    "unit": "degree",
+                    "resolution": "0.0000001",
+                    "reason": null
+                  },
+                  "area_count": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "known",
+                    "unit": "aircraft",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "area_radius": {
+                    "raw": 0,
+                    "decoded": "0",
+                    "status": "known",
+                    "unit": "m",
+                    "resolution": "10",
+                    "reason": null
+                  },
+                  "area_ceiling_hae": {
+                    "raw": 2000,
+                    "decoded": "0",
+                    "status": "known",
+                    "unit": "m_WGS84_HAE",
+                    "resolution": "0.5",
+                    "reason": null,
+                    "arithmetic_value": "0"
+                  },
+                  "area_floor_hae": {
+                    "raw": 2000,
+                    "decoded": "0",
+                    "status": "known",
+                    "unit": "m_WGS84_HAE",
+                    "resolution": "0.5",
+                    "reason": null,
+                    "arithmetic_value": "0"
+                  },
+                  "category": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "unknown",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "class": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "unknown",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "operator_altitude_hae": {
+                    "raw": 2000,
+                    "decoded": "0",
+                    "status": "known",
+                    "unit": "m_WGS84_HAE",
+                    "resolution": "0.5",
+                    "reason": null,
+                    "arithmetic_value": "0"
+                  },
+                  "timestamp": {
+                    "raw": 0,
+                    "decoded": "0",
+                    "status": "known",
+                    "unit": "s_since_2019_01_01",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "reserved": {
+                    "raw": "00",
+                    "decoded": "00",
+                    "status": "reserved",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                }
+              },
+              {
+                "index": 7,
+                "raw_hex": "520053594e5448455449432d4f50455241544f520000000000",
+                "header": {
+                  "message_type": {
+                    "raw": 5,
+                    "decoded": 5,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "protocol_version": {
+                    "raw": 2,
+                    "decoded": 2,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                },
+                "parse_status": "complete",
+                "operator_id": {
+                  "operator_id_type": {
+                    "raw": 0,
+                    "decoded": 0,
+                    "status": "known",
+                    "unit": "code",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "operator_id": {
+                    "raw": "53594e5448455449432d4f50455241544f520000",
+                    "decoded": "SYNTHETIC-OPERATOR",
+                    "status": "known",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": null
+                  },
+                  "reserved": {
+                    "raw": "000000",
+                    "decoded": "000000",
+                    "status": "reserved",
+                    "unit": "byte",
+                    "resolution": "1",
+                    "reason": null
+                  }
+                }
+              }
+            ],
+            "basic_ids": [
+              {
+                "message_index": 0,
+                "id_type": {
+                  "raw": 0,
+                  "decoded": 0,
+                  "status": "unknown",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": null
+                },
+                "ua_type": {
+                  "raw": 2,
+                  "decoded": 2,
+                  "status": "known",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": null
+                },
+                "uas_id": {
+                  "raw": "53594e5448455449432d49442d4f4e4c59000000",
+                  "decoded": "53594e5448455449432d49442d4f4e4c59000000",
+                  "status": "unknown",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": "id_type_none_with_bytes"
+                },
+                "reserved": {
+                  "raw": "010203",
+                  "decoded": "010203",
+                  "status": "reserved",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": null
+                }
+              },
+              {
+                "message_index": 1,
+                "id_type": {
+                  "raw": 1,
+                  "decoded": 1,
+                  "status": "known",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": null
+                },
+                "ua_type": {
+                  "raw": 2,
+                  "decoded": 2,
+                  "status": "known",
+                  "unit": "code",
+                  "resolution": "1",
+                  "reason": null
+                },
+                "uas_id": {
+                  "raw": "53594e5448455449432d49442d4f4e4c59000000",
+                  "decoded": "SYNTHETIC-ID-ONLY",
+                  "status": "known",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": null
+                },
+                "reserved": {
+                  "raw": "010203",
+                  "decoded": "010203",
+                  "status": "reserved",
+                  "unit": "byte",
+                  "resolution": "1",
+                  "reason": null
+                }
+              }
+            ],
+            "trailing_hex": "",
+            "message_counter": {
+              "raw": 7,
+              "decoded": 7,
+              "status": "known",
+              "unit": "code",
+              "resolution": "1",
+              "reason": null
+            },
+            "header": {
+              "message_type": {
+                "raw": 15,
+                "decoded": 15,
+                "status": "known",
+                "unit": "code",
+                "resolution": "1",
+                "reason": null
+              },
+              "protocol_version": {
+                "raw": 2,
+                "decoded": 2,
+                "status": "known",
+                "unit": "code",
+                "resolution": "1",
+                "reason": null
+              }
+            },
+            "message_size": {
+              "raw": 25,
+              "decoded": 25,
+              "status": "known",
+              "unit": "byte",
+              "resolution": "1",
+              "reason": null
+            },
+            "message_count": {
+              "raw": 8,
+              "decoded": 8,
+              "status": "known",
+              "unit": "message",
+              "resolution": "1",
+              "reason": null
+            }
+          }
+        ],
+        "issues": [],
+        "extensions": {
+          "synthetic_model_coverage_only": true
+        }
+      }
+    }
+  ]
+}

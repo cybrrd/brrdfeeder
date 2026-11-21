@@ -729,3 +729,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(feature = "wire-v5")]
+pub mod v5;

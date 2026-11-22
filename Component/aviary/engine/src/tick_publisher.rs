@@ -462,6 +462,7 @@ mod tests {
                 operator_id: None,
                 self_id: None,
                 auth: None,
+                trust: None,
                 signal_rssi_dbm: -65,
             },
         }

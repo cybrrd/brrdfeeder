@@ -9,7 +9,9 @@
 //! adding the receiver-side metadata (transmitter MAC, RSSI) the core, which
 //! only sees over-the-air bytes, never has.
 
-use crate::models::{AuthInfo, GeoPoint, ProtocolType, RidTransport, SelfIdInfo, TelemetryData};
+use crate::models::{
+    AuthInfo, GeoPoint, ProtocolType, RidTransport, SelfIdInfo, TelemetryData, TrustInfo,
+};
 use cybrrd_rid_core::{
     decode_message_pack, decode_message_pack_strict, GeoPoint as CoreGeoPoint, RidPack,
 };
@@ -25,7 +27,9 @@ pub fn parse_message_pack(
     rssi_dbm: i32,
 ) -> Option<TelemetryData> {
     let pack: RidPack = decode_message_pack(payload).ok()?;
-    telemetry_from_pack(pack, mac_address, rssi_dbm)
+    let mut data = telemetry_from_pack(pack, mac_address, rssi_dbm)?;
+    data.trust = frame_trust(payload);
+    Some(data)
 }
 
 /// Parse a Message Pack whose transport framing has already been removed.
@@ -38,7 +42,25 @@ pub fn parse_message_pack_strict(
     rssi_dbm: i32,
 ) -> Option<TelemetryData> {
     let pack: RidPack = decode_message_pack_strict(payload).ok()?;
-    telemetry_from_pack(pack, mac_address, rssi_dbm)
+    let mut data = telemetry_from_pack(pack, mac_address, rssi_dbm)?;
+    data.trust = frame_trust(payload);
+    Some(data)
+}
+
+/// Grade one Message Pack with `remoteid` before it is published. Returns
+/// `None` for frames nothing contradicts.
+fn frame_trust(pack: &[u8]) -> Option<TrustInfo> {
+    use remoteid::{Observation, Transport, TrustConfig, TrustState, Verdict};
+    let obs = Observation::new(Transport::Unknown, None, pack, 0);
+    let a = TrustState::new().observe(&TrustConfig::default(), &obs);
+    if a.verdict >= Verdict::Plausible {
+        return None;
+    }
+    Some(TrustInfo {
+        verdict: a.verdict.name().to_owned(),
+        reasons: a.reasons.iter().map(|r| r.name().to_owned()).collect(),
+        spoofer: a.spoofer.map(|s| s.name().to_owned()),
+    })
 }
 
 /// Shared Beacon/NAN service-info boundary. The first byte is always a counter;
@@ -110,6 +132,7 @@ pub(crate) fn telemetry_from_pack(
             total_length: a.total_length,
             last_page_index: a.last_page_index,
         }),
+        trust: None,
         signal_rssi_dbm: rssi_dbm,
     })
 }
@@ -279,6 +302,27 @@ mod tests {
         assert_eq!(a.last_page_index, Some(1));
         assert_eq!(a.total_length, Some(27));
         assert_eq!(a.timestamp_utc, Some(1_577_836_800));
+    }
+
+    #[test]
+    fn flags_known_spoofer_frame() {
+        // droneRemoteIDSpoofer broadcasts serials "Spoofed_Serial_<n>".
+        let mut buf = synthesize_pack(b"Spoofed_Serial_7", 407_608_000, -953_702_000, 2200);
+        buf[4] = 1 << 4; // IDType 1 = Serial
+        let r = parse_message_pack_strict(&buf, [0; 6], -40).expect("should parse");
+        let t = r.trust.expect("spoofer frame must carry a verdict");
+        assert_eq!(t.verdict, "spoofed");
+        assert!(t.reasons.iter().any(|r| r == "known_spoofer"));
+        assert_eq!(
+            t.spoofer.as_deref(),
+            Some("cyber-defence-campus/droneRemoteIDSpoofer")
+        );
+
+        let honest = synthesize_pack(b"CYBRRD-VALID-RUST-01", 407_608_000, -953_702_000, 2200);
+        assert!(parse_message_pack_strict(&honest, [0; 6], -40)
+            .unwrap()
+            .trust
+            .is_none());
     }
 
     #[test]

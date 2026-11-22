@@ -162,6 +162,17 @@ pub struct AuthInfo {
     pub last_page_index: Option<u8>,
 }
 
+/// Why a frame is not believed: `verdict` is "suspicious" or "spoofed",
+/// `reasons` are remoteid reason names (e.g. "known_spoofer", "serial_format"),
+/// `spoofer` names the public spoofing tool when one is fingerprinted.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TrustInfo {
+    pub verdict: String,
+    pub reasons: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spoofer: Option<String>,
+}
+
 /// Per-frame drone telemetry, separated from the node identity so node info
 /// is added once at the egress boundary rather than threaded through every
 /// parser call.
@@ -257,6 +268,10 @@ pub struct TelemetryData {
     /// not reassemble multipart auth_data — see AuthInfo doc-comment.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth: Option<AuthInfo>,
+    /// Spoof verdict for this frame from the `remoteid` crate. Present only
+    /// when the frame is suspicious or spoofed; honest frames omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trust: Option<TrustInfo>,
     /// Receive signal strength at the capturing feeder, from radiotap.
     pub signal_rssi_dbm: i32,
 }

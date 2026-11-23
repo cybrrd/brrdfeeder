@@ -1,0 +1,1236 @@
+[
+  {
+    "expected": {
+      "basic_id": {
+        "id_type": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "reserved": {
+          "decoded": "010203",
+          "raw": "010203",
+          "reason": null,
+          "resolution": "1",
+          "status": "reserved",
+          "unit": "byte"
+        },
+        "ua_type": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "uas_id": {
+          "decoded": "SYNTHETIC-ID-ONLY",
+          "raw": "53594e5448455449432d49442d4f4e4c59000000",
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "byte"
+        }
+      },
+      "header": {
+        "message_type": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "protocol_version": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        }
+      },
+      "index": 0,
+      "parse_status": "complete",
+      "raw_hex": "022253594e5448455449432d49442d4f4e4c59000000010203"
+    },
+    "faulty_output": {
+      "basic_id": {
+        "id_type": {
+          "decoded": 1,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "reserved": {
+          "decoded": "010203",
+          "raw": "010203",
+          "reason": null,
+          "resolution": "1",
+          "status": "reserved",
+          "unit": "byte"
+        },
+        "ua_type": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "uas_id": {
+          "decoded": "SYNTHETIC-ID-ONLY",
+          "raw": "53594e5448455449432d49442d4f4e4c59000000",
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "byte"
+        }
+      },
+      "header": {
+        "message_type": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "protocol_version": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        }
+      },
+      "index": 0,
+      "parse_status": "complete",
+      "raw_hex": "022253594e5448455449432d49442d4f4e4c59000000010203"
+    },
+    "regression": "serial_fallback",
+    "rejected_at": "value /basic_id/id_type/decoded"
+  },
+  {
+    "expected": {
+      "header": {
+        "message_type": {
+          "decoded": 1,
+          "raw": 1,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "protocol_version": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        }
+      },
+      "index": 0,
+      "location": {
+        "baro_altitude_accuracy": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "95_percent_bound_code"
+        },
+        "ew_direction_segment": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "geodetic_altitude_hae": {
+          "arithmetic_value": "0",
+          "decoded": "0",
+          "raw": 2000,
+          "reason": null,
+          "resolution": "0.5",
+          "status": "known",
+          "unit": "m_WGS84_HAE"
+        },
+        "height": {
+          "arithmetic_value": "0",
+          "decoded": "0",
+          "raw": 2000,
+          "reason": null,
+          "resolution": "0.5",
+          "status": "known",
+          "unit": "m_per_height_type"
+        },
+        "height_type": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "horizontal_accuracy": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "95_percent_bound_code"
+        },
+        "latitude": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.0000001",
+          "status": "unknown",
+          "unit": "degree"
+        },
+        "longitude": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.0000001",
+          "status": "unknown",
+          "unit": "degree"
+        },
+        "operational_status": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "code"
+        },
+        "pressure_altitude": {
+          "arithmetic_value": "0",
+          "decoded": "0",
+          "raw": 2000,
+          "reason": null,
+          "resolution": "0.5",
+          "status": "known",
+          "unit": "m_pressure_29.92_inHg"
+        },
+        "reserved": {
+          "decoded": "00",
+          "raw": "00",
+          "reason": null,
+          "resolution": "1",
+          "status": "reserved",
+          "unit": "byte"
+        },
+        "speed": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.25 or 0.75 by speed_multiplier",
+          "status": "known",
+          "unit": "m/s"
+        },
+        "speed_accuracy": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "95_percent_bound_code"
+        },
+        "speed_multiplier": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "status_reserved": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "reserved",
+          "unit": "code"
+        },
+        "timestamp": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.1",
+          "status": "known",
+          "unit": "s_since_UTC_hour"
+        },
+        "timestamp_accuracy": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.1",
+          "status": "unknown",
+          "unit": "s"
+        },
+        "timestamp_reserved": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "reserved",
+          "unit": "code"
+        },
+        "track_direction": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "degree_true"
+        },
+        "vertical_accuracy": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "95_percent_bound_code"
+        },
+        "vertical_speed": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.5",
+          "status": "known",
+          "unit": "m/s"
+        }
+      },
+      "parse_status": "complete",
+      "raw_hex": "12000000000000000000000000d007d007d007000000000000"
+    },
+    "faulty_output": {
+      "header": {
+        "message_type": {
+          "decoded": 1,
+          "raw": 1,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "protocol_version": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        }
+      },
+      "index": 0,
+      "location": {
+        "baro_altitude_accuracy": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "95_percent_bound_code"
+        },
+        "ew_direction_segment": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "geodetic_altitude_hae": {
+          "arithmetic_value": "0",
+          "decoded": "0",
+          "raw": 2000,
+          "reason": null,
+          "resolution": "0.5",
+          "status": "known",
+          "unit": "m_MSL"
+        },
+        "height": {
+          "arithmetic_value": "0",
+          "decoded": "0",
+          "raw": 2000,
+          "reason": null,
+          "resolution": "0.5",
+          "status": "known",
+          "unit": "m_per_height_type"
+        },
+        "height_type": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "horizontal_accuracy": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "95_percent_bound_code"
+        },
+        "latitude": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.0000001",
+          "status": "unknown",
+          "unit": "degree"
+        },
+        "longitude": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.0000001",
+          "status": "unknown",
+          "unit": "degree"
+        },
+        "operational_status": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "code"
+        },
+        "pressure_altitude": {
+          "arithmetic_value": "0",
+          "decoded": "0",
+          "raw": 2000,
+          "reason": null,
+          "resolution": "0.5",
+          "status": "known",
+          "unit": "m_pressure_29.92_inHg"
+        },
+        "reserved": {
+          "decoded": "00",
+          "raw": "00",
+          "reason": null,
+          "resolution": "1",
+          "status": "reserved",
+          "unit": "byte"
+        },
+        "speed": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.25 or 0.75 by speed_multiplier",
+          "status": "known",
+          "unit": "m/s"
+        },
+        "speed_accuracy": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "95_percent_bound_code"
+        },
+        "speed_multiplier": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "status_reserved": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "reserved",
+          "unit": "code"
+        },
+        "timestamp": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.1",
+          "status": "known",
+          "unit": "s_since_UTC_hour"
+        },
+        "timestamp_accuracy": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.1",
+          "status": "unknown",
+          "unit": "s"
+        },
+        "timestamp_reserved": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "reserved",
+          "unit": "code"
+        },
+        "track_direction": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "degree_true"
+        },
+        "vertical_accuracy": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "95_percent_bound_code"
+        },
+        "vertical_speed": {
+          "decoded": "0",
+          "raw": 0,
+          "reason": null,
+          "resolution": "0.5",
+          "status": "known",
+          "unit": "m/s"
+        }
+      },
+      "parse_status": "complete",
+      "raw_hex": "12000000000000000000000000d007d007d007000000000000"
+    },
+    "regression": "hae_msl_confusion",
+    "rejected_at": "value /location/geodetic_altitude_hae/unit"
+  },
+  {
+    "expected": {
+      "auth": {
+        "auth_data_page0": {
+          "decoded": "000102030405060708090a0b0c0d0e0f10",
+          "raw": "000102030405060708090a0b0c0d0e0f10",
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "byte"
+        },
+        "auth_data_pages_1_15": {
+          "decoded": null,
+          "raw": null,
+          "reason": "opposite_authentication_page_shape",
+          "resolution": "1",
+          "status": "not_applicable",
+          "unit": "byte"
+        },
+        "auth_type": {
+          "decoded": 1,
+          "raw": 1,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "data_page_number": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "last_page": {
+          "decoded": 15,
+          "raw": 15,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "length": {
+          "decoded": 255,
+          "raw": 255,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "byte"
+        },
+        "page0_reserved": {
+          "decoded": 10,
+          "raw": 10,
+          "reason": null,
+          "resolution": "1",
+          "status": "reserved",
+          "unit": "code"
+        },
+        "timestamp": {
+          "decoded": "123",
+          "raw": 123,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "s_since_2019_01_01"
+        }
+      },
+      "header": {
+        "message_type": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "protocol_version": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        }
+      },
+      "index": 0,
+      "parse_status": "complete",
+      "raw_hex": "2210afff7b000000000102030405060708090a0b0c0d0e0f10"
+    },
+    "faulty_output": {
+      "auth": {
+        "auth_data_page0": {
+          "decoded": "000102030405060708090a0b0c0d0e0f10",
+          "raw": "000102030405060708090a0b0c0d0e0f10",
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "byte"
+        },
+        "auth_data_pages_1_15": {
+          "decoded": null,
+          "raw": null,
+          "reason": "opposite_authentication_page_shape",
+          "resolution": "1",
+          "status": "not_applicable",
+          "unit": "byte"
+        },
+        "auth_type": {
+          "decoded": 1,
+          "raw": 1,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "data_page_number": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "last_page": {
+          "decoded": 15,
+          "raw": 175,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "length": {
+          "decoded": 255,
+          "raw": 255,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "byte"
+        },
+        "page0_reserved": {
+          "decoded": 10,
+          "raw": 10,
+          "reason": null,
+          "resolution": "1",
+          "status": "reserved",
+          "unit": "code"
+        },
+        "timestamp": {
+          "decoded": "123",
+          "raw": 123,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "s_since_2019_01_01"
+        }
+      },
+      "header": {
+        "message_type": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "protocol_version": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        }
+      },
+      "index": 0,
+      "parse_status": "complete",
+      "raw_hex": "2210afff7b000000000102030405060708090a0b0c0d0e0f10"
+    },
+    "regression": "whole_byte_last_page",
+    "rejected_at": "value /auth/last_page/raw"
+  },
+  {
+    "expected": [
+      {
+        "auth": {
+          "auth_data_page0": {
+            "decoded": null,
+            "raw": null,
+            "reason": "opposite_authentication_page_shape",
+            "resolution": "1",
+            "status": "not_applicable",
+            "unit": "byte"
+          },
+          "auth_data_pages_1_15": {
+            "decoded": "0101010101010101010101010101010101010101010101",
+            "raw": "0101010101010101010101010101010101010101010101",
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "byte"
+          },
+          "auth_type": {
+            "decoded": 1,
+            "raw": 1,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "data_page_number": {
+            "decoded": 1,
+            "raw": 1,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "last_page": {
+            "decoded": null,
+            "raw": null,
+            "reason": "opposite_authentication_page_shape",
+            "resolution": "1",
+            "status": "not_applicable",
+            "unit": "code"
+          },
+          "length": {
+            "decoded": null,
+            "raw": null,
+            "reason": "opposite_authentication_page_shape",
+            "resolution": "1",
+            "status": "not_applicable",
+            "unit": "byte"
+          },
+          "page0_reserved": {
+            "decoded": null,
+            "raw": null,
+            "reason": "opposite_authentication_page_shape",
+            "resolution": "1",
+            "status": "not_applicable",
+            "unit": "code"
+          },
+          "timestamp": {
+            "decoded": null,
+            "raw": null,
+            "reason": "opposite_authentication_page_shape",
+            "resolution": "1",
+            "status": "not_applicable",
+            "unit": "s_since_2019_01_01"
+          }
+        },
+        "header": {
+          "message_type": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "protocol_version": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          }
+        },
+        "index": 0,
+        "parse_status": "complete",
+        "raw_hex": "22110101010101010101010101010101010101010101010101"
+      },
+      {
+        "auth": {
+          "auth_data_page0": {
+            "decoded": "000102030405060708090a0b0c0d0e0f10",
+            "raw": "000102030405060708090a0b0c0d0e0f10",
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "byte"
+          },
+          "auth_data_pages_1_15": {
+            "decoded": null,
+            "raw": null,
+            "reason": "opposite_authentication_page_shape",
+            "resolution": "1",
+            "status": "not_applicable",
+            "unit": "byte"
+          },
+          "auth_type": {
+            "decoded": 1,
+            "raw": 1,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "data_page_number": {
+            "decoded": 0,
+            "raw": 0,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "last_page": {
+            "decoded": 15,
+            "raw": 15,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "length": {
+            "decoded": 255,
+            "raw": 255,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "byte"
+          },
+          "page0_reserved": {
+            "decoded": 10,
+            "raw": 10,
+            "reason": null,
+            "resolution": "1",
+            "status": "reserved",
+            "unit": "code"
+          },
+          "timestamp": {
+            "decoded": "123",
+            "raw": 123,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "s_since_2019_01_01"
+          }
+        },
+        "header": {
+          "message_type": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "protocol_version": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          }
+        },
+        "index": 0,
+        "parse_status": "complete",
+        "raw_hex": "2210afff7b000000000102030405060708090a0b0c0d0e0f10"
+      }
+    ],
+    "faulty_output": [
+      {
+        "auth": {
+          "auth_data_page0": {
+            "decoded": "000102030405060708090a0b0c0d0e0f10",
+            "raw": "000102030405060708090a0b0c0d0e0f10",
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "byte"
+          },
+          "auth_data_pages_1_15": {
+            "decoded": null,
+            "raw": null,
+            "reason": "opposite_authentication_page_shape",
+            "resolution": "1",
+            "status": "not_applicable",
+            "unit": "byte"
+          },
+          "auth_type": {
+            "decoded": 1,
+            "raw": 1,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "data_page_number": {
+            "decoded": 0,
+            "raw": 0,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "last_page": {
+            "decoded": 15,
+            "raw": 15,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "length": {
+            "decoded": 255,
+            "raw": 255,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "byte"
+          },
+          "page0_reserved": {
+            "decoded": 10,
+            "raw": 10,
+            "reason": null,
+            "resolution": "1",
+            "status": "reserved",
+            "unit": "code"
+          },
+          "timestamp": {
+            "decoded": "123",
+            "raw": 123,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "s_since_2019_01_01"
+          }
+        },
+        "header": {
+          "message_type": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "protocol_version": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          }
+        },
+        "index": 0,
+        "parse_status": "complete",
+        "raw_hex": "2210afff7b000000000102030405060708090a0b0c0d0e0f10"
+      }
+    ],
+    "regression": "continuation_first_loss",
+    "rejected_at": "array length "
+  },
+  {
+    "expected": [
+      {
+        "basic_id": {
+          "id_type": {
+            "decoded": 1,
+            "raw": 1,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "reserved": {
+            "decoded": "010203",
+            "raw": "010203",
+            "reason": null,
+            "resolution": "1",
+            "status": "reserved",
+            "unit": "byte"
+          },
+          "ua_type": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "uas_id": {
+            "decoded": "SYNTHETIC-ID-ONLY",
+            "raw": "53594e5448455449432d49442d4f4e4c59000000",
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "byte"
+          }
+        },
+        "header": {
+          "message_type": {
+            "decoded": 0,
+            "raw": 0,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "protocol_version": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          }
+        },
+        "index": 0,
+        "parse_status": "complete",
+        "raw_hex": "021253594e5448455449432d49442d4f4e4c59000000010203"
+      },
+      {
+        "basic_id": {
+          "id_type": {
+            "decoded": 1,
+            "raw": 1,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "reserved": {
+            "decoded": "000000",
+            "raw": "000000",
+            "reason": null,
+            "resolution": "1",
+            "status": "reserved",
+            "unit": "byte"
+          },
+          "ua_type": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "uas_id": {
+            "decoded": "0000FTEST00000000002",
+            "raw": "3030303046544553543030303030303030303032",
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "byte"
+          }
+        },
+        "header": {
+          "message_type": {
+            "decoded": 0,
+            "raw": 0,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "protocol_version": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          }
+        },
+        "index": 0,
+        "parse_status": "complete",
+        "raw_hex": "02123030303046544553543030303030303030303032000000"
+      }
+    ],
+    "faulty_output": [
+      {
+        "basic_id": {
+          "id_type": {
+            "decoded": 1,
+            "raw": 1,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "reserved": {
+            "decoded": "010203",
+            "raw": "010203",
+            "reason": null,
+            "resolution": "1",
+            "status": "reserved",
+            "unit": "byte"
+          },
+          "ua_type": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "uas_id": {
+            "decoded": "SYNTHETIC-ID-ONLY",
+            "raw": "53594e5448455449432d49442d4f4e4c59000000",
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "byte"
+          }
+        },
+        "header": {
+          "message_type": {
+            "decoded": 0,
+            "raw": 0,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          },
+          "protocol_version": {
+            "decoded": 2,
+            "raw": 2,
+            "reason": null,
+            "resolution": "1",
+            "status": "known",
+            "unit": "code"
+          }
+        },
+        "index": 0,
+        "parse_status": "complete",
+        "raw_hex": "021253594e5448455449432d49442d4f4e4c59000000010203"
+      }
+    ],
+    "regression": "changed_content_dedup",
+    "rejected_at": "array length "
+  },
+  {
+    "expected": {
+      "header": {
+        "message_type": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "protocol_version": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unsupported_version",
+          "unit": "code"
+        }
+      },
+      "index": 0,
+      "parse_status": "unsupported_version",
+      "raw_hex": "00000000000000000000000000000000000000000000000000"
+    },
+    "faulty_output": {
+      "basic_id": {
+        "id_type": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "code"
+        },
+        "reserved": {
+          "decoded": "010203",
+          "raw": "010203",
+          "reason": null,
+          "resolution": "1",
+          "status": "reserved",
+          "unit": "byte"
+        },
+        "ua_type": {
+          "decoded": 2,
+          "raw": 2,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "uas_id": {
+          "decoded": "53594e5448455449432d49442d4f4e4c59000000",
+          "raw": "53594e5448455449432d49442d4f4e4c59000000",
+          "reason": "id_type_none_with_bytes",
+          "resolution": "1",
+          "status": "unknown",
+          "unit": "byte"
+        }
+      },
+      "header": {
+        "message_type": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "known",
+          "unit": "code"
+        },
+        "protocol_version": {
+          "decoded": 0,
+          "raw": 0,
+          "reason": null,
+          "resolution": "1",
+          "status": "unsupported_version",
+          "unit": "code"
+        }
+      },
+      "index": 0,
+      "parse_status": "complete",
+      "raw_hex": "00000000000000000000000000000000000000000000000000"
+    },
+    "regression": "unchecked_version_nibble",
+    "rejected_at": "value /parse_status"
+  }
+]

@@ -1,0 +1,32 @@
+{
+  "event_id": "synthetic-association-event",
+  "revision": 1,
+  "supersedes_event_id": null,
+  "produced_utc_ns": "1792886400123456795",
+  "edge": {
+    "index": 0,
+    "source_capture_id": {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "1"
+      },
+      "capture_index": 0
+    },
+    "target_capture_id": {
+      "observation_id": {
+        "node_id": "synthetic-node",
+        "boot_id": "synthetic-boot",
+        "capture_sequence": "2"
+      },
+      "capture_index": 0
+    },
+    "relationship": "bt5_primary_to_secondary",
+    "source_receive_order": "1",
+    "target_receive_order": "2",
+    "order_basis": "receiver_capture_sequence",
+    "association_status": "candidate",
+    "evidence": "Synthetic two-event recipe; RF association requires adapter evidence.",
+    "provenance_version": "design-association-rev1"
+  }
+}

@@ -1,0 +1,14 @@
+devtmpfs udev /dev
+tmpfs tmpfs /run
+ext4 /dev/mmcblk0p2 /
+tmpfs tmpfs /dev/shm
+tmpfs tmpfs /run/lock
+tmpfs tmpfs /run/credentials/systemd-journald.service
+vfat /dev/mmcblk0p1 /boot/firmware
+tmpfs tmpfs /tmp
+tmpfs tmpfs /run/user/1002
+tmpfs tmpfs /run/credentials/getty@tty1.service
+ext4 /dev/mmcblk0p2[/var/lib/containers/storage/overlay] /var/lib/containers/storage/overlay
+tmpfs shm /var/lib/containers/storage/overlay-containers/<id>/userdata/shm
+overlay overlay /var/lib/containers/storage/overlay/<id>/merged
+tmpfs tmpfs /run/user/1000

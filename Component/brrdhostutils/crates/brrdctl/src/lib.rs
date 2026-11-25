@@ -47,10 +47,15 @@ pub fn run(
     };
     match parsed.command {
         Commands::Status { system: false } => {
-            let error = Cli::command().error(
-                ErrorKind::MissingRequiredArgument,
-                "a report must be chosen; use --system (see brrdctl status --help)",
-            );
+            let mut command = Cli::command();
+            command.build();
+            let error = command
+                .find_subcommand_mut("status")
+                .expect("status command is defined")
+                .error(
+                    ErrorKind::MissingRequiredArgument,
+                    "a report must be chosen; use --system (see brrdctl status --help)",
+                );
             write!(errors, "{error}")?;
             Ok(2)
         }

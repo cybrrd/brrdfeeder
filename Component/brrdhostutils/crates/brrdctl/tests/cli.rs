@@ -54,6 +54,7 @@ fn missing_selector() {
     assert!(text.contains("report must be chosen"));
     assert!(text.contains("--system"));
     assert!(text.contains("--help"));
+    assert!(text.contains("Usage: brrdctl status [OPTIONS]"));
 }
 #[test]
 fn no_arguments() {

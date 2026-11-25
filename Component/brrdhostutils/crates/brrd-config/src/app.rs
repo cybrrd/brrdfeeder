@@ -164,7 +164,7 @@ impl App {
             Intent::Open if self.page.is_none() => {
                 if let Some(item) = self.menu[self.section].items.get(self.selected) {
                     self.page = Some((item.open)(self.source.clone()));
-                    self.remember_message();
+                    self.refresh_message();
                 }
             }
             other => {
@@ -177,13 +177,16 @@ impl App {
     pub fn tick(&mut self) {
         if let Some(page) = &mut self.page {
             page.tick();
-            self.remember_message();
+            self.refresh_message();
         }
     }
-    fn remember_message(&mut self) {
-        if let Some(message) = self.page.as_ref().and_then(|page| page.message()) {
-            self.message = message.to_owned();
-        }
+    fn refresh_message(&mut self) {
+        self.message = self
+            .page
+            .as_ref()
+            .and_then(|page| page.message())
+            .unwrap_or_default()
+            .to_owned();
     }
     pub fn draw(&self, frame: &mut Frame) {
         let area = frame.area();

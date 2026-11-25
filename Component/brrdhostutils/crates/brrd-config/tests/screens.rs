@@ -355,3 +355,31 @@ fn tick_refresh() {
     assert!(!failed.contains("12:34:57"));
     assert_eq!(failed.matches("unavailable").count(), 7);
 }
+
+#[test]
+fn problem_clears() {
+    struct Recovery(std::collections::VecDeque<Snapshot>);
+    impl SnapshotSource for Recovery {
+        fn snapshot(&mut self) -> Snapshot {
+            self.0.pop_front().expect("unexpected reading")
+        }
+    }
+    let mut failed = support::snapshot();
+    failed.load = brrd_core::Reading::Unavailable;
+    let mut app = App::new(Recovery([failed, support::snapshot()].into()));
+    key(&mut app, KeyCode::Enter);
+    let before = screen(&app, 80, 24);
+    assert!(
+        before
+            .lines()
+            .nth(1)
+            .unwrap()
+            .contains("System information could not be read")
+    );
+    insta::assert_snapshot!("problem_clears_before", before);
+    app.tick();
+    let after = screen(&app, 80, 24);
+    assert!(after.lines().nth(1).unwrap().trim().is_empty());
+    assert!(after.contains("Load (1, 5, 15 min): 0.25, 0.50, 0.75"));
+    insta::assert_snapshot!("problem_clears_after", after);
+}

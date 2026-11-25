@@ -1,10 +1,10 @@
 use crate::{Disk, Reading, Snapshot, SnapshotSource, Usage};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     time::{Instant, SystemTime},
 };
-use sysinfo::{DiskRefreshKind, Disks, System};
+use sysinfo::System;
 
 /// A read-only collector. It never requires feeder services or privileges.
 #[derive(Default)]
@@ -150,45 +150,70 @@ fn unescape_mount(text: &str) -> String {
         .replace("\\012", "\n")
         .replace("\\134", "\\")
 }
+#[derive(Debug)]
+struct Mount {
+    device_id: String,
+    root: String,
+    path: String,
+    source: String,
+    kind: String,
+}
+fn storage_mounts(mut mounts: Vec<Mount>) -> Vec<String> {
+    // A device can have multiple mounts of its root; prefer the shallowest
+    // mount and then lexical order, independently of mount-table order.
+    mounts.sort_by(|a, b| {
+        a.path
+            .matches('/')
+            .count()
+            .cmp(&b.path.matches('/').count())
+            .then(a.path.cmp(&b.path))
+    });
+    let mut devices = HashSet::new();
+    let mut paths: Vec<_> = mounts
+        .into_iter()
+        .filter(|mount| mount.root == "/" && storage_backed(&mount.source, &mount.kind))
+        .filter(|mount| devices.insert(mount.device_id.clone()))
+        .map(|mount| mount.path)
+        .collect();
+    paths.sort();
+    paths
+}
+fn parse_mountinfo(text: &str) -> Option<Vec<Mount>> {
+    text.lines()
+        .map(|line| {
+            let (mount, filesystem) = line.split_once(" - ")?;
+            let fields: Vec<_> = mount.split_whitespace().collect();
+            let fs: Vec<_> = filesystem.split_whitespace().collect();
+            if fields.len() < 6 || fs.len() < 3 {
+                return None;
+            }
+            let (major, minor) = fields[2].split_once(':')?;
+            major.parse::<u32>().ok()?;
+            minor.parse::<u32>().ok()?;
+            Some(Mount {
+                device_id: fields[2].into(),
+                root: unescape_mount(fields[3]),
+                path: unescape_mount(fields[4]),
+                source: unescape_mount(fs[1]),
+                kind: fs[0].into(),
+            })
+        })
+        .collect()
+}
 fn read_disks() -> Reading<Vec<Disk>> {
-    let Ok(mounts) = fs::read_to_string("/proc/self/mounts") else {
+    let Ok(mounts) = fs::read_to_string("/proc/self/mountinfo") else {
         return Reading::Unavailable;
     };
-    // Start fresh: sysinfo's disk refresh also retains old values on failure.
-    let disks =
-        Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing().with_storage()).ok();
+    // mountinfo records the root within the filesystem, unlike mounts.
+    let Some(parsed) = parse_mountinfo(&mounts) else {
+        return Reading::Unavailable;
+    };
     let mut result = Vec::new();
-    for line in mounts.lines() {
-        let fields: Vec<_> = line.split_whitespace().take(3).collect();
-        if fields.len() != 3 {
-            return Reading::Unavailable;
-        }
-        if !storage_backed(fields[0], fields[2]) {
-            continue;
-        }
-        let mount = unescape_mount(fields[1]);
-        // statvfs supplies an error channel and covers storage mounts sysinfo
-        // omits, such as optical media and storage mounted below /run.
+    for mount in storage_mounts(parsed) {
+        // Read only selected top-directory mounts. statvfs reports errors and
+        // distinguishes all free space from space available to ordinary users.
         let usage = match rustix::fs::statvfs(mount.as_str()) {
-            Ok(stat) => {
-                let fresh = disks.as_ref().and_then(|ds| {
-                    ds.iter()
-                        .find(|d| d.mount_point() == std::path::Path::new(&mount))
-                });
-                let (total, available) = match fresh {
-                    Some(disk) if disk.total_space() > 0 => {
-                        (disk.total_space(), disk.available_space())
-                    }
-                    _ => (
-                        stat.f_blocks.saturating_mul(stat.f_frsize),
-                        stat.f_bavail.saturating_mul(stat.f_frsize),
-                    ),
-                };
-                Reading::Value(Usage {
-                    used: total.saturating_sub(available),
-                    total,
-                })
-            }
+            Ok(stat) => Reading::Value(filesystem_usage(&stat)),
             Err(_) => Reading::Unavailable,
         };
         result.push(Disk { mount, usage });
@@ -197,9 +222,105 @@ fn read_disks() -> Reading<Vec<Disk>> {
     result.dedup_by(|a, b| a.mount == b.mount);
     Reading::Value(result)
 }
+fn filesystem_usage(stat: &rustix::fs::StatVfs) -> Usage {
+    let total = stat.f_blocks.saturating_mul(stat.f_frsize);
+    // Free blocks include the administrator reserve; available blocks do not.
+    let free = stat.f_bfree.saturating_mul(stat.f_frsize);
+    Usage {
+        used: total.saturating_sub(free),
+        total,
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn feeder_mount_table() {
+        // The recorded table uses findmnt's FSTYPE,SOURCE,TARGET columns.
+        let mounts = include_str!("../tests/fixtures/feeder-mounts.txt")
+            .lines()
+            .map(|line| {
+                let fields: Vec<_> = line.split_whitespace().collect();
+                let (device, root) = fields[1]
+                    .split_once('[')
+                    .map_or((fields[1], "/"), |(device, root)| {
+                        (device, root.strip_suffix(']').unwrap())
+                    });
+                Mount {
+                    device_id: device.into(),
+                    root: root.into(),
+                    path: fields[2].into(),
+                    source: device.into(),
+                    kind: fields[0].into(),
+                }
+            })
+            .collect();
+        assert_eq!(storage_mounts(mounts), ["/", "/boot/firmware"]);
+    }
+    #[test]
+    fn mountinfo_top_directories() {
+        let text = "40 1 179:2 /var/lib/storage /container rw - ext4 /dev/mmcblk0p2 rw\n\
+41 1 179:2 / /mirror rw shared:1 - ext4 /dev/disk/by-label/root rw\n\
+42 1 179:2 / / rw - ext4 /dev/mmcblk0p2 rw\n\
+43 1 179:1 / /boot/firmware rw - vfat /dev/mmcblk0p1 rw\n\
+44 1 8:1 / /media/usb\\040disk rw - ext4 /dev/sda1 rw\n\
+45 1 0:1 / /run rw - tmpfs tmpfs rw";
+        assert_eq!(
+            storage_mounts(parse_mountinfo(text).unwrap()),
+            ["/", "/boot/firmware", "/media/usb disk"]
+        );
+        assert!(parse_mountinfo("not a mount record").is_none());
+    }
+    #[test]
+    fn reserve_is_not_used() {
+        let blocks_per_gib = (1u64 << 30) / 4096;
+        let stat = rustix::fs::StatVfs {
+            f_bsize: 4096,
+            f_frsize: 4096,
+            f_blocks: 234 * blocks_per_gib,
+            f_bfree: 459 * blocks_per_gib / 2,
+            f_bavail: 220 * blocks_per_gib,
+            f_files: 0,
+            f_ffree: 0,
+            f_favail: 0,
+            f_fsid: 0,
+            f_flag: rustix::fs::StatVfsMountFlags::empty(),
+            f_namemax: 255,
+        };
+        assert_eq!(filesystem_usage(&stat).text(), "4.5 GiB / 234.0 GiB (2%)");
+    }
+    #[test]
+    fn agreement_with_df() {
+        let started = Instant::now();
+        let Reading::Value(disks) = read_disks() else {
+            panic!("disk list unavailable")
+        };
+        let root = disks
+            .iter()
+            .find(|disk| disk.mount == "/")
+            .expect("root filesystem missing");
+        let Reading::Value(usage) = &root.usage else {
+            panic!("root usage unavailable")
+        };
+        let output = std::process::Command::new("df")
+            .env("LC_ALL", "C")
+            .args(["-B1", "--output=used", "/"])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let text = String::from_utf8(output.stdout).unwrap();
+        let used: u64 = text.lines().nth(1).unwrap().trim().parse().unwrap();
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+        assert!(
+            usage.used.abs_diff(used) <= (1u64 << 30) / 10,
+            "root used bytes: report={}, df={used}",
+            usage.used
+        );
+    }
     #[test]
     fn disk_filter() {
         let mounts = [

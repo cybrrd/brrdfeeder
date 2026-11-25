@@ -46,8 +46,16 @@ pub struct Usage {
 }
 impl Usage {
     pub fn text(&self) -> String {
-        format!("{} / {} ({})", format_size(self.used), format_size(self.total),
-            format_percentage(if self.total == 0 { 0.0 } else { self.used as f64 * 100.0 / self.total as f64 }))
+        format!(
+            "{} / {} ({})",
+            format_size(self.used),
+            format_size(self.total),
+            format_percentage(if self.total == 0 {
+                0.0
+            } else {
+                self.used as f64 * 100.0 / self.total as f64
+            })
+        )
     }
 }
 
@@ -70,15 +78,25 @@ pub struct Snapshot {
 }
 impl Default for Snapshot {
     fn default() -> Self {
-        Self { cores: Reading::Unavailable, cpu: Reading::Unavailable,
-            load: Reading::Unavailable, memory: Reading::Unavailable,
-            swap: Reading::Unavailable, disks: Reading::Unavailable, read_at: Reading::Unavailable }
+        Self {
+            cores: Reading::Unavailable,
+            cpu: Reading::Unavailable,
+            load: Reading::Unavailable,
+            memory: Reading::Unavailable,
+            swap: Reading::Unavailable,
+            disks: Reading::Unavailable,
+            read_at: Reading::Unavailable,
+        }
     }
 }
 impl Snapshot {
     pub fn has_unavailable(&self) -> bool {
-        self.cores.unavailable() || self.cpu.unavailable() || self.load.unavailable()
-            || self.memory.unavailable() || self.swap.unavailable() || self.disks.unavailable()
+        self.cores.unavailable()
+            || self.cpu.unavailable()
+            || self.load.unavailable()
+            || self.memory.unavailable()
+            || self.swap.unavailable()
+            || self.disks.unavailable()
             || matches!(&self.disks, Reading::Value(disks) if disks.iter().any(|d| d.usage.unavailable()))
     }
     /// The canonical names, values and units for both front ends.
@@ -86,25 +104,46 @@ impl Snapshot {
         let mut lines = vec![
             format!("CPU cores: {}", self.cores.text(|v| v.to_string())),
             format!("CPU usage: {}", self.cpu.text(|v| format_percentage(*v))),
-            format!("Load (1, 5, 15 min): {}", self.load.text(|v| format!("{:.2}, {:.2}, {:.2}", v[0], v[1], v[2]))),
+            format!(
+                "Load (1, 5, 15 min): {}",
+                self.load
+                    .text(|v| format!("{:.2}, {:.2}, {:.2}", v[0], v[1], v[2]))
+            ),
             format!("Memory: {}", self.memory.text(Usage::text)),
-            format!("Swap: {}", self.swap.text(|v| if v.total == 0 { "none".into() } else { v.text() })),
+            format!(
+                "Swap: {}",
+                self.swap.text(|v| if v.total == 0 {
+                    "none".into()
+                } else {
+                    v.text()
+                })
+            ),
         ];
         match &self.disks {
             Reading::Value(disks) => {
                 lines.push("Disks (used / total):".into());
                 for disk in disks {
-                    lines.push(format!("  {}: {}", plain_label(&disk.mount), disk.usage.text(Usage::text)));
+                    lines.push(format!(
+                        "  {}: {}",
+                        plain_label(&disk.mount),
+                        disk.usage.text(Usage::text)
+                    ));
                 }
             }
             other => lines.push(format!("Disks: {}", other.text(|_| unreachable!()))),
         }
-        lines.push(format!("Last reading: {}", self.read_at.text(|v| {
-            match v.duration_since(UNIX_EPOCH) {
-                Ok(time) => { let s = time.as_secs(); format!("{:02}:{:02}:{:02} UTC", s / 3600 % 24, s / 60 % 60, s % 60) }
-                Err(_) => "unavailable".into(),
-            }
-        })));
+        lines.push(format!(
+            "Last reading: {}",
+            self.read_at.text(|v| {
+                match v.duration_since(UNIX_EPOCH) {
+                    Ok(time) => {
+                        let s = time.as_secs();
+                        format!("{:02}:{:02}:{:02} UTC", s / 3600 % 24, s / 60 % 60, s % 60)
+                    }
+                    Err(_) => "unavailable".into(),
+                }
+            })
+        ));
         lines
     }
 }
@@ -116,12 +155,26 @@ pub trait SnapshotSource {
 
 /// Binary MiB or GiB, always with one decimal place.
 pub fn format_size(bytes: u64) -> String {
-    if bytes >= 1 << 30 { format!("{:.1} GiB", bytes as f64 / (1u64 << 30) as f64) }
-    else { format!("{:.1} MiB", bytes as f64 / (1u64 << 20) as f64) }
+    if bytes >= 1 << 30 {
+        format!("{:.1} GiB", bytes as f64 / (1u64 << 30) as f64)
+    } else {
+        format!("{:.1} MiB", bytes as f64 / (1u64 << 20) as f64)
+    }
 }
-pub fn format_percentage(percent: f64) -> String { format!("{percent:.0}%") }
+pub fn format_percentage(percent: f64) -> String {
+    format!("{percent:.0}%")
+}
 fn plain_label(value: &str) -> String {
-    value.chars().flat_map(|c| if c.is_control() { c.escape_default().collect::<Vec<_>>() } else { vec![c] }).collect()
+    value
+        .chars()
+        .flat_map(|c| {
+            if c.is_control() {
+                c.escape_default().collect::<Vec<_>>()
+            } else {
+                vec![c]
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -137,13 +190,27 @@ mod tests {
     #[test]
     fn reading_states() {
         assert_eq!(Reading::Value(12).text(|v| v.to_string()), "12");
-        assert_eq!(Reading::<u64>::Unavailable.text(|v| v.to_string()), "unavailable");
-        assert_eq!(Reading::<u64>::Measuring.text(|v| v.to_string()), "measuring");
-        assert!(Snapshot::default().report_lines().iter().all(|l| l.ends_with("unavailable")));
+        assert_eq!(
+            Reading::<u64>::Unavailable.text(|v| v.to_string()),
+            "unavailable"
+        );
+        assert_eq!(
+            Reading::<u64>::Measuring.text(|v| v.to_string()),
+            "measuring"
+        );
+        assert!(
+            Snapshot::default()
+                .report_lines()
+                .iter()
+                .all(|l| l.ends_with("unavailable"))
+        );
     }
     #[test]
     fn no_swap() {
-        let snapshot = Snapshot { swap: Reading::Value(Usage {used: 0, total: 0}), ..Snapshot::default() };
+        let snapshot = Snapshot {
+            swap: Reading::Value(Usage { used: 0, total: 0 }),
+            ..Snapshot::default()
+        };
         assert!(snapshot.report_lines().contains(&"Swap: none".into()));
     }
     #[test]

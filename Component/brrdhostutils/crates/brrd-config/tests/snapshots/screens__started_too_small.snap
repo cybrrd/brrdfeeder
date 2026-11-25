@@ -1,0 +1,6 @@
+---
+source: crates/brrd-config/tests/screens.rs
+expression: text
+---
+Needs 80x24; current 60x20                                  
+0/q/Ctrl-C exit

@@ -16,14 +16,14 @@
 
 ## 3. Frame and navigation in brrd-config
 
-- [ ] 3.1 Implement the event thread (input and one-second tick) and verify the program starts, redraws on a tick, and exits on `q`
-- [ ] 3.2 Implement terminal setup and restore on every exit path and verify with a test that a provoked panic leaves the terminal restored
-- [ ] 3.3 Implement the frame (header, status line, body, hint line) and verify with a snapshot test at 80×24
-- [ ] 3.4 Implement the menu table and section lists and verify with snapshot tests for Status (one item) and Configuration (nothing available)
-- [ ] 3.5 Implement key-to-intent translation and list movement and verify each scenario under "Moving in a list" and "Opening and going back" with a test that uses a three-item test menu
-- [ ] 3.6 Implement number-key jumps and verify the "Jump from inside a page" and "Reserved number" scenarios
-- [ ] 3.7 Implement the too-small screen and verify with snapshot tests at 60×20 and after resize to 80×24
-- [ ] 3.8 Verify the "Monochrome terminal" scenario from the plain-text snapshots, with no test relying on color
+- [x] 3.1 Implement the event thread (input and one-second tick) and verify the program starts, redraws on a tick, and exits on `q`
+- [x] 3.2 Implement terminal setup and restore on every exit path and verify with a test that a provoked panic leaves the terminal restored
+- [x] 3.3 Implement the frame (header, status line, body, hint line) and verify with a snapshot test at 80×24
+- [x] 3.4 Implement the menu table and section lists and verify with snapshot tests for Status (one item) and Configuration (nothing available)
+- [x] 3.5 Implement key-to-intent translation and list movement and verify each scenario under "Moving in a list" and "Opening and going back" with a test that uses a three-item test menu
+- [x] 3.6 Implement number-key jumps and verify the "Jump from inside a page" and "Reserved number" scenarios
+- [x] 3.7 Implement the too-small screen and verify with snapshot tests at 60×20 and after resize to 80×24
+- [x] 3.8 Verify the "Monochrome terminal" scenario from the plain-text snapshots, with no test relying on color
 
 ## 4. System Info page
 

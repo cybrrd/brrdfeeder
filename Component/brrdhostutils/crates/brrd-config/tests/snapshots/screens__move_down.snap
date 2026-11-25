@@ -1,0 +1,28 @@
+---
+source: crates/brrd-config/tests/screens.rs
+expression: text
+---
+brrd-config  [1 status]  2 config   3 events   4 tools   5 about                
+                                                                                
+Status                                                                          
+                                                                                
+  First                                                                         
+> System Info                                                                   
+  Last                                                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Up/Down move | Enter/Right open | 1-5 section | 0/q/Ctrl-C exit

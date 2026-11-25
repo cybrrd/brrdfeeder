@@ -1,0 +1,28 @@
+---
+source: crates/brrd-config/tests/screens.rs
+expression: "screen(&app,80,24)"
+---
+brrd-config  [1 status]  2 config   3 events   4 tools   5 about                
+                                                                                
+Status                                                                          
+                                                                                
+> System Info                                                                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Up/Down move | Enter/Right open | 1-5 section | 0/q/Ctrl-C exit

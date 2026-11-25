@@ -45,6 +45,15 @@
 - [ ] 6.2 Build for ARM64, run `brrd-config` and `brrdctl status --system` on a real feeder over SSH in an 80×24 terminal, and verify every scenario in both specifications by hand, recording the result
 - [ ] 6.3 Run `openspec validate brrd-config-shell-and-system-info --strict` and verify it passes
 
+## 7. Corrections from the first run on a real feeder
+
+- [ ] 7.1 List each storage filesystem once, at the mount of its top directory, and verify with a unit test over the recorded feeder mount table that `/` and `/boot/firmware` are listed and the container storage mount is not
+- [ ] 7.2 Compute used space as total minus free and verify the "Reserve is not counted as used" scenario with a unit test, and "Agreement with df" with a test that runs `df` on the build host
+- [ ] 7.3 Remove a problem message from the status line when the next reading succeeds and verify with a snapshot test of a failed reading followed by a good one
+- [ ] 7.4 Add `.cargo/config.toml` naming the ARM64 linker and add the `aarch64-unknown-linux-gnu` target to `rust-toolchain.toml`, and verify `cargo build --release --target aarch64-unknown-linux-gnu` produces both programs
+- [ ] 7.5 Add the new scenarios to acceptance.md with the test that proves each, before writing the corrections
+- [ ] 7.6 Repeat task group 6 on the real feeder after 7.1 to 7.3 and verify the disk list, the `df` comparison and a blank status line there
+
 ## Workflow follow-up
 
 - Archive the change after review.

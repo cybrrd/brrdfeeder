@@ -27,7 +27,7 @@ The snapshot SHALL report memory in use and total memory, and swap in use and to
 - **THEN** swap is shown as `none`
 
 ### Requirement: Disk report
-The snapshot SHALL report, for each mounted filesystem that is backed by a storage device, its mount point, space used, total space and percentage used. Filesystems that exist only in memory or are provided by the kernel SHALL NOT be listed.
+The snapshot SHALL report each filesystem that is backed by a storage device once, with its mount point, space used, total space and percentage used. A filesystem that is mounted at more than one place SHALL be listed only at the place where its top directory is mounted. Filesystems that exist only in memory or are provided by the kernel SHALL NOT be listed.
 
 #### Scenario: Root filesystem
 - **WHEN** the System Info page is open
@@ -36,6 +36,25 @@ The snapshot SHALL report, for each mounted filesystem that is backed by a stora
 #### Scenario: Kernel filesystems excluded
 - **WHEN** the host has `/proc`, `/sys` and a memory-backed `/run` mounted
 - **THEN** none of them is listed
+
+#### Scenario: Filesystem mounted a second time
+- **WHEN** the device mounted at `/` is also mounted, from one of its subdirectories, at `/var/lib/containers/storage/overlay`
+- **THEN** `/` is listed and `/var/lib/containers/storage/overlay` is not
+
+#### Scenario: Feeder with its containers running
+- **WHEN** the report is produced by an ordinary user on a BRRDfeeder whose containers are running
+- **THEN** no disk entry is shown as `unavailable`
+
+### Requirement: Used space is the space files occupy
+Space used SHALL be the filesystem's total space minus its free space, so that space the filesystem holds in reserve for the administrator is not counted as used. The percentage SHALL be used space divided by total space. The figures SHALL agree with those the host's `df` command reports for the same filesystem.
+
+#### Scenario: Reserve is not counted as used
+- **WHEN** a filesystem has 234.0 GiB in total, 229.5 GiB free, and 220.0 GiB available to an ordinary user
+- **THEN** it is shown as `4.5 GiB / 234.0 GiB (2%)`
+
+#### Scenario: Agreement with df
+- **WHEN** the report and `df` are run on the same host within a few seconds
+- **THEN** used space for `/` differs between them by no more than 0.1 GiB
 
 ### Requirement: Refreshes while open
 While the System Info page is open, its values SHALL be refreshed at least once every two seconds without any key being pressed. The page SHALL show the time of the last successful reading.

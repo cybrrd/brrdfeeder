@@ -133,7 +133,7 @@ The current section, the highlighted item and any warning SHALL each be distingu
 - **THEN** the current section and the highlighted item can each be identified from the text
 
 ### Requirement: Status line carries messages
-The status line SHALL show the most recent message the program has for the operator, and SHALL be blank when there is none.
+The status line SHALL show the most recent message the program has for the operator, and SHALL be blank when there is none. A message that reports a problem SHALL be removed when the problem is no longer present.
 
 #### Scenario: Nothing to report
 - **WHEN** `brrd-config` has started and no problem has occurred
@@ -142,3 +142,11 @@ The status line SHALL show the most recent message the program has for the opera
 #### Scenario: A reading fails
 - **WHEN** the System Info page is open and the system information cannot be read
 - **THEN** the status line states that system information could not be read
+
+#### Scenario: The problem clears
+- **WHEN** a reading failed and the next reading succeeds
+- **THEN** the status line is blank
+
+#### Scenario: Healthy feeder
+- **WHEN** the System Info page is opened by an ordinary user on a BRRDfeeder whose containers are running
+- **THEN** the status line is blank

@@ -34,5 +34,5 @@ None.
 - `crates/brrd-core`: first public operation and its data types.
 - `crates/brrd-config`: replaced placeholder with the program described above.
 - `crates/brrdctl`: replaced placeholder with a command-line program offering `status --system`.
-- New dependencies: `ratatui`, `crossterm` (terminal interface), `sysinfo` (host measurements), `clap` (command-line parsing), `insta` (snapshot tests, development only).
+- New dependencies: `ratatui`, `crossterm` (terminal interface), `sysinfo` and `rustix` (host measurements), `clap` (command-line parsing), `insta` (snapshot tests, development only).
 - No effect on a running feeder: the change reads host statistics and writes nothing.

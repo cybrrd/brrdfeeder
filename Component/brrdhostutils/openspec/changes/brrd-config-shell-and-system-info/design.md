@@ -61,6 +61,8 @@ Each page implements a small interface: receive a tick, receive an intent, draw 
 
 Use the `sysinfo` crate with only the features needed (system, disk). It is what `bottom` uses, it is MIT licensed, and it avoids hand-written parsing of `/proc`.
 
+`rustix` is used alongside it for filesystem sizes, because `sysinfo` does not report why a size could not be read and the specification forbids guessing.
+
 Disk filtering is ours to get right: `sysinfo` reports what is mounted, and the specification excludes memory-backed and kernel filesystems. The filter lives in `brrd-core` and has its own unit tests.
 
 ### 7. Snapshot tests with `insta` and Ratatui's test backend
@@ -88,6 +90,8 @@ Use `clap` with its derive interface. It supplies help, version and error messag
 - [A failure leaves the terminal unusable] → Restore the terminal on every exit path, including a panic; covered by a test that provokes one.
 - [One page file grows without limit, as seen elsewhere] → One file per page from the start, and the frame kept ignorant of page content.
 - [Development machine differs from a feeder] → The final task group runs the program on a real unit.
+
+- [A development machine has no containers and tests use fixed numbers, so wrong disk figures pass every test] → Found on the first run on a real feeder: a second mount of the root device was listed as a disk, and reserved space was counted as used. The specification now has a scenario for each, and one that compares with `df`.
 
 ## Open Questions
 

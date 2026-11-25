@@ -5,6 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
+rustix = { version = "1", features = ["fs"] }
 sysinfo = { version = "0.40", default-features = false, features = ["system", "disk"] }
 
 [lints]

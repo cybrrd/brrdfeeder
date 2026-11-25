@@ -8,11 +8,11 @@
 
 ## 2. System information in brrd-core
 
-- [ ] 2.1 Define the snapshot types (value, unavailable, measuring) and verify with unit tests that each state formats as the specification requires
-- [ ] 2.2 Implement size and percentage formatting and verify with unit tests, including the `3.7 GiB` example
-- [ ] 2.3 Implement CPU, load and memory readings and verify with a test that runs on the build host and finds a core count above zero
-- [ ] 2.4 Implement the disk filter and verify with unit tests over fixed mount lists that kernel and memory-backed filesystems are excluded and `/` is kept
-- [ ] 2.5 Document the public operation in the crate's rustdoc and verify `cargo doc -p brrd-core` builds without warnings
+- [x] 2.1 Define the snapshot types (value, unavailable, measuring) and verify with unit tests that each state formats as the specification requires
+- [x] 2.2 Implement size and percentage formatting and verify with unit tests, including the `3.7 GiB` example
+- [x] 2.3 Implement CPU, load and memory readings and verify with a test that runs on the build host and finds a core count above zero
+- [x] 2.4 Implement the disk filter and verify with unit tests over fixed mount lists that kernel and memory-backed filesystems are excluded and `/` is kept
+- [x] 2.5 Document the public operation in the crate's rustdoc and verify `cargo doc -p brrd-core` builds without warnings
 
 ## 3. Frame and navigation in brrd-config
 

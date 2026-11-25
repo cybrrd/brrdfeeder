@@ -1,0 +1,51 @@
+# Acceptance registration
+
+- brrd-config-shell / Frame at start: `frame_at_start`.
+- brrd-config-shell / Frame while a page is open: `system_info_page`.
+- brrd-config-shell / Current section is marked: `system_info_page`.
+- brrd-config-shell / Header fits 80 columns: `frame_at_start`.
+- brrd-config-shell / Jump from inside a page: `jump_from_page`.
+- brrd-config-shell / Reserved number: `reserved_number`.
+- brrd-config-shell / First screen: `frame_at_start`.
+- brrd-config-shell / Status section in this build: `status_section`.
+- brrd-config-shell / Section with nothing built: `empty_section`.
+- brrd-config-shell / Move down: `move_down`.
+- brrd-config-shell / Stop at the end: `stop_at_end`.
+- brrd-config-shell / Open with Enter: `open_with_enter`.
+- brrd-config-shell / Open with right arrow: `open_with_right`.
+- brrd-config-shell / Back: `back`.
+- brrd-config-shell / Back at the top of a section: `back_at_top`.
+- brrd-config-shell / Path on a page: `system_info_page`.
+- brrd-config-shell / Hints on a list: `list_hints`.
+- brrd-config-shell / Hints on a page: `page_hints`.
+- brrd-config-shell / Exit with zero: `pty_exit_keys`.
+- brrd-config-shell / Exit after a failure: `pty_panic_restores`.
+- brrd-config-shell / Started too small: `started_too_small`.
+- brrd-config-shell / Enlarged: `enlarged`.
+- brrd-config-shell / Monochrome terminal: `monochrome`.
+- brrd-config-shell / Nothing to report: `frame_at_start`.
+- brrd-config-shell / A reading fails: `all_unavailable`.
+- system-info / CPU shown on the page: `system_info_page`.
+- system-info / First reading: `first_reading`.
+- system-info / Memory shown on the page: `system_info_page`.
+- system-info / No swap: `no_swap`.
+- system-info / Root filesystem: `system_info_page`.
+- system-info / Kernel filesystems excluded: `disk_filter`.
+- system-info / Value changes without input: `tick_refresh`.
+- system-info / Time of reading: `system_info_page`.
+- system-info / One value fails: `one_unavailable`.
+- system-info / Everything fails: `all_unavailable`.
+- system-info / Memory size: `binary_units`.
+- system-info / One-shot report: `one_shot_report`.
+- system-info / Same units as the page: `same_report`.
+- system-info / Unreadable value on the command line: `unreadable_cli`.
+- system-info / Output is plain: `plain_output`.
+- system-info / Ordinary user: `pty_live_page`.
+- system-info / Ordinary user on the command line: `ordinary_user`.
+- system-info / No feeder installed: `pty_live_page`.
+- brrdctl-cli / Top-level help: `top_level_help`.
+- brrdctl-cli / Command help: `command_help`.
+- brrdctl-cli / Version: `version`.
+- brrdctl-cli / Unknown command: `unknown_command`.
+- brrdctl-cli / Status without a selector: `missing_selector`.
+- brrdctl-cli / No arguments: `no_arguments`.

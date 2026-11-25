@@ -2,5 +2,10 @@
 name = "brrd-core"
 version = "0.1.0"
 edition = "2024"
+publish = false
 
 [dependencies]
+sysinfo = { version = "0.40", default-features = false, features = ["system", "disk"] }
+
+[lints]
+workspace = true

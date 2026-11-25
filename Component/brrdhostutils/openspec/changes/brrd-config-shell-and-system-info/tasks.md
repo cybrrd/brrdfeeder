@@ -2,9 +2,9 @@
 
 ## 1. Setup
 
-- [ ] 1.1 Add `publish = false` to all three crates and verify `cargo publish --dry-run -p brrd-core` refuses
-- [ ] 1.2 Add `ratatui`, `crossterm` to `brrd-config`, `sysinfo` to `brrd-core`, `insta` as a development dependency (`clap` is added in group 5), and verify `cargo build` succeeds
-- [ ] 1.3 Add a workspace lint configuration (clippy warnings as errors) and verify `cargo clippy --workspace -- -D warnings` passes
+- [x] 1.1 Add `publish = false` to all three crates and verify `cargo publish --dry-run -p brrd-core` refuses
+- [x] 1.2 Add `ratatui`, `crossterm` to `brrd-config`, `sysinfo` to `brrd-core`, `insta` as a development dependency (`clap` is added in group 5), and verify `cargo build` succeeds
+- [x] 1.3 Add a workspace lint configuration (clippy warnings as errors) and verify `cargo clippy --workspace -- -D warnings` passes
 
 ## 2. System information in brrd-core
 

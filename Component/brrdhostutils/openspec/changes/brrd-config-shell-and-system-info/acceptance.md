@@ -49,3 +49,9 @@
 - brrdctl-cli / Unknown command: `unknown_command`.
 - brrdctl-cli / Status without a selector: `missing_selector`.
 - brrdctl-cli / No arguments: `no_arguments`.
+- system-info / Filesystem mounted a second time: `feeder_mount_table`.
+- system-info / Feeder with its containers running: fixed-table coverage in `feeder_mount_table`; ordinary-user live verification of no unavailable disks is deferred to task 7.6.
+- system-info / Reserve is not counted as used: `reserve_is_not_used`.
+- system-info / Agreement with df: `agreement_with_df` runs df on the build host.
+- brrd-config-shell / The problem clears: `problem_clears` at 80×24.
+- brrd-config-shell / Healthy feeder: fixed-data coverage in `system_info_page`; ordinary-user live verification of a blank status line with containers running is deferred to task 7.6.

@@ -1,0 +1,28 @@
+---
+source: crates/brrd-config/tests/screens.rs
+expression: text
+---
+brrd-config  [1 status]  2 config   3 events   4 tools   5 about                
+                                                                                
+Status > System Info                                                            
+                                                                                
+CPU cores: 4                                                                    
+CPU usage: measuring                                                            
+Load (1, 5, 15 min): 0.25, 0.50, 0.75                                           
+Memory: 1.0 GiB / 3.7 GiB (27%)                                                 
+Swap: 256.0 MiB / 1.0 GiB (25%)                                                 
+Disks (used / total):                                                           
+  /: 8.0 GiB / 32.0 GiB (25%)                                                   
+Last reading: 12:34:56 UTC                                                      
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Esc/Left back | 1-5 section | 0/q/Ctrl-C exit

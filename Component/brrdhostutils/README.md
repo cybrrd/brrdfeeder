@@ -55,12 +55,27 @@ brrdtools/
 
 brrdtools is built spec-first, in small changes. Each change starts as a written proposal, becomes a scenario, and lands with a test that proves it. Screen output is verified with text snapshots, so every interface change is reviewable as a diff.
 
-## Building
+## Building and running
 
-Build instructions will be added with the first working crate.
+On Linux, install the Rust toolchain selected by `rust-toolchain.toml`.
+Build and launch the terminal interface:
 
 ```bash
-cargo build --release
+cargo build --workspace
+cargo run -p brrd-config
+```
+
+Use an 80×24 or larger terminal. Enter opens System Info in Status. The page
+refreshes once a second; CPU usage says `measuring` until its second sample.
+Use 1–5 to change sections, Esc to go back, and 0, q or Ctrl-C to exit.
+No administrator rights or feeder software are required.
+
+Run the checks (the terminal integration tests also require Python 3):
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
 ```
 
 ## Related

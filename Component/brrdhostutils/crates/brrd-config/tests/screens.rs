@@ -5,14 +5,10 @@ use brrd_config::{
 use brrd_core::{Snapshot, SnapshotSource};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend};
-struct Fixed;
-impl SnapshotSource for Fixed {
-    fn snapshot(&mut self) -> Snapshot {
-        Snapshot::default()
-    }
-}
+mod support;
+use support::Fixed;
 fn app() -> App {
-    App::new(Fixed)
+    App::new(Fixed(support::snapshot()))
 }
 fn key(app: &mut App, code: KeyCode) {
     app.key(KeyEvent::new(code, KeyModifiers::NONE));
@@ -71,7 +67,7 @@ static THREE: [Section; 5] = [
     },
 ];
 fn three() -> App {
-    App::with_menu(Fixed, &THREE)
+    App::with_menu(Fixed(support::snapshot()), &THREE)
 }
 #[test]
 fn frame_at_start() {
@@ -253,4 +249,109 @@ fn monochrome() {
     assert_eq!(text.matches('[').count(), 1);
     assert_eq!(text.matches("> System Info").count(), 1);
     insta::assert_snapshot!(text);
+}
+
+#[test]
+fn system_info_page() {
+    let mut app = app();
+    key(&mut app, KeyCode::Enter);
+    let text = screen(&app, 80, 24);
+    assert_eq!(text.lines().nth(2).unwrap().trim(), "Status > System Info");
+    for line in support::snapshot().report_lines() {
+        assert!(
+            text.lines().any(|actual| actual.trim_end() == line),
+            "missing: {line}"
+        );
+    }
+    assert!(text.lines().nth(1).unwrap().trim().is_empty());
+    insta::assert_snapshot!(text);
+}
+#[test]
+fn first_reading() {
+    let mut data = support::snapshot();
+    data.cpu = brrd_core::Reading::Measuring;
+    let mut app = App::new(Fixed(data));
+    key(&mut app, KeyCode::Enter);
+    let text = screen(&app, 80, 24);
+    assert!(text.contains("CPU usage: measuring"));
+    assert!(!text.contains("37%"));
+    insta::assert_snapshot!(text);
+}
+#[test]
+fn no_swap() {
+    let mut data = support::snapshot();
+    data.swap = brrd_core::Reading::Value(brrd_core::Usage { used: 0, total: 0 });
+    let mut app = App::new(Fixed(data));
+    key(&mut app, KeyCode::Enter);
+    let text = screen(&app, 80, 24);
+    assert!(text.contains("Swap: none"));
+    insta::assert_snapshot!(text);
+}
+#[test]
+fn one_unavailable() {
+    let mut data = support::snapshot();
+    data.load = brrd_core::Reading::Unavailable;
+    let mut app = App::new(Fixed(data));
+    key(&mut app, KeyCode::Enter);
+    let text = screen(&app, 80, 24);
+    assert!(text.contains("Load (1, 5, 15 min): unavailable"));
+    assert!(text.contains("Memory: 1.0 GiB / 3.7 GiB (27%)"));
+    assert!(
+        text.lines()
+            .nth(1)
+            .unwrap()
+            .contains("System information could not be read")
+    );
+    insta::assert_snapshot!(text);
+}
+#[test]
+fn all_unavailable() {
+    let mut app = App::new(Fixed(Snapshot::default()));
+    key(&mut app, KeyCode::Enter);
+    app.tick();
+    let text = screen(&app, 80, 24);
+    assert_eq!(text.matches("unavailable").count(), 7);
+    assert!(!app.quit);
+    assert!(
+        text.lines()
+            .nth(1)
+            .unwrap()
+            .contains("System information could not be read")
+    );
+    insta::assert_snapshot!(text);
+}
+#[test]
+fn tick_refresh() {
+    struct Sequence(std::collections::VecDeque<Snapshot>);
+    impl SnapshotSource for Sequence {
+        fn snapshot(&mut self) -> Snapshot {
+            self.0.pop_front().expect("unexpected reading")
+        }
+    }
+    let mut next = support::snapshot();
+    next.memory = brrd_core::Reading::Value(brrd_core::Usage {
+        used: 2 << 30,
+        total: 3_884_000 * 1024,
+    });
+    next.load = brrd_core::Reading::Unavailable;
+    next.read_at =
+        brrd_core::Reading::Value(std::time::UNIX_EPOCH + std::time::Duration::from_secs(45_297));
+    let mut app = App::new(Sequence(
+        [support::snapshot(), next, Snapshot::default()].into(),
+    ));
+    app.tick(); // No source read while the page is closed.
+    key(&mut app, KeyCode::Enter);
+    assert!(screen(&app, 80, 24).contains("1.0 GiB / 3.7 GiB"));
+    app.tick();
+    let text = screen(&app, 80, 24);
+    assert!(text.contains("2.0 GiB / 3.7 GiB"));
+    assert!(text.contains("12:34:57 UTC"));
+    assert!(text.contains("Load (1, 5, 15 min): unavailable"));
+    assert!(!text.contains("0.25, 0.50, 0.75"));
+    insta::assert_snapshot!(text);
+    app.tick();
+    let failed = screen(&app, 80, 24);
+    assert!(!failed.contains("2.0 GiB"));
+    assert!(!failed.contains("12:34:57"));
+    assert_eq!(failed.matches("unavailable").count(), 7);
 }

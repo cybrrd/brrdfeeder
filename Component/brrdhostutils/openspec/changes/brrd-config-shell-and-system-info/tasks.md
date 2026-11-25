@@ -27,10 +27,10 @@
 
 ## 4. System Info page
 
-- [ ] 4.1 Implement the page interface and the System Info page against a fixed snapshot source and verify with a snapshot test
-- [ ] 4.2 Connect the page to `brrd-core` on each tick and verify by running the program that values change without a key press
-- [ ] 4.3 Implement `unavailable` and `measuring` presentation and the status-line message and verify with snapshot tests for one failed value and for all values failed
-- [ ] 4.4 Add a "Building and running" section to README.md and verify the commands in it run as written
+- [x] 4.1 Implement the page interface and the System Info page against a fixed snapshot source and verify with a snapshot test
+- [x] 4.2 Connect the page to `brrd-core` on each tick and verify by running the program that values change without a key press
+- [x] 4.3 Implement `unavailable` and `measuring` presentation and the status-line message and verify with snapshot tests for one failed value and for all values failed
+- [x] 4.4 Add a "Building and running" section to README.md and verify the commands in it run as written
 
 ## 5. brrdctl status --system
 

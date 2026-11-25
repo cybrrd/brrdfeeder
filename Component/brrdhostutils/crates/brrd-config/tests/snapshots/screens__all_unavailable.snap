@@ -1,0 +1,28 @@
+---
+source: crates/brrd-config/tests/screens.rs
+expression: text
+---
+brrd-config  [1 status]  2 config   3 events   4 tools   5 about                
+System information could not be read.                                           
+Status > System Info                                                            
+                                                                                
+CPU cores: unavailable                                                          
+CPU usage: unavailable                                                          
+Load (1, 5, 15 min): unavailable                                                
+Memory: unavailable                                                             
+Swap: unavailable                                                               
+Disks: unavailable                                                              
+Last reading: unavailable                                                       
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Esc/Left back | 1-5 section | 0/q/Ctrl-C exit

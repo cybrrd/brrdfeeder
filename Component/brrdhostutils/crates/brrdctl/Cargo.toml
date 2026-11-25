@@ -5,6 +5,12 @@ edition = "2024"
 publish = false
 
 [dependencies]
+brrd-core = { path = "../brrd-core" }
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+brrd-config = { path = "../brrd-config" }
+ratatui = "0.30"
 
 [lints]
 workspace = true

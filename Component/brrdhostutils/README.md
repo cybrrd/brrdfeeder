@@ -70,6 +70,15 @@ refreshes once a second; CPU usage says `measuring` until its second sample.
 Use 1–5 to change sections, Esc to go back, and 0, q or Ctrl-C to exit.
 No administrator rights or feeder software are required.
 
+Print the same report once and exit:
+
+```bash
+cargo run -p brrdctl -- status --system
+```
+
+The installed command is `brrdctl status --system`. It waits briefly for a CPU
+sample and prints plain text suitable for a file or pipe.
+
 Run the checks (the terminal integration tests also require Python 3):
 
 ```bash

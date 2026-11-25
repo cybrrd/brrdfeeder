@@ -34,10 +34,10 @@
 
 ## 5. brrdctl status --system
 
-- [ ] 5.1 Add `clap` to `brrdctl`, define the `status` command with `--system`, and verify the `brrdctl-cli` scenarios for help, version, no arguments, unknown command and missing selector with tests that run the built program and check output and exit status
-- [ ] 5.2 Implement the one-shot report using `brrd-core` formatting and verify the "One-shot report" and "Output is plain" scenarios with a test that runs the program with output captured
-- [ ] 5.3 Verify with a test that `brrdctl status --system` and the System Info page print the same text for the same fixed snapshot
-- [ ] 5.4 Add `brrdctl status --system` to the README's "Building and running" section and verify the command runs as written
+- [x] 5.1 Add `clap` to `brrdctl`, define the `status` command with `--system`, and verify the `brrdctl-cli` scenarios for help, version, no arguments, unknown command and missing selector with tests that run the built program and check output and exit status
+- [x] 5.2 Implement the one-shot report using `brrd-core` formatting and verify the "One-shot report" and "Output is plain" scenarios with a test that runs the program with output captured
+- [x] 5.3 Verify with a test that `brrdctl status --system` and the System Info page print the same text for the same fixed snapshot
+- [x] 5.4 Add `brrdctl status --system` to the README's "Building and running" section and verify the command runs as written
 
 ## 6. On a real BRRDfeeder
 

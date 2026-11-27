@@ -1,23 +1,32 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
-# brrdtools
+# Host utilities
 
-Command-line management tools for [BRRDfeeder](https://get.cybrrd.com), the open drone Remote ID sensor from cyBRRD.
+`Component/brrdhostutils` contains brrdtools: the two user-driven utilities
+`brrd-config` and `brrdctl` for [BRRDfeeder](https://get.cybrrd.com), the open
+drone Remote ID sensor from cyBRRD.
 
-> **Status: pre-alpha.** This repository is under active early development. Interfaces, file formats, and command names will change without notice.
+> **Status: pre-alpha.** This component is under active early development. Interfaces, file formats, and command names will change without notice.
 
 ## What this is
 
-A BRRDfeeder installs in one command, but until now it has had almost no way to manage it afterwards. brrdtools fills that gap. It lets an operator see what a feeder is doing, diagnose why it is not doing it, and change its hardware or settings without reinstalling.
+Today, brrdtools shows read-only CPU, memory, swap and disk information.
+Use Status > System Info in `brrd-config` or `brrdctl status --system`.
+Diagnostics and changes to hardware or settings are planned.
 
-The package provides two front ends over one shared library:
+The utilities provide two front ends over one shared library:
 
 | Tool | Kind | For |
 |---|---|---|
 | `brrd-config` | Full-screen terminal interface (TUI) | Operators who want guided menus, in the spirit of `raspi-config` |
 | `brrdctl` | Command-line interface | Power users, scripts, automation, and support |
 
-Both call the same core operations. `brrd-config` fills in the flags and parameters for you; `brrdctl` exposes all of them. Anything the TUI can do, the CLI can do.
+Both use the shared system-information reader. The TUI refreshes the report
+once a second; the CLI prints it once and exits.
+
+The Debian package will be `brrdhostutils.deb`, containing these utilities and
+supporting files. The containers are a separate download.
+The host service `brrd-hostd` is planned for that package.
 
 ## Design principles
 
@@ -40,11 +49,11 @@ Both call the same core operations. `brrd-config` fills in the flags and paramet
 
 - **Language:** Rust
 - **TUI:** ratatui with the crossterm backend
-- **Packaging:** a Debian package (`.deb`) for ARM64 single-board computers running Debian 13
-- **Workspace layout (planned):**
+- **Planned packaging:** a Debian package (`brrdhostutils.deb`) for ARM64 single-board computers running Debian 13
+- **Workspace layout:**
 
 ```
-brrdtools/
+Component/brrdhostutils/
 ├── crates/
 │   ├── brrd-core/      # shared library: all operations
 │   ├── brrdctl/        # CLI front end
@@ -97,6 +106,7 @@ cargo test --workspace
 
 ## License
 
-Copyright © 2026 cyBRRD Corporation. All rights reserved.
+Copyright © 2026 Macawi LLC.
 
-A license for this repository will be published before public release. Until then, no license is granted to use, copy, modify, or distribute this software.
+Licensed under AGPL-3.0-or-later. See the repository
+[LICENSE](../../LICENSE).

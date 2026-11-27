@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 ## Purpose
 
 The shell is the part of `brrd-config` that is the same on every screen: the frame, the sections, the keys that move between and within them, and how the program starts, exits and copes with the terminal it is given.

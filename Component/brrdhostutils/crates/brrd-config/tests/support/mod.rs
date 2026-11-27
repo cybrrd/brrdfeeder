@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 use brrd_core::{Disk, Reading, Snapshot, SnapshotSource, Usage};
 use std::time::{Duration, UNIX_EPOCH};
 

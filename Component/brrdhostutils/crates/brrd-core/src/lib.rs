@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 //! Read-only Linux system information, shared by both front ends.
 //!
 //! Keep a [`SystemReader`] and call [`SnapshotSource::snapshot`] once per second.

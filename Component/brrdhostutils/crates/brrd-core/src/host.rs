@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 use crate::{Disk, Reading, Snapshot, SnapshotSource, Usage};
 use std::{
     collections::{HashMap, HashSet},

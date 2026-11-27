@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 # brrdtools
 
 Command-line management tools for [BRRDfeeder](https://get.cybrrd.com), the open drone Remote ID sensor from cyBRRD.

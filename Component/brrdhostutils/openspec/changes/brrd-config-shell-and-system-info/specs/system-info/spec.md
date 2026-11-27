@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 ## Purpose
 
 System information reports the state of the computer a BRRDfeeder runs on: how busy its processor is, how much memory is in use, and how full its storage is. It is read-only and is the same information whichever tool presents it.

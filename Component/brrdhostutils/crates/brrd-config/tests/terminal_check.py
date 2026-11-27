@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
 """Exercise terminal lifecycle against a real pseudo-terminal, without a shell."""
 import fcntl
 import os

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 use std::process::{Command, Output};
 fn run(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_brrdctl"))

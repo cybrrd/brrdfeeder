@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 Macawi LLC -->
 ## Purpose
 
 `brrdctl` is the command-line front end of brrdtools, for power users, scripts and support. This capability covers how it is invoked and how it answers a command line it cannot act on, independent of what any one command reports.

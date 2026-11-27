@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Macawi LLC
 use crate::pages::{self, Page};
 use brrd_core::SnapshotSource;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};

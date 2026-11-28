@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+name: Host utilities
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  hostutils:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      RUSTUP_TOOLCHAIN: '1.100.0'
+    defaults:
+      run:
+        working-directory: Component/brrdhostutils
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Provision isolated component toolchain
+        working-directory: .
+        run: bash .github/scripts/setup-hostutils.sh
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Lint with warnings as errors
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Test component
+        run: cargo test --workspace --locked

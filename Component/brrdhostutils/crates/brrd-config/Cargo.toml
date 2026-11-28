@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[package]
+name = "brrd-config"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+brrd-core = { path = "../brrd-core" }
+ratatui = "0.30"
+crossterm = "0.29"
+
+[dev-dependencies]
+insta = "~1.49"
+
+[lints]
+workspace = true

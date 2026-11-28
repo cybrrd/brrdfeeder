@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Macawi LLC
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.lints.clippy]
+all = "deny"
